@@ -6,6 +6,7 @@ namespace ClankerWorld.Viewer.Observation;
 
 public sealed record ManualWorldSave(string Id, string Name, DateTimeOffset CreatedUtc, long WorldTick,
     bool IsAutosave = false);
+public sealed record ManualSaveOverwriteReceipt(ManualWorldSave Saved, string BackupId);
 
 /// <summary>
 /// Owner-only named checkpoints for the currently active world. Opaque IDs,
@@ -40,6 +41,46 @@ public sealed class ManualWorldSaveStore
     public ManualWorldSave CreateAutosave(PrivateWorldRuntime runtime,
         IReadOnlyList<InhabitantProviderAssignment> assignments, WorldAutosaveSettings autosaveSettings)
         => CreateCore("Autosave", runtime, assignments, autosaveSettings, isAutosave: true);
+
+    /// <summary>Replace one selected named checkpoint, preserving its previous bytes in a new recovery checkpoint.</summary>
+    public ManualSaveOverwriteReceipt Overwrite(string id, PrivateWorldRuntime runtime,
+        IReadOnlyList<InhabitantProviderAssignment> assignments, WorldAutosaveSettings? autosaveSettings = null)
+    {
+        if (!IsId(id)) throw new ArgumentException("Invalid save ID.", nameof(id));
+        ArgumentNullException.ThrowIfNull(runtime);
+        ArgumentNullException.ThrowIfNull(assignments);
+        var state = runtime.ExportState();
+        if (!state.Society.Society.IsPaused)
+            throw new InvalidOperationException("Pause the world before overwriting a manual save.");
+        lock (gate)
+        {
+            if (!File.Exists(MetadataPath(id)) || !File.Exists(StatePath(id)))
+                throw new FileNotFoundException("The selected manual save no longer exists.");
+            var previousMetadata = JsonSerializer.Deserialize<Metadata>(File.ReadAllBytes(MetadataPath(id)))
+                ?? throw new InvalidDataException("The selected manual save metadata is invalid.");
+            if (previousMetadata.Save.Id != id || previousMetadata.Save.IsAutosave ||
+                previousMetadata.WorldId != state.Society.Society.WorldId)
+                throw new InvalidOperationException("Only a named save from this world can be overwritten.");
+            var previousBytes = File.ReadAllBytes(StatePath(id));
+            var oldCheckpoint = PrivateWorldRuntimeCodec.Decode(previousBytes);
+            if (oldCheckpoint.Society.Society.WorldId != previousMetadata.WorldId)
+                throw new InvalidDataException("The selected checkpoint does not match its metadata.");
+
+            var backupName = "Before overwriting: " + previousMetadata.Save.Name;
+            var backup = previousMetadata.Save with { Id = Guid.NewGuid().ToString("N"),
+                Name = backupName[..Math.Min(80, backupName.Length)], CreatedUtc = DateTimeOffset.UtcNow };
+            WriteAtomic(StatePath(backup.Id), previousBytes);
+            WriteAtomic(MetadataPath(backup.Id), JsonSerializer.SerializeToUtf8Bytes(
+                previousMetadata with { Save = backup }));
+
+            var saved = previousMetadata.Save with { CreatedUtc = DateTimeOffset.UtcNow,
+                WorldTick = state.Society.Society.WorldTick };
+            WriteAtomic(StatePath(id), PrivateWorldRuntimeCodec.Encode(state), overwrite: true);
+            WriteAtomic(MetadataPath(id), JsonSerializer.SerializeToUtf8Bytes(new Metadata(
+                saved, assignments, autosaveSettings, state.Society.Society.WorldId)), overwrite: true);
+            return new ManualSaveOverwriteReceipt(saved, backup.Id);
+        }
+    }
 
     private ManualWorldSave CreateCore(string name, PrivateWorldRuntime runtime,
         IReadOnlyList<InhabitantProviderAssignment> assignments,
@@ -141,7 +182,7 @@ public sealed class ManualWorldSaveStore
             File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
-    private static void WriteAtomic(string destination, byte[] bytes)
+    private static void WriteAtomic(string destination, byte[] bytes, bool overwrite = false)
     {
         var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -153,7 +194,7 @@ public sealed class ManualWorldSaveStore
             }
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            File.Move(temporary, destination);
+            File.Move(temporary, destination, overwrite);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }

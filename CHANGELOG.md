@@ -20,6 +20,12 @@ release yet.
 - The world view can zoom farther out to show more of a large map at once.
   The 8-pixel terrain-tile minimum is a provisional playtest setting, not a
   settled final readability/performance cap.
+- Load World now checks archived worlds before selection and labels them compatible,
+  incompatible or unknown. Proven-unloadable saves are preserved and cannot be
+  selected; an older but still loadable save is not blocked merely for its version.
+- Save World now separates Create New Save from a confirmed overwrite of one
+  selected named checkpoint. Matching names never replace a save by themselves,
+  and overwriting keeps the previous checkpoint as a recovery save.
 - Main Menu Settings keeps the title-screen background, and selecting the
   already-active Settings page no longer closes it. Game Settings now separates
   physical Window Size from Render Resolution; both choices are remembered

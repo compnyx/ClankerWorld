@@ -46,18 +46,11 @@ the resolution evidence below.
   separate numeric safety need; `safe_idle` is a fallback action, not a safety
   meter. The finished-game decision now removes energy and sleeping entirely;
   the current survival code has not yet changed.
-- **Load World has no compatibility warning — confirmed gap:** its list shows
-  only world name, current-world marker and update time. The catalog does not
-  expose a compatibility assessment for each saved world, so the client cannot
-  warn reliably before selection. Intended behavior: show evidence-based
-  compatibility status and block only saves actually known to be unloadable;
-  preserve them. Version difference alone must not imply incompatibility.
-  Migration can wait until a later stage of game development.
-- **Manual-save overwrite unavailable — confirmed gap:** Save World only
-  creates a new opaque-ID checkpoint. Reusing a visible name creates another
-  checkpoint with that name; the client has no select-and-overwrite action.
-  Intended behavior: select a specific existing checkpoint and confirm its
-  overwrite, with New Save separate. Recovery/backup behavior remains open.
+- **Save compatibility policy remains open:** Load World now preflights saved
+  checkpoints and required local model credentials, labels compatible,
+  incompatible or unknown, and preserves and blocks only proven-unloadable
+  entries. Unknown entries can still be tried. Longer-term migration and
+  cross-release/mod compatibility policy remain undecided.
 - **Generated vegetation is not represented as forest objects/art — confirmed
   gap:** forest currently means a ground-kind/color and sparse resource sites;
   the Godot terrain renderer draws colored rectangles, not individual tree

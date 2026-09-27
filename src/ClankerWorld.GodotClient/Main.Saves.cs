@@ -14,7 +14,10 @@ public partial class Main
     private readonly Button manualSaveCreateButton = new();
     private readonly ItemList manualSaveList = new();
     private readonly Button manualSaveLoadButton = new();
+    private readonly Button manualSaveOverwriteButton = new();
     private readonly ConfirmationDialog manualSaveLoadConfirmation = new();
+    private readonly ConfirmationDialog manualSaveOverwriteConfirmation = new();
+    private string? pendingOverwriteSaveId;
     private ManualWorldSave[] listedManualSaves = [];
     private bool manualSaveLoadMode;
     private readonly CheckBox autosaveEnabledToggle = new();
@@ -122,17 +125,26 @@ public partial class Main
         manualSaveName.PlaceholderText = "Name this save";
         manualSaveName.MaxLength = 80;
         body.AddChild(manualSaveName);
-        manualSaveCreateButton.Text = "Save World";
+        manualSaveCreateButton.Text = "Create New Save";
         StyleButton(manualSaveCreateButton, primary: true);
         manualSaveCreateButton.Pressed += () => _ = CreateManualSaveAsync();
         body.AddChild(manualSaveCreateButton);
         manualSaveList.CustomMinimumSize = new Vector2(0, 250);
-        manualSaveList.ItemSelected += _ => manualSaveLoadButton.Disabled = false;
+        manualSaveList.ItemSelected += index =>
+        {
+            manualSaveLoadButton.Disabled = false;
+            manualSaveOverwriteButton.Disabled = (int)index >= listedManualSaves.Length ||
+                listedManualSaves[(int)index].IsAutosave;
+        };
         body.AddChild(manualSaveList);
         manualSaveLoadButton.Text = "Load selected save";
         StyleButton(manualSaveLoadButton, primary: true);
         manualSaveLoadButton.Pressed += ConfirmManualSaveLoad;
         body.AddChild(manualSaveLoadButton);
+        manualSaveOverwriteButton.Text = "Overwrite selected save";
+        StyleButton(manualSaveOverwriteButton);
+        manualSaveOverwriteButton.Pressed += ConfirmManualSaveOverwrite;
+        body.AddChild(manualSaveOverwriteButton);
         var close = new Button { Text = "Back" };
         StyleButton(close);
         close.Pressed += () => manualSaveOverlay.Hide();
@@ -142,6 +154,9 @@ public partial class Main
         manualSaveLoadConfirmation.Title = "Load this save?";
         manualSaveLoadConfirmation.Confirmed += () => _ = LoadSelectedManualSaveAsync();
         AddChild(manualSaveLoadConfirmation);
+        manualSaveOverwriteConfirmation.Title = "Overwrite this save?";
+        manualSaveOverwriteConfirmation.Confirmed += () => _ = OverwriteSelectedManualSaveAsync();
+        AddChild(manualSaveOverwriteConfirmation);
         manualSaveOverlay.Hide();
     }
 
@@ -157,23 +172,27 @@ public partial class Main
         manualSaveHeading.Text = loadMode ? "Load Save" : "Save World";
         manualSaveStatus.Text = loadMode
             ? "Choose a named checkpoint. Your current state will be saved before loading it."
-            : "Create a named checkpoint of this paused world.";
+            : "Create a new checkpoint, or select one by name to overwrite. A recovery copy of the old checkpoint is kept.";
         manualSaveName.Visible = !loadMode;
         manualSaveCreateButton.Visible = !loadMode;
-        manualSaveList.Visible = loadMode;
+        manualSaveList.Visible = true;
         manualSaveLoadButton.Visible = loadMode;
+        manualSaveOverwriteButton.Visible = !loadMode;
         manualSaveLoadButton.Disabled = true;
+        manualSaveOverwriteButton.Disabled = true;
         manualSaveOverlay.Show();
-        if (!loadMode) return;
         try
         {
-            listedManualSaves = await ownerApi.ListManualSavesAsync(ResolveWorldUri(), authority,
-                deviceId, signer, CancellationToken.None);
+            listedManualSaves = (await ownerApi.ListManualSavesAsync(ResolveWorldUri(), authority,
+                deviceId, signer, CancellationToken.None))
+                .Where(save => loadMode || !save.IsAutosave).ToArray();
             manualSaveList.Clear();
             foreach (var save in listedManualSaves)
                 manualSaveList.AddItem($"{(save.IsAutosave ? "Autosave" : save.Name)} · tick {save.WorldTick} · {save.CreatedUtc.ToLocalTime():g}");
             if (listedManualSaves.Length == 0)
-                manualSaveStatus.Text = "No named saves yet. Continue the world and use Pause Menu → Save World.";
+                manualSaveStatus.Text = loadMode
+                    ? "No saves yet. Continue the world and use Pause Menu → Save World."
+                    : "No named saves yet. Create New Save to make the first one.";
         }
         catch (Exception exception)
         {
@@ -197,6 +216,31 @@ public partial class Main
             manualSaveOverlay.Hide();
             manualSaveName.Text = string.Empty;
             return $"Saved world at tick {saved.WorldTick}.";
+        });
+    }
+
+    private void ConfirmManualSaveOverwrite()
+    {
+        if (manualSaveLoadMode || manualSaveList.GetSelectedItems() is not { Length: 1 } selected ||
+            selected[0] < 0 || selected[0] >= listedManualSaves.Length ||
+            listedManualSaves[selected[0]].IsAutosave) return;
+        var save = listedManualSaves[selected[0]];
+        pendingOverwriteSaveId = save.Id;
+        manualSaveOverwriteConfirmation.DialogText = $"Replace only ‘{save.Name}’ (tick {save.WorldTick}) with the current paused world? A separate ‘Before overwriting: {save.Name}’ recovery save will keep its old state.";
+        manualSaveOverwriteConfirmation.PopupCentered(new Vector2I(520, 190));
+    }
+
+    private async Task OverwriteSelectedManualSaveAsync()
+    {
+        var id = pendingOverwriteSaveId;
+        pendingOverwriteSaveId = null;
+        if (id is null || !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        await RunOwnerActionAsync(async () =>
+        {
+            var receipt = await ownerApi.OverwriteManualSaveAsync(ResolveWorldUri(), authority,
+                deviceId, id, signer, CancellationToken.None);
+            manualSaveOverlay.Hide();
+            return $"Overwrote {receipt.Saved.Name} at tick {receipt.Saved.WorldTick}; its prior state is in a Before overwriting recovery save.";
         });
     }
 

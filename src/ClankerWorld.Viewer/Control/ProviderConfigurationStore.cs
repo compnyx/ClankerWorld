@@ -190,19 +190,36 @@ public sealed class ProviderConfigurationStore
         ArgumentNullException.ThrowIfNull(assignments);
         lock (gate)
         {
-            // Historical world/checkpoint assignments to explicitly deleted keys
-            // must never silently inherit another hosted account's credential.
-            var deleted = state.DeletedCredentialSlotIds ?? [];
-            var ordered = assignments.Select(item => item.CredentialSlotId is { } slot && deleted.Contains(slot)
-                    ? item with { Provider = PlayerDecisionProviders.Deterministic, Model = null, CredentialSlotId = null }
-                    : item)
-                .OrderBy(item => item.InhabitantId, StringComparer.Ordinal)
-                .ThenBy(item => item.Role, StringComparer.Ordinal).ToArray();
-            var next = state with { Assignments = ordered, Revision = checked(state.Revision + 1) };
+            var next = PreparedWorldAssignments(assignments);
             ValidateState(next);
             SaveUnsafe(next);
             state = next;
         }
+    }
+
+    /// <summary>Preflight a saved world's required local credentials without changing the active routing.</summary>
+    public bool CanRestoreWorldAssignments(IReadOnlyList<InhabitantProviderAssignment> assignments)
+    {
+        ArgumentNullException.ThrowIfNull(assignments);
+        lock (gate)
+        {
+            try { ValidateState(PreparedWorldAssignments(assignments)); return true; }
+            catch (Exception exception) when (exception is ArgumentException or InvalidDataException or OverflowException)
+            { return false; }
+        }
+    }
+
+    private ProviderConfigurationState PreparedWorldAssignments(IReadOnlyList<InhabitantProviderAssignment> assignments)
+    {
+        // Historical assignments to explicitly deleted keys fall back to
+        // deterministic cognition, never another hosted account's credential.
+        var deleted = state.DeletedCredentialSlotIds ?? [];
+        var ordered = assignments.Select(item => item.CredentialSlotId is { } slot && deleted.Contains(slot)
+                ? item with { Provider = PlayerDecisionProviders.Deterministic, Model = null, CredentialSlotId = null }
+                : item)
+            .OrderBy(item => item.InhabitantId, StringComparer.Ordinal)
+            .ThenBy(item => item.Role, StringComparer.Ordinal).ToArray();
+        return state with { Assignments = ordered, Revision = checked(state.Revision + 1) };
     }
 
     public OwnerProviderConfigurationStatus Configure(OwnerProviderConfigurationAction action)

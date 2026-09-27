@@ -307,7 +307,16 @@ public partial class Main
         worldPreviewStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(worldPreviewStatus);
         worldSelectionList.CustomMinimumSize = new Vector2(0, 240);
-        worldSelectionList.ItemSelected += _ => worldSelectButton.Disabled = false;
+        worldSelectionList.ItemSelected += index =>
+        {
+            var world = listedWorlds[(int)index];
+            worldSelectButton.Disabled = world.Compatibility == "incompatible";
+            worldMenuStatus.Text = world.Compatibility == "incompatible"
+                ? "Cannot open this world: " + (world.CompatibilityReason ?? "Its save is incompatible.") + " The save was preserved."
+                : world.Compatibility == "unknown"
+                    ? "Compatibility could not be assessed; opening will try the saved checkpoint without deleting it."
+                    : "This world passed save and required-content checks.";
+        };
         worldSelectionList.Hide();
         body.AddChild(worldSelectionList);
         worldCreateButton.Text = "Create World";
@@ -376,7 +385,8 @@ public partial class Main
             foreach (var world in listedWorlds)
                 worldSelectionList.AddItem(world.Name +
                     (world.Id == catalog.ActiveId ? " · current" : "") +
-                    " · " + world.UpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
+                    " · " + world.UpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) +
+                    " · " + world.Compatibility);
             worldMenuStatus.Text = listedWorlds.Length == 0 ? "No worlds yet." :
                 "Choose a world. Opening it leaves the current one paused and saved.";
         }
@@ -509,6 +519,7 @@ public partial class Main
     {
         if (worldMenuBusy || worldSelectionList.GetSelectedItems() is not { Length: 1 } selected ||
             selected[0] < 0 || selected[0] >= listedWorlds.Length ||
+            listedWorlds[selected[0]].Compatibility == "incompatible" ||
             !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
         worldMenuBusy = true;
         worldSelectButton.Disabled = true;
@@ -531,7 +542,7 @@ public partial class Main
         finally
         {
             worldMenuBusy = false;
-            worldSelectButton.Disabled = false;
+            worldSelectButton.Disabled = listedWorlds[selected[0]].Compatibility == "incompatible";
         }
     }
 }

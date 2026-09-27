@@ -277,13 +277,15 @@ public sealed record OwnerWorldCreationAction(string Name, string Seed, string S
     string ResourceAbundance = "Normal");
 public sealed record CatalogWorld(string Id, string Name, string WorldId, string Seed,
     DateTimeOffset UpdatedUtc, IReadOnlyList<InhabitantProviderAssignment> Assignments,
-    WorldAutosaveSettings? AutosaveSettings);
+    WorldAutosaveSettings? AutosaveSettings, string Compatibility = "unknown",
+    string? CompatibilityReason = null);
 public sealed record WorldCatalogSnapshot(string ActiveId, IReadOnlyList<CatalogWorld> Worlds);
 public sealed record OwnerWorldPreview(OwnerWorldPackedTerrain Terrain, OwnerWorldPosition Camp,
     string ManifestDigest, int ResourceSites = 0);
 public sealed record ManualWorldSave(string Id, string Name, DateTimeOffset CreatedUtc, long WorldTick,
     bool IsAutosave = false);
 public sealed record ManualSaveLoadReceipt(string LoadedId, string BackupId, long WorldTick);
+public sealed record ManualSaveOverwriteReceipt(ManualWorldSave Saved, string BackupId);
 public sealed record OwnerAutosaveConfigurationAction(bool Enabled, int IntervalMinutes, int RotationCount);
 public sealed record WorldAutosaveSettings(string WorldId, bool Enabled, int IntervalMinutes,
     int RotationCount, DateTimeOffset LastSavedUtc, long LastWorldTick);
@@ -971,6 +973,17 @@ public sealed class OwnerWorldApi
         var action = new OwnerManualSaveAction("create", name);
         return pairing.SendSignedActionAsync<OwnerManualSaveAction, ManualWorldSave>(
             serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerSaveCreate,
+            OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.ManualSave(action),
+            action, deviceKey, cancellationToken);
+    }
+
+    public Task<ManualSaveOverwriteReceipt> OverwriteManualSaveAsync(
+        Uri serverUri, OwnerAuthorityIdentity authority, string deviceId,
+        string id, IOwnerDeviceSigner deviceKey, CancellationToken cancellationToken)
+    {
+        var action = new OwnerManualSaveAction("overwrite", id);
+        return pairing.SendSignedActionAsync<OwnerManualSaveAction, ManualSaveOverwriteReceipt>(
+            serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerSaveOverwrite,
             OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.ManualSave(action),
             action, deviceKey, cancellationToken);
     }

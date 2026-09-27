@@ -111,6 +111,28 @@ public sealed partial class ViewerHttpTests
                 Assert.DoesNotContain(selectionLog.Messages, message => message.Contains(
                     "test-secret-key", StringComparison.Ordinal));
 
+                var firstPath = Path.Combine(host.Services.GetRequiredService<PrivateWorldStateFile>().Path + ".worlds",
+                    firstId + ".save");
+                var originalBytes = File.ReadAllBytes(firstPath);
+                var older = PrivateWorldRuntimeCodec.Decode(originalBytes) with { SchemaVersion = 16 };
+                File.WriteAllBytes(firstPath, PrivateWorldRuntimeCodec.Encode(older));
+                using var olderList = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/worlds/list", listAction, OwnerHttpBinding.EmptyPayload("list-worlds"));
+                Assert.Equal("compatible", (await olderList.Content.ReadFromJsonAsync<WorldCatalogSnapshot>())!
+                    .Worlds.Single(world => world.Id == firstId).Compatibility);
+                File.WriteAllText(firstPath, "unsupported checkpoint");
+                using var blockedList = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/worlds/list", listAction, OwnerHttpBinding.EmptyPayload("list-worlds"));
+                Assert.Equal("incompatible", (await blockedList.Content.ReadFromJsonAsync<WorldCatalogSnapshot>())!
+                    .Worlds.Single(world => world.Id == firstId).Compatibility);
+                var blockedAction = new OwnerManualSaveAction("select-world", firstId);
+                using var blocked = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/worlds/select", blockedAction,
+                    OwnerHttpBinding.ManualSavePayload(blockedAction));
+                Assert.Equal(HttpStatusCode.Conflict, blocked.StatusCode);
+                Assert.Equal("unsupported checkpoint", File.ReadAllText(firstPath));
+                File.WriteAllBytes(firstPath, originalBytes);
+
                 var select = new OwnerManualSaveAction("select-world", firstId);
                 using var selected = await SendSignedAsync(host, client, key, device.DeviceId,
                     "/api/v1/owner/worlds/select", select,
@@ -271,6 +293,58 @@ public sealed partial class ViewerHttpTests
     }
 
     private sealed record ManualSaveLoadReceiptForTest(string LoadedId, string BackupId, long WorldTick);
+
+    [Fact]
+    public async Task SignedOverwriteTargetsOneSaveIdAndKeepsThePriorCheckpoint()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-save-overwrite-");
+        try
+        {
+            using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            using var host = new ViewerWebApplicationFactory(directory.FullName, null,
+                privateWorld: true, legacyPrivateWorld: false);
+            using var client = host.CreateClient();
+            var device = await StartAndActivateAsync(host, client, key);
+            var runtime = host.Services.GetRequiredService<PrivateWorldRuntime>();
+            var store = host.Services.GetRequiredService<ManualWorldSaveStore>();
+            Assert.True(runtime.JevEnabled);
+            var create = new OwnerManualSaveAction("create", "Same name");
+            using var firstResponse = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/saves/create", create, OwnerHttpBinding.ManualSavePayload(create));
+            var first = (await firstResponse.Content.ReadFromJsonAsync<ManualWorldSave>())!;
+            using var secondResponse = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/saves/create", create, OwnerHttpBinding.ManualSavePayload(create));
+            var second = (await secondResponse.Content.ReadFromJsonAsync<ManualWorldSave>())!;
+            Assert.NotEqual(first.Id, second.Id);
+
+            var change = new OwnerJevAssistanceAction(false);
+            using var changed = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/control/jev-assistance", change,
+                OwnerHttpBinding.JevAssistancePayload(change));
+            Assert.Equal(HttpStatusCode.OK, changed.StatusCode);
+            var overwrite = new OwnerManualSaveAction("overwrite", first.Id);
+            const string path = "/api/v1/owner/saves/overwrite";
+            var envelope = await CreateSignedRequestAsync(host, client, key, device.DeviceId,
+                path, overwrite, OwnerHttpBinding.ManualSavePayload(overwrite));
+            using var tampered = await client.PostAsJsonAsync(path, envelope with
+            {
+                Action = overwrite with { Value = second.Id },
+            });
+            Assert.False(tampered.IsSuccessStatusCode);
+            Assert.Null(store.Read(first.Id).JevEnabled);
+            using var overwritten = await SendSignedAsync(host, client, key, device.DeviceId,
+                path, overwrite, OwnerHttpBinding.ManualSavePayload(overwrite));
+            Assert.Equal(HttpStatusCode.OK, overwritten.StatusCode);
+            var receipt = (await overwritten.Content.ReadFromJsonAsync<ManualSaveOverwriteReceipt>())!;
+            Assert.Equal(first.Id, receipt.Saved.Id);
+            Assert.False(store.Read(first.Id).JevEnabled);
+            Assert.Null(store.Read(second.Id).JevEnabled);
+            Assert.Null(store.Read(receipt.BackupId).JevEnabled);
+            Assert.Equal(3, store.List().Count);
+            Assert.Equal(2, store.List().Count(item => item.Name == "Same name"));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
 
     [Fact]
     public void LoadingAnEarlierFounderCheckpointRestoresTheSetupGate()

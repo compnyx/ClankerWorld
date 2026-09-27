@@ -7,7 +7,8 @@ namespace ClankerWorld.Viewer.Observation;
 public sealed record CatalogWorld(
     string Id, string Name, string WorldId, string Seed, DateTimeOffset UpdatedUtc,
     IReadOnlyList<InhabitantProviderAssignment> Assignments,
-    WorldAutosaveSettings? AutosaveSettings);
+    WorldAutosaveSettings? AutosaveSettings,
+    string Compatibility = "unknown", string? CompatibilityReason = null);
 
 public sealed record WorldCatalogSnapshot(string ActiveId, IReadOnlyList<CatalogWorld> Worlds);
 

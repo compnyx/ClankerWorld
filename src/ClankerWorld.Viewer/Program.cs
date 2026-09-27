@@ -692,6 +692,53 @@ app.MapPost("/api/v1/owner/saves/create", (
     }
 });
 
+app.MapPost("/api/v1/owner/saves/overwrite", (
+    OwnerSignedHttpRequest<OwnerManualSaveAction> request,
+    OwnerRequestAuthorizer authorizer,
+    ManualWorldSaveStore saves,
+    PrivateWorldRuntime runtime,
+    ProviderConfigurationStore providers,
+    WorldAutosaveStore autosave,
+    ILogger<PrivateWorldRuntimeService> logger) =>
+{
+    if (request?.Action is not { Operation: "overwrite" } action)
+        return Results.BadRequest(new { error = "A selected save ID is required." });
+    string payload;
+    try { payload = OwnerHttpBinding.ManualSavePayload(action); }
+    catch (ArgumentException) { return Results.BadRequest(new { error = "A selected save ID is required." }); }
+    var authorization = authorizer.Authorize(request, "POST", "/api/v1/owner/saves/overwrite", payload);
+    if (!authorization.IsSuccess) return OwnerFailures.ToHttpResult(authorization.Failure);
+    if (!isPrivateWorld) return Results.Conflict(new { error = "Manual saves require a private world." });
+    try
+    {
+        var result = saves.Overwrite(action.Value, runtime,
+            providers.CaptureRuntimeConfiguration().Assignments ?? [], autosave.Capture());
+        ManualWorldSaveTelemetry.Overwritten(logger, result.Saved.Id, result.BackupId,
+            result.Saved.WorldTick);
+        return Results.Ok(result);
+    }
+    catch (FileNotFoundException)
+    {
+        ManualWorldSaveTelemetry.Rejected(logger, "overwrite", "missing");
+        return Results.NotFound(new { error = "The selected save no longer exists." });
+    }
+    catch (ArgumentException)
+    {
+        ManualWorldSaveTelemetry.Rejected(logger, "overwrite", "invalid_id");
+        return Results.BadRequest(new { error = "Invalid save ID." });
+    }
+    catch (InvalidDataException)
+    {
+        ManualWorldSaveTelemetry.Rejected(logger, "overwrite", "invalid_checkpoint");
+        return Results.Conflict(new { error = "The selected checkpoint is invalid and was preserved." });
+    }
+    catch (InvalidOperationException)
+    {
+        ManualWorldSaveTelemetry.Rejected(logger, "overwrite", "not_paused_or_wrong_world");
+        return Results.Conflict(new { error = "Pause the world and select one of its named saves." });
+    }
+});
+
 app.MapPost("/api/v1/owner/saves/load", (
     OwnerSignedHttpRequest<OwnerManualSaveAction> request,
     OwnerRequestAuthorizer authorizer,

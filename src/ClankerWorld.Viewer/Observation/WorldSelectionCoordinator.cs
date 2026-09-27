@@ -21,7 +21,38 @@ public sealed class WorldSelectionCoordinator(
 
     public WorldCatalogSnapshot List()
     {
-        lock (gate) return catalog.Capture();
+        lock (gate)
+        {
+            var snapshot = catalog.Capture();
+            return snapshot with { Worlds = snapshot.Worlds.Select(world =>
+                world.Id == snapshot.ActiveId
+                    ? world with { Compatibility = "compatible", CompatibilityReason = null }
+                    : Assess(world)).ToArray() };
+        }
+    }
+
+    private CatalogWorld Assess(CatalogWorld world)
+    {
+        try
+        {
+            var checkpoint = catalog.Read(world.Id);
+            using var verified = PrivateWorldRuntime.Restore(checkpoint, providerFactory);
+            if (!providers.CanRestoreWorldAssignments(world.Assignments))
+                return world with { Compatibility = "incompatible",
+                    CompatibilityReason = "Required model configuration or a local credential is unavailable." };
+            return world with { Compatibility = "compatible", CompatibilityReason = null };
+        }
+        catch (Exception exception) when (exception is InvalidDataException or ArgumentException or
+            FileNotFoundException or System.Text.Json.JsonException or FormatException or InvalidOperationException)
+        {
+            return world with { Compatibility = "incompatible",
+                CompatibilityReason = "The saved checkpoint or required content cannot be restored." };
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return world with { Compatibility = "unknown",
+                CompatibilityReason = "The saved checkpoint could not be checked right now." };
+        }
     }
 
     public ViewerWorldPreview Preview(GeographyOptions geography)
@@ -69,6 +100,12 @@ public sealed class WorldSelectionCoordinator(
             var entry = catalog.Capture().Worlds.SingleOrDefault(world => world.Id == id)
                 ?? throw new FileNotFoundException("The selected world does not exist.");
             if (entry.Id == catalog.Capture().ActiveId) return entry;
+            var assessed = Assess(entry);
+            if (assessed.Compatibility == "incompatible")
+            {
+                WorldSelectionTelemetry.Failed(logger, entry.Id, "incompatible_checkpoint");
+                throw new InvalidDataException(assessed.CompatibilityReason);
+            }
             SelectCore(entry, catalog.Read(id));
             WorldSelectionTelemetry.Selected(logger, entry.Id);
             return entry;
