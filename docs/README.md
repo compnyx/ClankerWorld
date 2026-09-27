@@ -16,7 +16,6 @@ identifier reset intentionally required a fresh save and device pairing.
 | What actually works in the Godot/private-VPS prototype today? | [Current state](current-state.md) |
 | How are the current client, simulation, saves and model calls separated? | [Architecture](architecture.md) |
 | Which confirmed problems or unverified fixes remain? | [Known bugs](bugs.md) |
-| Which content exists now, and where are the intended building/item/food/asset rosters being defined? | [Content catalogue and review sheet](content-catalog.md) |
 | What is the accepted finished-game base asset roster? | [Finished-game asset roster](finished-game-asset-roster.md) |
 
 Development references: [build and test](building.md), [current private-host
@@ -36,8 +35,6 @@ pairing](pairing.md), and [release/version policy](releasing.md).
   invariants that current code must respect. It does not override the finished
   vision. **Known bugs** tracks confirmed gaps; current state may note the
   immediate implementation focus without creating another vision document.
-- The **content catalogue** is a review sheet joining current definitions to
-  open design questions; it does not approve costs, contents or future roster.
 - The **finished-game asset roster** is the vision ledger's detailed accepted
   content annex, with open/deferred details marked. It is not a claim of
   implemented assets; if its summary conflicts with the ledger, the ledger wins.

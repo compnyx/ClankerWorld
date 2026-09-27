@@ -12,7 +12,8 @@ including things not in the prototype. Computment accepted the initial draft's
 unmentioned entries and corrected the entries called out below. The
 [vision ledger](vision-interview.md) is authoritative for decisions; this
 numbered roster is its detailed content annex. The
-[content catalogue](content-catalog.md) compares intent with current content.
+[current-state report](current-state.md) describes what exists in the playable
+prototype.
 These numbers are review handles, not implementation IDs. Acceptance of an
 asset family does **not** set its recipe, cost, storage capacity, art file or
 development order unless stated explicitly. It is not a claim of implementation.

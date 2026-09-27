@@ -649,10 +649,9 @@ are guaranteed so the first Town can begin. Exact counts beyond these minima,
 other items, suitability scoring, placement controls, what
 a redo preserves, available supply choices, and whether any nonguaranteed
 building can appear at start remain open. The
-[content catalogue](content-catalog.md) compares current definitions with the
-vision; the [finished-game asset roster](finished-game-asset-roster.md) records
-the now-accepted base tool/item/food/object/art set and explicitly marked
-remaining choices.
+[finished-game asset roster](finished-game-asset-roster.md) records the accepted
+base tool/item/food/object/art set and explicitly marked remaining choices;
+the [current-state report](current-state.md) describes the playable prototype.
 
 ### Open
 
@@ -972,7 +971,8 @@ a remote House, farm, or Warehouse inventory. A Market admits traders from any
 Town; a Restaurant buys ingredients, cooks and sells potentially better meals.
 Town Hall supports governance and Port supports boats. Exact stocks, recipes,
 ownership edge cases, prices and trade remain open. See the
-[current-vs-vision content catalogue](content-catalog.md).
+[accepted asset roster](finished-game-asset-roster.md) for specific content and
+[current state](current-state.md) for what exists in the prototype.
 
 Wood, stone, iron, gold, diamond and many other crafting resources are wanted.
 Better tools should gate harvesting/mining more advanced resources, creating
