@@ -39,9 +39,11 @@ public sealed class SettlementSocialStandingTests
             $"project-gratitude:{owner}:{subject}", owner, subject, "Prior material help.", "public", checkpoint.WorldTick)));
         state = state with { Society = society.ExportState() };
         using var world = PrivateWorldRuntime.Restore(state);
+        var checkpointBeforeProjection = PrivateWorldRuntimeCodec.Encode(world.ExportState());
         var projected = new OwnerWorldObservationStore(world).GetSnapshot().Inhabitants.Single(person => person.Id == owner);
         Assert.Equal(2, projected.SocialStanding.Single(item => item.SubjectId == subject).Trust);
-        Assert.Equal(11, world.ExportState().SchemaVersion);
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, world.ExportState().SchemaVersion);
+        Assert.Equal(checkpointBeforeProjection, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
         Assert.All(world.Inhabitants, person => Assert.Null(person.SocialStanding));
     }
 
