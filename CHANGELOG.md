@@ -6,6 +6,15 @@ release yet.
 
 ## Unreleased
 
+### Fixed
+
+- Main Menu Settings now hides and blocks World Settings until a world is
+  loaded, so opening settings cannot jump into the world. Removed the dark
+  gaps between square terrain tiles that appeared as black grid lines.
+- Agent markers now stay under the cursor across world refreshes, so their
+  hover tooltips are no longer cut off every tick. Warmth, illness, diet and
+  equipment status stay in a fixed area of the selected agent card.
+
 ### Added
 
 - Generated Small/Medium worlds now place sparse food, fiber, seed, stone and

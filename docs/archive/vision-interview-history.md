@@ -1229,3 +1229,31 @@ tile connections, including diagonals; forming a road only on sustained,
 locally dominant connected routes; fading unused segments; and using only a
 modest road preference in route-finding. This is an unaccepted proposal, not a
 decision on thresholds, road lifetime, materials or visual connections.
+
+### Playtest UI and town-layout reconsideration (2026-09-27)
+
+While playtesting a generated world, computment reported that Main Menu
+Settings wrongly offered World Settings and entering it switched to the world.
+They want World Settings available only with a loaded world. They disliked the
+black terrain grid lines but liked square tiles. They suggested a suitability
+color/overlay throughout paused camp-component placement, starting before the
+first placement, and selecting a tile for biome, terrain, object, weather,
+temperature, fertility, elevation and similar information. They confirmed a
+baseline of one road type; unused roads should fade through visual stages,
+while additional road/building art variants wait until the whole game has a
+complete texture pass. Agents may have a few visual variants.
+
+Computment explicitly does not need development playtest saves kept compatible
+as world generation changes; they expect to create new worlds to try the flow.
+This does not authorize deleting an active save. They also supplied a town
+generation discussion, TerraForge's `townforge.py`, and a short 2D map PDF,
+asking whether a world system could lay out a town incrementally while agents
+still decide to build and gather materials. This **reopens** the earlier
+agent-selects-exact-site assumption; it is a question, not an accepted new
+algorithm or authorization to implement one.
+
+During the same playtest, computment reported that hovering a founder or other
+map content shows a tooltip only briefly, likely interrupted by the tick, and
+that the warmth/condition section quickly disappears after opening an agent
+popup. These are observed client defects, not design choices; the bug register
+tracks the repository repair and pending laptop verification.

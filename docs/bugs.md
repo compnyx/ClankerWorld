@@ -2,7 +2,7 @@
 title: Known Bugs and Product Gaps
 type: defect-register
 status: active
-updated: 2026-09-26
+updated: 2026-09-27
 ---
 
 # Known bugs and product gaps
@@ -20,6 +20,21 @@ is intentionally paused. Its live model-wait playtest remains pending; see
 the resolution evidence below.
 
 ## Original reports and resolution evidence
+
+- **Main Menu World Settings leak — fixed in repository build, laptop check
+  pending:** during a generated-world playtest, Main Menu → Settings exposed
+  World Settings and its click entered the world unexpectedly. Main Menu
+  Settings now hides the category and refuses world-specific settings without
+  a loaded world. The Godot UI smoke checks both visibility and blocked
+  navigation; the revised Windows build still needs computment's playtest.
+- **Black terrain grid — fixed in repository build, laptop check pending:**
+  removing the tile gap keeps square terrain tiles but eliminates the dark
+  lines between them. Future textured terrain needs its own art review.
+- **Agent hover and condition flicker — fixed in repository build, laptop
+  check pending:** observation refreshes recreated every agent button each
+  second, terminating hovered tooltips. Agent markers now update in place.
+  Warmth/illness/diet/equipment are pinned outside the refreshed scrolling
+  details so the condition block remains visible in the selected-agent card.
 
 - **Provider-held tick — fixed in build, live verification pending:** hosted
   provider calls now sit outside the tick transaction. Tests prove an

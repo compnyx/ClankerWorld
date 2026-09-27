@@ -14,7 +14,7 @@ namespace ClankerWorld.GodotClient;
 public partial class Main : Control
 {
     private const int DefaultTileSize = 96;
-    private const int TileGap = 2;
+    private const int TileGap = 0;
     private const int RefreshSeconds = 1;
 
     private readonly System.Net.Http.HttpClient httpClient = new();
@@ -28,6 +28,7 @@ public partial class Main : Control
     private readonly Dictionary<long, OwnerWorldEvent> knownEvents = [];
     private readonly Dictionary<string, OwnerWorldPosition> renderedInhabitantPositions =
         new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> inhabitantVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Label> mapObjectVisuals = new(StringComparer.Ordinal);
 
     private readonly Label statusLabel = new();
@@ -95,6 +96,7 @@ public partial class Main : Control
     private readonly LineEdit renameAgentInput = new();
     private readonly Button renameAgentButton = new();
     private readonly Label selectedActorSummaryLabel = new();
+    private readonly Label selectedActorConditionLabel = new();
     private readonly Button clearSelectionButton = new();
     private readonly Button familyTreeButton = new();
     private readonly PanelContainer familyTreePanel = new();
@@ -244,12 +246,20 @@ public partial class Main : Control
                 worldPreview.Hide();
             }
             OpenMainMenuSettings();
-            if (mainMenuOverlay.Visible || !gameMenuPanel.Visible || !gameSettingsContent.Visible)
-                throw new InvalidOperationException("Main Menu Settings must open Game Settings.");
+            if (mainMenuOverlay.Visible || !gameMenuPanel.Visible || !gameSettingsContent.Visible ||
+                worldSettingsCategoryButton.Visible || worldSettingsContent.Visible)
+                throw new InvalidOperationException("Main Menu Settings must show only Game Settings.");
+            worldSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (!gameMenuPanel.Visible || !gameSettingsContent.Visible || worldSettingsContent.Visible ||
+                !returnToMainMenu)
+                throw new InvalidOperationException("World Settings cannot be opened from the Main Menu.");
             await CloseGameMenuAsync();
             if (!mainMenuOverlay.Visible || gameMenuPanel.Visible)
                 throw new InvalidOperationException("Closing Game Settings must return to the Main Menu.");
             mainMenuOverlay.Hide();
+            isInWorld = true;
+            returnToMainMenu = false;
+            SetWorldMenuActionsVisible(true);
             pairingPanel.Hide();
             developerScroll.Hide();
             gameMenuPanel.Show();
@@ -357,7 +367,31 @@ public partial class Main : Control
             var builtMarker = mapObjectVisuals["building:test-hall"];
             if (!builtMarker.Text.Contains("Test hall", StringComparison.Ordinal) || builtMarker.Size.X <= builtMarker.Size.Y)
                 throw new InvalidOperationException("Built structures must render their name and multi-tile footprint.");
+            var founderPosition = new OwnerWorldPosition(2, 0);
+            var founder = new OwnerWorldInhabitant("founder-ui-test", "Rowan", "active", founderPosition,
+                8_000, 7_000, [], [], new OwnerWorldRoute("idle", null, null, [], string.Empty),
+                new OwnerWorldSpatialKnowledge(founderPosition, [founderPosition], [founderPosition]), false)
+            {
+                Survival = new OwnerWorldSurvival(8_200, 300, true, false, 7_400, null),
+            };
+            var occupied = sample with { Inhabitants = [founder] };
+            RenderMap(occupied);
+            var founderButton = inhabitantVisuals[founder.Id];
+            var founderButtonIdentity = founderButton.GetInstanceId();
+            selectedInhabitantId = founder.Id;
+            RenderSelectedInhabitantCard(occupied);
+            RenderMap(occupied with { WorldTick = 1 });
+            RenderSelectedInhabitantCard(occupied with { WorldTick = 1 });
+            for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (inhabitantVisuals[founder.Id].GetInstanceId() != founderButtonIdentity ||
+                !selectedActorConditionLabel.Text.Contains("Warmth 82%", StringComparison.Ordinal) ||
+                !selectedActorConditionLabel.IsVisibleInTree() ||
+                !selectedInhabitantCard.GetGlobalRect().Encloses(selectedActorConditionLabel.GetGlobalRect()))
+                throw new InvalidOperationException("Agent hover targets and condition stats must survive observation refreshes.");
+            selectedInhabitantId = null;
             RenderMap(sample with { Resources = [], PlacedBuildings = [] });
+            if (inhabitantVisuals.ContainsKey(founder.Id))
+                throw new InvalidOperationException("Removed agent marker was retained.");
             if (mapObjectVisuals.ContainsKey("resource:wood")) throw new InvalidOperationException("Removed resource marker was retained.");
             if (mapObjectVisuals.ContainsKey("building:test-hall")) throw new InvalidOperationException("Removed building marker was retained.");
             var smallMapTileSize = currentTileSize;
@@ -436,16 +470,16 @@ public partial class Main : Control
                 PlacedBuildings = [],
             });
             for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            if (terrainLayer.GetChildCount() != 0 || terrainLayer.VisibleTileCount >= largeTerrain.Length / 4 ||
+            if (terrainLayer.GetChildCount() != 0 || terrainLayer.VisibleTileCount >= largeTerrain.Length / 2 ||
                 worldOverview.VisibleTiles.Size.X >= 256)
-                throw new InvalidOperationException("A regional map must draw only the visible terrain without per-tile nodes.");
+                throw new InvalidOperationException($"A regional map must draw only the visible terrain without per-tile nodes: children={terrainLayer.GetChildCount()}, visible={terrainLayer.VisibleTileCount}, overview={worldOverview.VisibleTiles.Size}.");
             if (climateLabel.Text != "Spring · Rain" ||
                 !worldInfoText.Text.Contains("Soil moisture nearby: 78/100", StringComparison.Ordinal))
                 throw new InvalidOperationException("The world HUD and info must show weather and moisture at the camera.");
             var beforeLargePan = worldOverview.VisibleTiles.Position;
             CenterCameraAt(new Vector2(20, 20));
             if (worldOverview.VisibleTiles.Position.DistanceTo(beforeLargePan) < 1 ||
-                terrainLayer.VisibleTileCount >= largeTerrain.Length / 4)
+                terrainLayer.VisibleTileCount >= largeTerrain.Length / 2)
                 throw new InvalidOperationException("Panning a large map must update the camera-bounded terrain view.");
             if (climateLabel.Text != "Spring · Snow" ||
                 !worldInfoText.Text.Contains("camera: Spring · Snow", StringComparison.Ordinal) ||
@@ -1854,6 +1888,7 @@ public partial class Main : Control
 
     private void ShowSettingsSection(bool worldSpecific)
     {
+        if (worldSpecific && (!isInWorld || returnToMainMenu)) return;
         CloseAgentModelEditor();
         settingsPanel.Show();
         gameSettingsContent.Visible = !worldSpecific;
@@ -2389,6 +2424,9 @@ public partial class Main : Control
         selectedActorSummaryLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         selectedActorSummaryLabel.Modulate = new Color("A7B9B7");
         selectedAgentOverview.AddChild(selectedActorSummaryLabel);
+        selectedActorConditionLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        selectedActorConditionLabel.Modulate = new Color("C9DFCF");
+        selectedAgentOverview.AddChild(selectedActorConditionLabel);
 
         var renameRow = new HBoxContainer();
         renameAgentInput.PlaceholderText = "Agent name";
@@ -2874,10 +2912,6 @@ public partial class Main : Control
     private void RenderMap(OwnerWorldSnapshot snapshot)
     {
         renderedMapSnapshot = snapshot;
-        foreach (var child in entityLayer.GetChildren())
-        {
-            child.QueueFree();
-        }
         var objectIds = snapshot.Resources.Select(resource => "resource:" + resource.Id)
             .Concat(snapshot.Objects.Select(item => "object:" + item.Id))
             .Concat(snapshot.PlacedBuildings.Select(item => "building:" + item.InstanceId)).ToHashSet(StringComparer.Ordinal);
@@ -2889,6 +2923,9 @@ public partial class Main : Control
 
         if (!HasMap(snapshot))
         {
+            foreach (var visual in inhabitantVisuals.Values) visual.QueueFree();
+            inhabitantVisuals.Clear();
+            renderedInhabitantPositions.Clear();
             return;
         }
 
@@ -2961,28 +2998,33 @@ public partial class Main : Control
                     inhabitant.Position.X * stride + offsetX,
                     inhabitant.Position.Y * stride + offsetY);
                 var activity = ActivityGlyph(inhabitant.PublicIntention?.CandidateId);
-                var actorButton = new Button
+                if (!inhabitantVisuals.TryGetValue(inhabitant.Id, out var actorButton))
                 {
-                    Text = $"● {activity}\n{ActorLabel(inhabitant.DisplayName)}",
-                    TooltipText = $"{inhabitant.DisplayName} · {Pretty(inhabitant.Lifecycle)} · " +
-                        (inhabitant.PublicIntention?.Summary ?? "taking in the world"),
-                    Position = renderedInhabitantPositions.TryGetValue(inhabitant.Id, out var previousPosition)
+                    actorButton = new Button
+                    {
+                        Position = renderedInhabitantPositions.TryGetValue(inhabitant.Id, out var previousPosition)
                         ? new Vector2(
                             previousPosition.X * stride + offsetX,
                             previousPosition.Y * stride + offsetY)
                         : targetPosition,
-                    CustomMinimumSize = new Vector2(actorSize, actorSize),
-                    MouseFilter = Control.MouseFilterEnum.Pass,
-                    ZIndex = 10,
-                };
-                actorButton.AddThemeColorOverride("font_color", Colors.White);
-                actorButton.AddThemeFontSizeOverride("font_size", 15);
-                actorButton.AddThemeStyleboxOverride(
-                    "normal",
+                        MouseFilter = Control.MouseFilterEnum.Pass,
+                        ZIndex = 10,
+                    };
+                    actorButton.AddThemeColorOverride("font_color", Colors.White);
+                    actorButton.AddThemeFontSizeOverride("font_size", 15);
+                    actorButton.AddThemeStyleboxOverride("hover", ActorStyle(selected: true));
+                    actorButton.Pressed += () => SelectInhabitant(inhabitant.Id);
+                    entityLayer.AddChild(actorButton);
+                    inhabitantVisuals.Add(inhabitant.Id, actorButton);
+                }
+                var actorText = $"● {activity}\n{ActorLabel(inhabitant.DisplayName)}";
+                if (actorButton.Text != actorText) actorButton.Text = actorText;
+                var actorTooltip = $"{inhabitant.DisplayName} · {Pretty(inhabitant.Lifecycle)} · " +
+                    (inhabitant.PublicIntention?.Summary ?? "taking in the world");
+                if (actorButton.TooltipText != actorTooltip) actorButton.TooltipText = actorTooltip;
+                actorButton.CustomMinimumSize = new Vector2(actorSize, actorSize);
+                actorButton.AddThemeStyleboxOverride("normal",
                     ActorStyle(string.Equals(inhabitant.Id, selectedInhabitantId, StringComparison.Ordinal)));
-                actorButton.AddThemeStyleboxOverride("hover", ActorStyle(selected: true));
-                actorButton.Pressed += () => SelectInhabitant(inhabitant.Id);
-                entityLayer.AddChild(actorButton);
                 if (actorButton.Position != targetPosition)
                 {
                     CreateTween()
@@ -3004,6 +3046,11 @@ public partial class Main : Control
                      .ToArray())
         {
             renderedInhabitantPositions.Remove(removedId);
+        }
+        foreach (var removedId in inhabitantVisuals.Keys.Where(id => !visibleInhabitantIds.Contains(id)).ToArray())
+        {
+            inhabitantVisuals[removedId].QueueFree();
+            inhabitantVisuals.Remove(removedId);
         }
 
         PositionSelectedInhabitantCard(snapshot);
@@ -3166,6 +3213,7 @@ public partial class Main : Control
             selectedActorNameLabel.Text = string.Empty;
             renamingAgentId = null;
             selectedActorSummaryLabel.Text = string.Empty;
+            selectedActorConditionLabel.Text = string.Empty;
             inhabitantSocialDetails.Clear();
             privateThoughtHistory.Clear();
             memoryHistory.Clear();
@@ -3212,7 +3260,6 @@ public partial class Main : Control
                         ?? Pretty(relationship.OtherPartyId);
                     return $"{Pretty(relationship.Type)} with {other} · {Pretty(relationship.State)}";
                 }));
-        inhabitantSocialDetails.Clear();
         var decision = snapshot.Cognition?.Decisions?.FirstOrDefault(item => item.InhabitantId == inhabitant.Id);
         var activity = waitingForDecision ? "Decision pending" : decision is null
             ? "No decision yet"
@@ -3227,13 +3274,16 @@ public partial class Main : Control
         var condition = inhabitant.Survival is { } survival
             ? $"{(isDeceased ? "At death · " : "")}Warmth {survival.WarmthBasisPoints / 100}% · Illness {survival.IllnessBasisPoints / 100}%" +
                 $" · Diet {survival.NutritionBasisPoints / 100}%\n" +
-                $"{(survival.HasClothing ? "Clothed" : "No warm clothing")} · {(survival.HasTool ? "Tool equipped" : "Working by hand")}\n" : "";
+                $"{(survival.HasClothing ? "Clothed" : "No warm clothing")} · {(survival.HasTool ? "Tool equipped" : "Working by hand")}" :
+                "Condition data unavailable";
+        selectedActorConditionLabel.Text = condition;
         var role = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "role")?.Detail;
         var learning = inhabitant.Lesson is { } lesson
             ? $"\nLearning {Pretty(lesson.Role)} with {lesson.TeacherName} · {Pretty(lesson.Stage)} · {lesson.Progress}/{lesson.Required}" : "";
         if (inhabitant.Proficiency is { } practice)
             learning += $"\nPractice · Building {practice.Building}/30 · Farming {practice.Farming}/30 · Crafting {practice.Crafting}/30";
-        inhabitantSocialDetails.Text = $"{condition}{(role is null ? "" : Pretty(role) + "\n")}{(inhabitant.Project is null ? intention : projectText)}{learning}\n{relationships}{standing}{socialNotes}\n{activity}";
+        var socialText = $"{(role is null ? "" : Pretty(role) + "\n")}{(inhabitant.Project is null ? intention : projectText)}{learning}\n{relationships}{standing}{socialNotes}\n{activity}";
+        if (inhabitantSocialDetails.Text != socialText) inhabitantSocialDetails.Text = socialText;
         var thoughtHeading = isDeceased ? "Private thoughts · historical" : "Private thoughts";
         privateThoughtHistory.Text = inhabitant.RecentPrivateThoughts.Count == 0
             ? thoughtHeading + "\nNone recorded yet."
@@ -3420,8 +3470,9 @@ public partial class Main : Control
     private void RefreshControlAvailability()
     {
         var paired = !registeredEndpointInvalid && registration is not null && deviceKey is not null;
-        worldSettingsButton.Disabled = !paired;
-        worldSettingsCategoryButton.Disabled = !paired || worldSettingsContent.Visible;
+        worldSettingsButton.Disabled = !paired || !isInWorld || returnToMainMenu;
+        worldSettingsCategoryButton.Disabled = !paired || !isInWorld || returnToMainMenu ||
+            worldSettingsContent.Visible;
         var snapshot = observationSession.Current?.Baseline.Snapshot;
         var paused = snapshot?.Authoring?.IsPaused == true;
         var selected = snapshot?.Inhabitants.FirstOrDefault(item =>

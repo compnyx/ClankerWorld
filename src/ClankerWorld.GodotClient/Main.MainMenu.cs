@@ -201,6 +201,7 @@ public partial class Main
     {
         menuSaveWorldButton.Visible = visible;
         worldSettingsButton.Visible = visible;
+        worldSettingsCategoryButton.Visible = visible;
         menuCreationButton.Visible = visible;
         developerToggleButton.Visible = visible;
         menuQuitToMainButton.Visible = visible;

@@ -124,6 +124,10 @@ reopen the decided player-local distribution goal.
 - Enter a visually coherent generated world. The player can see its whole
   geography from the start; there is no player fog of war. Individual agents
   may know only what they have experienced or learned.
+- **Preferred from playtesting:** selecting a tile should reveal its biome,
+  terrain, object, local weather/temperature, fertility, elevation, and other
+  meaningful facts. Show only facts the simulation actually knows; the exact
+  panel and unavailable-field treatment remain to be designed.
 - One continuous pixel-art world view supports mouse-wheel zoom and WASD
   panning. There is **no separate simplified regional view or second regional
   texture set**. Zoom-out stops at a readability/performance limit.
@@ -190,6 +194,8 @@ World generation choices such as size, climate and wrapping are chosen before
 creation and should be inspectable afterward, not silently mutable settings.
 Jev's on/off switch for an existing world is accepted; the exact settings
 categories and transition behavior for an in-flight Jev task remain open.
+World Settings must be absent from Main Menu Settings while no world is loaded;
+opening Main Menu settings must never enter a world.
 
 In the **Add Agent** placement view, show existing household property and
 settlement borders so computment can see the new agent's initial affiliation.
@@ -396,6 +402,8 @@ call for each weather change.
 - **Pixel art** is the visual style. **32×32-pixel ground tiles** and **PNG
   runtime assets** are the initial standard. Taller agents/trees and multi-tile
   buildings can use larger transparent images anchored to logical tiles.
+- Ground remains square-tiled, but permanent **black tile-border grid lines**
+  are not part of the intended presentation; they would clash with textures.
 - Most production textures will likely be created with AI help, including work
   with Clanker, then adapted to a coherent game style. Aseprite is an optional
   editor/source format, not a requirement for computment or for playing the game.
@@ -410,7 +418,8 @@ call for each weather change.
   standard appearance**. Two agents building the same size/type of house need
   not get different roof colors, decorations, or whole new sprites. Extra
   visual variants across buildings and other categories are optional work for
-  after that complete game, not part of its required art workload.
+  after that complete game, not part of its required art workload. Agents are
+  the exception: a few appearance variants are wanted for their population.
 - Agent inventions may introduce **genuinely new designs** rather than being
   permanently limited to the original art catalogue. Each new design still
   needs a valid visual/gameplay representation; this does not authorize every
@@ -485,6 +494,11 @@ first-complete-game roadmap.
   contents/capabilities rather than every chair being drawn. A poor camp site
   is allowed with a warning rather than rejected solely for its survival
   disadvantages; physically impossible placements still need rules.
+- **Preferred from playtesting:** during the entire paused camp-placement
+  process, including before placing the first component, distinguish more
+  suitable build locations with a color/overlay. Keep merely poor-but-legal
+  sites visibly distinct from physically impossible sites; exact scoring and
+  colors are not yet decided.
 - Once all four founders are configured and placed, the player explicitly
   presses **Start World**; the simulation must not begin automatically on the
   fourth placement. An incomplete founder setup is saved so the player can
@@ -682,11 +696,17 @@ direction, not proof that it will feel right in the finished game.
   work zones and separate occupiable structures such as farmhouse, barn, or
   silo. Warehouses, markets, town halls, and other buildings need distinct
   useful functions.
-- Agents choose building sites from understandable legal options considering
+- Building sites should come from understandable legal options considering
   access, terrain, resources, ownership, and settlement context. Land can first
   be claimed, shared, granted, or disputed. Monetary land values and purchase
   prices become meaningful after currencies exist. Agents can later buy/sell
-  property. Roads help travel and influence site choice.
+  property. Roads help travel and influence site choice. The earlier assumption
+  that agents choose the exact tile is now being reconsidered.
+- **Reconsidering (not decided):** an agent could still decide that a home or
+  other building is needed and gather/build it, while a deterministic world
+  layout system chooses a legal, suitable site as the settlement grows. This
+  would replace the earlier assumption that the agent selects the exact tile;
+  do not treat either site-choice owner as final until computment resolves it.
 - Agents formally establish settlements and borders. Village/town/city classes
   are population-based. The player can inspect actual property and settlement
   boundaries through map filters.
@@ -696,11 +716,14 @@ direction, not proof that it will feel right in the finished game.
 - **Livestock and mounts** belong in the finished game. Hostile predators do
   **not** belong in the current plan, though they may be revisited later.
 
-### Preferred road formation, pending confirmation
+### Decided road scope; formation details preferred
 
-Computment leans toward **one road type** that forms from repeated walking,
-rather than separate worn trails and deliberately built roads. Roads must not
-appear wherever anyone walks once; their formation needs a limiting rule.
+The baseline has **one road type**, with no extra road categories or visual
+variations required until the first complete texture pass. Agents and the player
+do not place roads. Computment prefers roads forming from repeated walking,
+with limits so they do not appear everywhere; unused roads should gradually
+fade, with visual stages reflecting wear/decay. Exact traffic, decay, and
+rendering rules remain open.
 
 ### Proposed road-formation rule, not accepted
 
@@ -872,6 +895,12 @@ Whether manual saves are checkpoints or divergent branches; restore/rewind
 behavior; disk-space warnings and retention; exactly when autosave occurs
 relative to model/conversation work; crash-recovery guarantees; and save
 compatibility across game/mod versions.
+
+**Development playtest policy (decided):** computment does not require old
+playtest worlds to remain loadable as the New World flow and save format change;
+they expect to create fresh worlds to test new features. This is not permission
+to delete or overwrite an active save and does not settle finished-release
+compatibility policy.
 
 ## Design tensions and next architecture decisions
 
