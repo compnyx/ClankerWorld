@@ -424,6 +424,17 @@ public partial class Main : Control
             if (!entered || marker.MouseFilter == MouseFilterEnum.Ignore || marker.GetInstanceId() != identity ||
                 !marker.TooltipText.Contains("7/12", StringComparison.Ordinal) || !marker.Text.Contains("7/12", StringComparison.Ordinal))
                 throw new InvalidOperationException($"Resource hover/update failed: entered={entered}, filter={marker.MouseFilter}, stable={marker.GetInstanceId() == identity}, text={marker.Text}, rect={marker.GetGlobalRect()}, hovered={GetViewport().GuiGetHoveredControl()?.GetPath()}.");
+            var sampleTree = new OwnerWorldResource("sample-tree", "construction", new(3, 1), true,
+                "available", 1, 1, 1, 6, "spring", "broadleaf");
+            RenderMap(sample with { Resources = [sampleResource, sampleTree] });
+            if (terrainLayer.TreeStageAt(3, 1) != "mature" || mapObjectVisuals.ContainsKey("resource:sample-tree"))
+                throw new InvalidOperationException("A live tree must render as a terrain object, not a resource text label.");
+            RenderMap(sample with { Resources = [sampleResource, sampleTree with { Quantity = 0, State = "depleted" }] });
+            if (terrainLayer.TreeStageAt(3, 1) != "stump")
+                throw new InvalidOperationException("Harvested trees must become visible stumps.");
+            RenderMap(sample with { Resources = [sampleResource, sampleTree with { Quantity = 0, State = "depleted", IsPlanted = true }] });
+            if (terrainLayer.TreeStageAt(3, 1) != "sapling")
+                throw new InvalidOperationException("Replanted trees must become visible saplings.");
             var builtMarker = mapObjectVisuals["building:test-hall"];
             if (!builtMarker.Text.Contains("Test hall", StringComparison.Ordinal) || builtMarker.Size.X <= builtMarker.Size.Y)
                 throw new InvalidOperationException("Built structures must render their name and multi-tile footprint.");
@@ -3069,7 +3080,8 @@ public partial class Main : Control
     private void RenderMap(OwnerWorldSnapshot snapshot)
     {
         renderedMapSnapshot = snapshot;
-        var objectIds = snapshot.Resources.Select(resource => "resource:" + resource.Id)
+        var objectIds = snapshot.Resources.Where(resource => resource.TreeKind is null)
+            .Select(resource => "resource:" + resource.Id)
             .Concat(snapshot.Objects.Select(item => "object:" + item.Id))
             .Concat(snapshot.PlacedBuildings.Select(item => "building:" + item.InstanceId)).ToHashSet(StringComparer.Ordinal);
         foreach (var id in mapObjectVisuals.Keys.Where(id => !objectIds.Contains(id)).ToArray())
@@ -3101,6 +3113,7 @@ public partial class Main : Control
             terrainLayer.SetWorld(terrainMap);
             worldOverview.SetWorld(terrainMap);
         }
+        terrainLayer.SetTrees(snapshot.Resources);
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
         worldOverview.WrapsEastWest = snapshot.WrapsEastWest;
@@ -3114,6 +3127,7 @@ public partial class Main : Control
 
         foreach (var resource in snapshot.Resources)
         {
+            if (resource.TreeKind is not null) continue;
             AddMapObjectVisual(
                 "resource:" + resource.Id,
                 resource.Position,

@@ -32,7 +32,9 @@ public sealed record OwnerWorldResource(
     int? Capacity = null,
     int? RegenerationAmount = null,
     int? RegenerationIntervalDays = null,
-    string? RegenerationSeason = null);
+    string? RegenerationSeason = null,
+    string? TreeKind = null,
+    bool IsPlanted = false);
 
 public sealed record OwnerWorldInventoryEntry(string Kind, int Quantity);
 

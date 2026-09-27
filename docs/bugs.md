@@ -52,11 +52,12 @@ the resolution evidence below.
   incompatible or unknown, and preserves and blocks only proven-unloadable
   entries. Unknown entries can still be tried. Longer-term migration and
   cross-release/mod compatibility policy remain undecided.
-- **Generated vegetation is not represented as forest objects/art — confirmed
-  gap:** forest currently means a ground-kind/color and sparse resource sites;
-  the Godot terrain renderer draws colored rectangles, not individual tree
-  sprites. The finished vision allows at most one tree per tile; its
-  vegetation/object/art pass remains unbuilt.
+- **Generated vegetation art and propagation remain provisional — confirmed
+  gap:** generated broadleaf/conifer tree objects now occupy at most one tree
+  per tile and visibly become stumps or replanted saplings. The Godot client
+  draws simple top-down shapes, not approved final textures. Replanting spends
+  the prototype generic seed on an existing depleted tree site; planting on
+  new tiles, orchard trees and final textures remain unbuilt.
 - **Mountains/peaks not seen in playtest — unverified occurrence, confirmed
   visibility gap:** generation does classify dry-land elevation ≥215 as
   mountain and ≥245 as peak, so the terrain kinds exist. Their distribution

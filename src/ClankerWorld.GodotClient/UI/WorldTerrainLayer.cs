@@ -12,6 +12,7 @@ public partial class WorldTerrainLayer : Control
     private int tileGap;
     private bool wrapsEastWest;
     private Vector2I? hoveredTile;
+    private byte[] trees = [];
 
     public int VisibleTileCount { get; private set; }
 
@@ -32,6 +33,34 @@ public partial class WorldTerrainLayer : Control
             for (var x = 0; x < map.Width; x++)
                 image.SetPixel(x, y, WorldTerrainMap.ColorFor(map.At(x, y)));
         paletteTexture = ImageTexture.CreateFromImage(image);
+        trees = new byte[checked(map.Width * map.Height)];
+        QueueRedraw();
+    }
+
+    public void SetTrees(IReadOnlyList<OwnerWorldResource> resources)
+    {
+        if (world is null) return;
+        var next = new byte[checked(world.Width * world.Height)];
+        foreach (var resource in resources)
+        {
+            var x = resource.Position.X;
+            var y = resource.Position.Y;
+            if (x < 0 || x >= world.Width || y < 0 || y >= world.Height) continue;
+            var kind = resource.TreeKind switch
+            {
+                "broadleaf" => (byte)1,
+                "conifer" => (byte)2,
+                _ => (byte)0,
+            };
+            if (kind == 0) continue;
+            var index = y * world.Width + x;
+            if (next[index] != 0)
+                throw new InvalidDataException("Two trees occupy one visible tile.");
+            next[index] = resource.IsPlanted ? (byte)(kind + 4) :
+                resource.Quantity == 0 || resource.State != "available"
+                    ? (byte)(kind + 2) : kind;
+        }
+        trees = next;
         QueueRedraw();
     }
 
@@ -47,6 +76,18 @@ public partial class WorldTerrainLayer : Control
     }
 
     public Vector2I? HoveredTile => hoveredTile;
+
+    public string? TreeStageAt(int x, int y)
+    {
+        if (world is null || x < 0 || y < 0 || x >= world.Width || y >= world.Height) return null;
+        return trees[y * world.Width + x] switch
+        {
+            1 or 2 => "mature",
+            3 or 4 => "stump",
+            5 or 6 => "sapling",
+            _ => null,
+        };
+    }
 
     public void SetHoveredTile(Vector2I? tile)
     {
@@ -103,6 +144,14 @@ public partial class WorldTerrainLayer : Control
                 }
             }
         }
+        // Trees are objects, not baked ground colors: keep them visible both
+        // above full-size tiles and above the small-tile palette cache.
+        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
+        for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+        {
+            var tree = trees[y * world.Width + (wrapsEastWest ? Mod(x, world.Width) : x)];
+            if (tree != 0) DrawTree(new Vector2(x * stride, y * stride), tree);
+        }
         if (hoveredTile is { } hover && tileSize > 0 &&
             hover.Y >= bounds.Top && hover.Y < bounds.Top + bounds.Height)
         {
@@ -118,4 +167,29 @@ public partial class WorldTerrainLayer : Control
     }
 
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;
+
+    private void DrawTree(Vector2 position, byte tree)
+    {
+        var center = position + new Vector2(tileSize * 0.5f, tileSize * 0.5f);
+        if (tree is 3 or 4)
+        {
+            DrawCircle(center, Math.Max(2f, tileSize * 0.16f), new Color("735036"));
+            DrawCircle(center, Math.Max(1f, tileSize * 0.08f), new Color("A77C4C"));
+            return;
+        }
+        if (tree is 5 or 6)
+        {
+            DrawCircle(center, Math.Max(2f, tileSize * 0.11f), new Color("735036"));
+            DrawCircle(center - new Vector2(0, tileSize * 0.09f), Math.Max(2f, tileSize * 0.17f),
+                tree == 6 ? new Color("7BA88B") : new Color("94B465"));
+            return;
+        }
+        DrawCircle(center, Math.Max(2f, tileSize * 0.32f), new Color("273F2E"));
+        var canopy = tree == 2 ? new Color("3E705D") : new Color("5F8744");
+        DrawCircle(center - new Vector2(tileSize * 0.04f, tileSize * 0.05f),
+            Math.Max(2f, tileSize * 0.27f), canopy);
+        if (tileSize >= 20)
+            DrawCircle(center - new Vector2(tileSize * 0.1f, tileSize * 0.12f),
+                tileSize * 0.09f, tree == 2 ? new Color("7BA88B") : new Color("94B465"));
+    }
 }

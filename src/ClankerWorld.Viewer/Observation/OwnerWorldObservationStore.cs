@@ -245,7 +245,9 @@ public sealed class OwnerWorldObservationStore
                     ecology?.GetValueOrDefault(resource.Id)?.Capacity,
                     ecology?.GetValueOrDefault(resource.Id)?.RegenerationAmount,
                     ecology?.GetValueOrDefault(resource.Id)?.RegenerationIntervalDays,
-                    ecology?.GetValueOrDefault(resource.Id)?.RegenerationSeason.ToString().ToLowerInvariant()))
+                    ecology?.GetValueOrDefault(resource.Id)?.RegenerationSeason.ToString().ToLowerInvariant(),
+                    resource.TreeKind,
+                    ecology?.GetValueOrDefault(resource.Id)?.IsPlanted ?? false))
                 .ToArray(),
             actor,
             latestEventId)

@@ -42,7 +42,8 @@ public sealed record MapResource(
     string Id,
     string Kind,
     GridPoint Position,
-    bool IsRenewable);
+    bool IsRenewable,
+    string? TreeKind = null);
 
 /// <summary>
 /// The selected deterministic map attempt and its canonical manifest lock.
@@ -327,10 +328,13 @@ public static class GeneratedCampMapGenerator
         {
             Position = new GridPoint(item.Position.X + origin.X, item.Position.Y + origin.Y),
             IsRenewable = item.Id == "timber-tree" || item.IsRenewable,
+            TreeKind = item.Id == "timber-tree" ? "broadleaf" : item.TreeKind,
         }).ToArray();
         var distributed = GenerateResourceSites(options, geography, kinds, objects, resources);
+        var trees = GenerateTrees(options, geography, kinds, width, height, objects,
+            resources.Concat(distributed).ToArray());
         var withoutDigest = new SeededMap(width, height, 0, tiles, objects,
-            resources.Concat(distributed).ToArray(), string.Empty)
+            resources.Concat(distributed).Concat(trees).ToArray(), string.Empty)
         { ClimateZones = climateZones, WrapsEastWest = options.WrapEastWest };
         var map = withoutDigest with { ManifestDigest = MapManifestCodec.Digest(withoutDigest) };
         var validation = MapAcceptance.Validate(map, allowEmptyCamp: true);
@@ -387,7 +391,8 @@ public static class GeneratedCampMapGenerator
                         };
                         var renewable = resourceKind is "construction" or "food" or "fiber" or "seed";
                         var id = site == 0 ? $"wild-{left}-{top}" : $"wild-{left}-{top}-{site}";
-                        sites.Add(new MapResource(id, resourceKind, position, renewable));
+                        sites.Add(new MapResource(id, resourceKind, position, renewable,
+                            resourceKind == "construction" ? TreeKindFor(geography.At(x, y).Climate) : null));
                         occupied.Add(position);
                         break;
                     }
@@ -395,6 +400,58 @@ public static class GeneratedCampMapGenerator
             }
         return sites;
     }
+
+    private static List<MapResource> GenerateTrees(GeographyOptions options, GeneratedGeography geography,
+        TerrainKind[] kinds,
+        int width, int height, IReadOnlyList<CampObject> camp, IReadOnlyList<MapResource> existing)
+    {
+        // Bounded, individually harvestable trees share the chunk resource
+        // budget. They are objects, not a second meaning of forest ground.
+        const int cellSize = 8;
+        const int maximumGeneratedTreesPerChunk = 32;
+        var occupied = camp.Select(item => item.Position)
+            .Concat(existing.Select(item => item.Position)).ToHashSet();
+        var perChunk = existing.GroupBy(item =>
+                (item.Position.X / GeographyGenerator.ChunkSize,
+                    item.Position.Y / GeographyGenerator.ChunkSize))
+            .ToDictionary(group => group.Key, group => group.Count());
+        var treesPerChunk = new Dictionary<(int, int), int>();
+        var trees = new List<MapResource>();
+        for (var top = 0; top < height; top += cellSize)
+            for (var left = 0; left < width; left += cellSize)
+            {
+                var chunk = (left / GeographyGenerator.ChunkSize, top / GeographyGenerator.ChunkSize);
+                if (perChunk.GetValueOrDefault(chunk) >= WorldSystemsConfig.Default.MaxResourcesPerChunk ||
+                    treesPerChunk.GetValueOrDefault(chunk) >= maximumGeneratedTreesPerChunk)
+                    continue;
+                var random = Pcg32XshRrV1.Create(options.Seed, $"tree:{left},{top}");
+                for (var attempt = 0; attempt < 8; attempt++)
+                {
+                    var x = left + (int)(random.NextUInt() % (uint)Math.Min(cellSize, width - left));
+                    var y = top + (int)(random.NextUInt() % (uint)Math.Min(cellSize, height - top));
+                    var position = new GridPoint(x, y);
+                    var terrain = kinds[y * width + x];
+                    if (occupied.Contains(position) || terrain is not (TerrainKind.Forest or TerrainKind.Meadow))
+                        continue;
+                    // Meadows carry scattered trees; forest cover remains denser.
+                    if (terrain == TerrainKind.Meadow && random.NextUInt() % 4 != 0)
+                        continue;
+                    var climate = geography.At(x, y).Climate;
+                    var treeKind = climate == ClimateZone.Cold ||
+                        (climate == ClimateZone.Temperate && random.NextUInt() % 3 == 0)
+                            ? "conifer" : "broadleaf";
+                    trees.Add(new MapResource($"tree-{left}-{top}", "construction", position, true, treeKind));
+                    occupied.Add(position);
+                    perChunk[chunk] = perChunk.GetValueOrDefault(chunk) + 1;
+                    treesPerChunk[chunk] = treesPerChunk.GetValueOrDefault(chunk) + 1;
+                    break;
+                }
+            }
+        return trees;
+    }
+
+    private static string TreeKindFor(ClimateZone climate) =>
+        climate == ClimateZone.Cold ? "conifer" : "broadleaf";
 
     private static GridPoint FindCampOrigin(TerrainKind[] kinds, int width, int height)
     {
@@ -464,7 +521,10 @@ public static class MapManifestCodec
             builder.Append("resource=")
                 .Append(resource.Id).Append('|').Append(resource.Kind).Append('|')
                 .Append(resource.Position.X).Append(',').Append(resource.Position.Y).Append('|')
-                .Append(resource.IsRenewable ? "renewable" : "finite").Append('\n');
+                .Append(resource.IsRenewable ? "renewable" : "finite");
+            if (resource.TreeKind is { } treeKind)
+                builder.Append("|tree:").Append(treeKind);
+            builder.Append('\n');
         }
 
         return Encoding.UTF8.GetBytes(builder.ToString());
@@ -545,7 +605,11 @@ public static class MapAcceptance
         }
 
         if (map.Resources.Select(resource => resource.Id).Distinct(StringComparer.Ordinal).Count() != map.Resources.Count ||
-            map.Resources.Any(resource => !map.IsBuildable(resource.Position)))
+            map.Resources.Any(resource => !map.IsBuildable(resource.Position) ||
+                (resource.TreeKind is not null &&
+                    (resource.Kind != "construction" || resource.TreeKind is not ("broadleaf" or "conifer")))) ||
+            map.Resources.Where(resource => resource.TreeKind is not null)
+                .GroupBy(resource => resource.Position).Any(group => group.Count() > 1))
         {
             return MapValidationResult.Invalid("Resource placements are invalid.");
         }

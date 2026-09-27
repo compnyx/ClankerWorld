@@ -439,7 +439,8 @@ public sealed record EcologyResource(
     int RegenerationIntervalDays,
     SeasonKind RegenerationSeason,
     long NextRegenerationDay,
-    EcologyResourceState State)
+    EcologyResourceState State,
+    bool IsPlanted = false)
 {
     public void Validate()
     {
@@ -449,7 +450,8 @@ public sealed record EcologyResource(
             Quantity > Capacity || NextRegenerationDay < 0 ||
             (IsRenewable && (RegenerationAmount <= 0 || RegenerationIntervalDays <= 0)) ||
             (!IsRenewable && (RegenerationAmount != 0 || RegenerationIntervalDays != 0)) ||
-            !Enum.IsDefined(State) || (!IsRenewable && State == EcologyResourceState.Regenerating))
+            !Enum.IsDefined(State) || (!IsRenewable && State == EcologyResourceState.Regenerating) ||
+            (IsPlanted && (!IsRenewable || Quantity != 0 || State != EcologyResourceState.Regenerating)))
         {
             throw new ArgumentOutOfRangeException(nameof(EcologyResource));
         }
@@ -510,6 +512,19 @@ public static class EcologyRules
         if (!resource.IsRenewable || resource.State == EcologyResourceState.Transformed)
         {
             return resource;
+        }
+
+        if (resource.IsPlanted)
+        {
+            if (calendar.DayIndex < resource.NextRegenerationDay)
+                return resource;
+            return resource with
+            {
+                Quantity = 1,
+                NextRegenerationDay = checked(calendar.DayIndex + resource.RegenerationIntervalDays),
+                State = EcologyResourceState.Available,
+                IsPlanted = false,
+            };
         }
 
         if (resource.Quantity >= resource.Capacity)

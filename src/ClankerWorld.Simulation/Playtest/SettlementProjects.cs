@@ -28,25 +28,41 @@ public sealed partial class PrivateWorldRuntime
         {
             return false;
         }
-        if (generated.ManifestDigest == state.Map.ManifestDigest)
+        var previousVegetation = generated with
         {
-            return true;
-        }
-        var baseIds = generated.Resources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
-        var added = state.Map.Resources.Where(resource => !baseIds.Contains(resource.Id)).ToArray();
-        if (state.SchemaVersion < 5 || added.Length is < 1 or > 3 || added.Select(resource => resource.Position).Distinct().Count() != added.Length ||
-            state.Content?.Packages.Any(package => package.Manifest.PackageId == SettlementContent.PackageId &&
-                package.Manifest.PackageDigest == SettlementContent.Create().PackageDigest && package.ActivationTick is not null) != true ||
-            added.Any(resource => resource.Id != "settlement-" + resource.Kind ||
-                resource.Kind is not ("stone" or "fiber" or "seed") || resource.IsRenewable != (resource.Kind is "fiber" or "seed") ||
-                !generated.IsBuildable(resource.Position) ||
-                generated.CampObjects.Any(item => item.Position == resource.Position) ||
-                generated.Resources.Any(item => item.Position == resource.Position)))
+            Resources = generated.Resources.Where(resource => !resource.Id.StartsWith("tree-", StringComparison.Ordinal))
+                .Select(resource => resource with { TreeKind = null }).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        previousVegetation = previousVegetation with
         {
-            return false;
+            ManifestDigest = MapManifestCodec.Digest(previousVegetation),
+        };
+        foreach (var baseline in new[] { generated, previousVegetation })
+        {
+            if (baseline.ManifestDigest == state.Map.ManifestDigest)
+                return true;
+            var baseIds = baseline.Resources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
+            var added = state.Map.Resources.Where(resource => !baseIds.Contains(resource.Id)).ToArray();
+            if (state.SchemaVersion < 5 || added.Length is < 1 or > 3 ||
+                added.Select(resource => resource.Position).Distinct().Count() != added.Length ||
+                state.Content?.Packages.Any(package => package.Manifest.PackageId == SettlementContent.PackageId &&
+                    package.Manifest.PackageDigest == SettlementContent.Create().PackageDigest && package.ActivationTick is not null) != true ||
+                added.Any(resource => resource.Id != "settlement-" + resource.Kind ||
+                    resource.Kind is not ("stone" or "fiber" or "seed") ||
+                    resource.IsRenewable != (resource.Kind is "fiber" or "seed") ||
+                    !baseline.IsBuildable(resource.Position) ||
+                    baseline.CampObjects.Any(item => item.Position == resource.Position) ||
+                    baseline.Resources.Any(item => item.Position == resource.Position)))
+                continue;
+            var original = state.Map with
+            {
+                Resources = state.Map.Resources.Where(resource => baseIds.Contains(resource.Id)).ToArray(),
+            };
+            if (MapManifestCodec.Digest(original) == baseline.ManifestDigest)
+                return true;
         }
-        var original = state.Map with { Resources = state.Map.Resources.Where(resource => baseIds.Contains(resource.Id)).ToArray() };
-        return MapManifestCodec.Digest(original) == generated.ManifestDigest;
+        return false;
     }
 
     private void StageSettlementContent()
@@ -325,17 +341,26 @@ public sealed partial class PrivateWorldRuntime
         {
             return;
         }
+        var harvested = source.TreeKind is not null && harvest.Resource.Quantity == 0 && source.IsRenewable
+            ? harvest.Resource with
+            {
+                NextRegenerationDay = WorldCalendarRules.FromTick(WorldTick, worldSystems.Config).DayIndex +
+                    harvest.Resource.RegenerationIntervalDays,
+            }
+            : harvest.Resource;
         worldSystems = worldSystems with
         {
             Ecology = worldSystems.Ecology with
             {
-                Resources = worldSystems.Ecology.Resources.Select(resource => resource.Id == source.Id ? harvest.Resource : resource).ToArray(),
+                Resources = worldSystems.Ecology.Resources.Select(resource => resource.Id == source.Id ? harvested : resource).ToArray(),
             },
         };
         SyncEcologyResourceStates();
         ApplyInventoryTransition(inventory => InventoryFixture.AddLot(inventory, $"material:{WorldTick}:{inhabitantId}",
             itemKind, inhabitantId, 4, WorldTick));
         AppendEvent("material_gathered", $"{inhabitantId}:{itemKind}:4");
+        if (source.TreeKind is not null)
+            AppendEvent("tree_harvested", $"{inhabitantId}:{source.Id}:{source.TreeKind}:stump");
     }
 
     private IEnumerable<(string Requester, ContentQuantity Input)> ProjectRequests(string helperId)

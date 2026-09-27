@@ -1,5 +1,8 @@
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Cognition;
+using ClankerWorld.Simulation.Kernel;
 using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.Society;
 using ClankerWorld.Simulation.World;
 using ClankerWorld.Viewer.Observation;
 
@@ -26,6 +29,222 @@ public sealed class GeographyGeneratorTests
         Assert.True(map.Resources.Count > 20, "Generated worlds need usable sites beyond the starter camp.");
         Assert.All(map.Resources, site => Assert.True(map.IsPassable(site.Position)));
         Assert.DoesNotContain(map.Resources, site => map.CampObjects.Any(item => item.Position == site.Position));
+    }
+
+    [Fact]
+    public void GeneratedTreesAreDistinctDeterministicObjectsWithOneTreePerTile()
+    {
+        var options = new GeographyOptions("object-forest", WorldSizePreset.Small, WrapEastWest: true);
+        var first = GeneratedCampMapGenerator.Generate(options);
+        var second = GeneratedCampMapGenerator.Generate(options);
+        var trees = first.Resources.Where(site => site.TreeKind is not null).ToArray();
+
+        Assert.True(trees.Length > 20, "A generated forest needs visible individual trees, not only a terrain tint.");
+        Assert.Contains(trees, tree => first.Tiles.Any(tile => tile.Position == tree.Position &&
+            tile.Terrain == TerrainKind.Meadow));
+        Assert.All(trees, tree =>
+        {
+            Assert.Equal("construction", tree.Kind);
+            Assert.True(tree.IsRenewable);
+            Assert.True(tree.TreeKind is "broadleaf" or "conifer");
+            Assert.Single(first.Resources, resource => resource.Position == tree.Position);
+        });
+        Assert.Equal(trees.Length, trees.Select(tree => tree.Position).Distinct().Count());
+        Assert.Equal(first.ManifestDigest, second.ManifestDigest);
+        Assert.Equal(first.Resources, second.Resources);
+
+        var overlapping = first with
+        {
+            Resources = first.Resources.Select(resource =>
+                resource.Id == trees[1].Id ? resource with { Position = trees[0].Position } : resource).ToArray(),
+        };
+        overlapping = overlapping with { ManifestDigest = MapManifestCodec.Digest(overlapping) };
+        Assert.False(MapAcceptance.Validate(overlapping, allowEmptyCamp: true).IsValid);
+    }
+
+    [Fact]
+    public void TreeStumpAndPlantedSaplingPersistAcrossGeneratedWorldReload()
+    {
+        var options = new GeographyOptions("saved-tree-stages", WorldSizePreset.Small);
+        using var world = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var tree = world.ExportState().Map.Resources.First(site => site.TreeKind is not null);
+        var standing = world.WorldSystems.Ecology.GetResource(tree.Id);
+        Assert.Equal(1, standing.Quantity);
+        var cut = EcologyRules.Harvest(standing, 1);
+        Assert.True(cut.IsValid);
+        Assert.Equal(EcologyResourceState.Depleted, cut.Resource!.State);
+        Assert.Equal(0, cut.Resource.Quantity);
+
+        var state = world.ExportState();
+        var planted = cut.Resource with
+        {
+            State = EcologyResourceState.Regenerating,
+            IsPlanted = true,
+            NextRegenerationDay = 3,
+        };
+        state = state with
+        {
+            Resources = state.Resources.Select(resource => resource.ResourceId == tree.Id
+                ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
+            WorldSystems = state.WorldSystems! with
+            {
+                Ecology = state.WorldSystems.Ecology with
+                {
+                    Resources = state.WorldSystems.Ecology.Resources.Select(resource =>
+                        resource.Id == tree.Id ? planted : resource).ToArray(),
+                },
+            },
+        };
+        var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(state));
+        using var restored = PrivateWorldRuntime.Restore(saved);
+        var projection = new OwnerWorldObservationStore(restored).GetSnapshot();
+        var visible = Assert.Single(projection.Resources, resource => resource.Id == tree.Id);
+        Assert.Equal(tree.TreeKind, visible.TreeKind);
+        Assert.True(visible.IsPlanted);
+        Assert.Equal(0, visible.Quantity);
+
+        var beforeGrowth = EcologyRules.Regenerate(planted,
+            WorldCalendarRules.FromTick(2 * restored.WorldSystems.Config.TicksPerDay, restored.WorldSystems.Config),
+            restored.WorldSystems.Config);
+        Assert.True(beforeGrowth.IsPlanted);
+        var grown = EcologyRules.Regenerate(beforeGrowth,
+            WorldCalendarRules.FromTick(3 * restored.WorldSystems.Config.TicksPerDay, restored.WorldSystems.Config),
+            restored.WorldSystems.Config);
+        Assert.False(grown.IsPlanted);
+        Assert.Equal(1, grown.Quantity);
+    }
+
+    [Fact]
+    public void GeneratedWorldSavedBeforeTreeObjectsStillLoadsWithItsOriginalResources()
+    {
+        var options = new GeographyOptions("old-forest-save", WorldSizePreset.Small);
+        using var world = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var current = world.ExportState();
+        var originalResources = current.Map.Resources
+            .Where(resource => !resource.Id.StartsWith("tree-", StringComparison.Ordinal))
+            .Select(resource => resource with { TreeKind = null }).ToArray();
+        var oldIds = originalResources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
+        var oldMap = current.Map with { Resources = originalResources, ManifestDigest = string.Empty };
+        oldMap = oldMap with { ManifestDigest = MapManifestCodec.Digest(oldMap) };
+        var oldSystems = current.WorldSystems! with
+        {
+            Ecology = current.WorldSystems.Ecology with
+            {
+                Resources = current.WorldSystems.Ecology.Resources.Where(resource => oldIds.Contains(resource.Id)).ToArray(),
+            },
+            Chunks = current.WorldSystems.Chunks.Select(chunk => ChunkManifestCodec.WithDigest(chunk with
+            {
+                Resources = chunk.Resources.Where(resource => oldIds.Contains(resource.ResourceId)).ToArray(),
+            })).ToArray(),
+        };
+        var oldCheckpoint = current with
+        {
+            Map = oldMap,
+            Resources = current.Resources.Where(resource => oldIds.Contains(resource.ResourceId)).ToArray(),
+            WorldSystems = oldSystems,
+        };
+
+        using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(
+            PrivateWorldRuntimeCodec.Encode(oldCheckpoint)));
+        Assert.Equal(oldMap.ManifestDigest, restored.ExportState().Map.ManifestDigest);
+        Assert.DoesNotContain(restored.ExportState().Map.Resources, resource => resource.TreeKind is not null);
+    }
+
+    [Fact]
+    public async Task AgentReplantsHarvestedTreeFromCarriedSeed()
+    {
+        var options = new GeographyOptions("agent-replanting", WorldSizePreset.Small);
+        using var setup = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var map = setup.ExportState().Map;
+        var bedroll = map.GetObject("bedroll").Position;
+        var startingTiles = map.Tiles.Where(tile =>
+                Math.Abs(tile.Position.X - bedroll.X) <= 5 &&
+                Math.Abs(tile.Position.Y - bedroll.Y) <= 5 &&
+                map.IsPassable(tile.Position) &&
+                !map.CampObjects.Any(item => item.Position == tile.Position) &&
+                !map.Resources.Any(item => item.Position == tile.Position))
+            .Take(4).Select(tile => tile.Position).ToArray();
+        Assert.Equal(4, startingTiles.Length);
+        for (var index = 0; index < 4; index++)
+            setup.PlaceFounder("founder:" + Guid.NewGuid().ToString("N"), startingTiles[index]);
+        setup.StartWorld();
+
+        var initial = setup.ExportState();
+        var actor = initial.Inhabitants[0].InhabitantId;
+        var occupied = initial.Inhabitants.Skip(1).Select(person => person.Position).ToHashSet();
+        var treeSite = map.Resources.Where(site => site.TreeKind is not null && site.IsRenewable &&
+                map.IsReachableFromCampOnFoot(site.Position))
+            .Select(site => new
+            {
+                Site = site,
+                Stand = map.FootNeighbors(site.Position).FirstOrDefault(position =>
+                    map.IsPassable(position) && !occupied.Contains(position) &&
+                    !map.Resources.Any(resource => resource.Position == position)),
+            })
+            .First(item => map.Contains(item.Stand) && map.IsPassable(item.Stand));
+        var stump = initial.WorldSystems!.Ecology.GetResource(treeSite.Site.Id) with
+        {
+            Quantity = 0,
+            State = EcologyResourceState.Regenerating,
+            NextRegenerationDay = 6,
+        };
+        var seededInventory = InventoryFixture.AddLot(initial.Society.Society.Inventory,
+            "replant-test-seed", "seed", actor, 1);
+        var state = initial with
+        {
+            Inhabitants = initial.Inhabitants.Select(person => person.InhabitantId == actor
+                ? person with { Position = treeSite.Stand, HungerBasisPoints = 9_000, EnergyBasisPoints = 9_000 }
+                : person).ToArray(),
+            Resources = initial.Resources.Select(resource => resource.ResourceId == treeSite.Site.Id
+                ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
+            WorldSystems = initial.WorldSystems with
+            {
+                Ecology = initial.WorldSystems.Ecology with
+                {
+                    Resources = initial.WorldSystems.Ecology.Resources.Select(resource =>
+                        resource.Id == stump.Id ? stump : resource).ToArray(),
+                },
+            },
+            Society = initial.Society with
+            {
+                Society = initial.Society.Society with { Inventory = seededInventory },
+            },
+        };
+        using var world = PrivateWorldRuntime.Restore(state,
+            id => id == actor ? new ReplantProvider() : new DeterministicDecisionProvider());
+        for (var tick = 0; tick < 12 && !world.ExportState().Events.Any(item => item.Kind == "tree_replanted"); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        Assert.Contains(world.ExportState().Events, item => item.Kind == "tree_replanted" &&
+            item.Detail.Contains(treeSite.Site.Id, StringComparison.Ordinal));
+        Assert.True(world.WorldSystems.Ecology.GetResource(treeSite.Site.Id).IsPlanted);
+        Assert.DoesNotContain(world.Society.Inventory.Lots, lot => lot.Id == "replant-test-seed" && lot.Quantity > 0);
+        var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        using var restored = PrivateWorldRuntime.Restore(saved);
+        Assert.True(restored.WorldSystems.Ecology.GetResource(treeSite.Site.Id).IsPlanted);
+        Assert.True(Assert.Single(new OwnerWorldObservationStore(restored).GetSnapshot().Resources,
+            resource => resource.Id == treeSite.Site.Id).IsPlanted);
+    }
+
+    private sealed class ReplantProvider : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var desired = request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id == "replant_tree");
+            return new DeterministicDecisionProvider().DecideAsync(request with
+            {
+                Observation = request.Observation with
+                {
+                    Candidates = desired is null ? request.Observation.Candidates : [desired],
+                },
+            }, cancellationToken);
+        }
     }
 
     [Fact]

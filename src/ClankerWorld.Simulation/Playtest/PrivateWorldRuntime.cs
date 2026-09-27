@@ -2020,7 +2020,20 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     {
         var config = WorldStartPaceRules.WorldSystems(startPace);
         var resources = map.Resources
-            .Select(resource => resource.IsRenewable
+            .Select(resource => resource.TreeKind is not null
+                ? new EcologyResource(
+                    resource.Id,
+                    resource.Kind,
+                    resource.Position,
+                    resource.IsRenewable,
+                    1,
+                    1,
+                    resource.IsRenewable ? 1 : 0,
+                    resource.IsRenewable ? 6 : 0,
+                    SeasonKind.Spring,
+                    6,
+                    EcologyResourceState.Available)
+                : resource.IsRenewable
                 ? new EcologyResource(
                     resource.Id,
                     resource.Kind,
@@ -2493,6 +2506,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AssistProject(inhabitantId, state, candidateId[7..]);
             return;
         }
+        if (candidateId == "replant_tree")
+        {
+            ReplantTree(inhabitantId, state);
+            return;
+        }
 
         switch (candidateId)
         {
@@ -2907,6 +2925,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AddBuildCandidates(candidates, inhabitant, state);
             AddInhabitantBuildingDesignCandidates(candidates, inhabitant, state);
             AddProjectAssistanceCandidates(candidates, inhabitantId);
+            AddForestryCandidates(candidates, inhabitantId, state);
             AddTradeCandidates(candidates, inhabitantId);
             AddCouncilCandidates(candidates, inhabitantId);
             AddLearningCandidates(candidates, inhabitantId);

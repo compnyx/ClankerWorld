@@ -57,6 +57,12 @@ release yet.
   adjacent passable ground, remember tiles they actually visit, and return to
   their starting point. Hunger, exhaustion and urgent exposure take precedence;
   a cooldown prevents continuous wandering.
+- Generated forests and scattered meadow sites now have individual broadleaf
+  and conifer trees, with no more than one tree per tile. Cutting a tree for
+  project wood leaves a visible stump that regrows in season; agents can carry
+  household seeds to a depleted site to replant a sapling. Tree stages persist
+  through saved worlds, and the top-down client draws only camera-visible trees.
+  Existing generated saves retain their original vegetation layout and remain loadable.
 - Agents can walk through one-tile-wide river crossings and mountain tiles at
   half the dry-ground travel speed. Wider river sections, peaks, lakes and
   oceans remain impassable, and river/mountain tiles remain non-buildable.
