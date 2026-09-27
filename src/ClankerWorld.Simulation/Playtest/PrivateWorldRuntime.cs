@@ -3209,6 +3209,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 person.LastPhysical.EnergyBasisPoints is < 0 or > 10_000)
                 throw new InvalidDataException("The deceased inhabitant archive contains an invalid final state.");
             ValidatePrivateThoughts(person.LastPhysical.RecentThoughts, schemaVersion, person.DeathTick);
+            ValidateExploration(person.LastPhysical.Exploration, map, person.DeathTick);
         }
     }
 
