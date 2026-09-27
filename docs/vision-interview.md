@@ -903,6 +903,14 @@ library handles revisions and conflicting imports.
   library reads the latest save for each world rather than silently merging
   their creations.
 
+### Preferred from playtesting
+
+**Load World should warn about compatibility of existing worlds before the
+player opens one.** The status should come from actual save/version and required
+content checks, not from age or a guessed label. The presentation of unknown,
+migratable and incompatible cases, and whether an incompatible world can be
+attempted or only preserved/exported, remain open.
+
 ### Open
 
 Whether manual saves are checkpoints or divergent branches; restore/rewind

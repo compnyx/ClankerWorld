@@ -1278,3 +1278,10 @@ resolution choices, large actor buttons that can overflow zoomed-out tiles,
 forest as a ground kind/color rather than tree art, and threshold-based
 mountain/peak terrain. The particular playtest world's mountain distribution
 and the exact reason for similar model-generated names remain unverified.
+
+Computment then added that a compatibility warning for existing saves in
+**Load World** would be nice. This is a preferred player-facing warning, not a
+decision that old development saves must remain loadable. The current world
+catalog has no per-world compatibility verdict; it lists name and update time.
+Whether warning-only, migration, or blocking applies to incompatible saves is
+unresolved.

@@ -21,6 +21,11 @@ the resolution evidence below.
 
 ## September playtest reports and confirmed product gaps
 
+- **Load World has no compatibility warning — confirmed gap:** its list shows
+  only world name, current-world marker and update time. The catalog does not
+  expose a compatibility assessment for each saved world, so the client cannot
+  warn reliably before selection. Computment prefers a warning for existing
+  saves; exact incompatible/migration behavior remains an interview question.
 - **Manual-save overwrite unavailable — confirmed gap:** Save World only
   creates a new opaque-ID checkpoint. Reusing a visible name creates another
   checkpoint with that name; the client has no select-and-overwrite action.
