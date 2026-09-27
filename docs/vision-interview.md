@@ -148,18 +148,15 @@ reopen the decided player-local distribution goal.
   **Event Log** button, an **Add Agent** button near the menu button, and the
   menu button at top-right. Date display format and 24-hour/AM-PM time format
   belong in UI Settings.
-- Important events appear in the **Event Log**; out-of-view events can also
-  produce small, temporary screen notifications, while routine activity stays
-  quiet. These are **extra notices for events that remain in the full log**,
-  not a separate event stream or permanent objects placed in the world.
-  Examples include births, deaths, inventions, and newly founded settlements.
-  Clicking the top-bar Event Log button opens the log; clicking a located event
-  moves the camera to where it happened. Opening the log does not pause the world.
-  Players can choose which event types show pop-up notifications; suppressing
-  a pop-up does **not** remove that event from the full log.
+- Important events belong in the **Event Log**, not optional out-of-view
+  event pop-ups/notices. Clicking the top-bar Event Log button opens the log;
+  clicking a located event moves the camera to where it happened. Opening the
+  log does not pause the world. This supersedes the earlier configurable
+  notification proposal; an agent's inspectable info panel is not an event
+  notice.
 - World Info should let the player inspect discovered capabilities and other
   world information. Filters should reveal established household property
-  borders, settlement borders, and similar world facts. The UI must not invent
+  borders, Town borders, and similar world facts. The UI must not invent
   ownership or borders that agents have not established.
 - The top-right menu button opens the **Pause Menu** and pauses the world. It
   includes **Save World**, **Settings**, and **Quit to Menu**. Settings use
@@ -230,10 +227,10 @@ World Settings must be absent from Main Menu Settings while no world is loaded;
 opening Main Menu settings must never enter a world.
 
 In the **Add Agent** placement view, show existing household property and
-settlement borders so computment can see the new agent's initial affiliation.
+Town borders so computment can see the new agent's initial affiliation.
 Suggested precedence: placement on household-owned tiles joins that household
-(and its enclosing settlement, if any); placement elsewhere within a
-settlement joins the settlement but no household; placement on unclaimed land
+(and its enclosing Town, if any); placement elsewhere within a
+Town joins the Town but no household; placement on unclaimed land
 outside both starts an independent agent. Location establishes **starting
 social membership**, not biological ancestry or permanent membership based on
 where the agent later walks. A player-added adult could be a new unrelated
@@ -356,7 +353,7 @@ accounting details need design and playtesting.
 - Use **64×64 logical tiles per chunk** as the initial organization target.
   Chunks help storage, loading, and rendering without forcing an entire chunk
   into one giant texture. Rendering only what the camera sees is distinct from
-  simulating what happens elsewhere. Agents, crops, and settlements do not stop
+  simulating what happens elsewhere. Agents, crops, and Towns do not stop
   existing or progressing outside the camera. Distant work may be event-driven
   or coarser only if outcomes remain credible.
 - A world may enable **east/west wrapping** with real northern and southern
@@ -368,8 +365,10 @@ accounting details need design and playtesting.
   resource abundance. Keep simple presets, plus **advanced sliders for
   meaningful geography** such as forest cover, mountain relief, water/rivers
   and resources; not every internal generator parameter needs a control. A
-  responsive map preview updates when those choices change. Exact sliders,
-  ranges, dependencies and preview fidelity remain open.
+  responsive, **exact preview of the selected world seed and settings** updates
+  when those choices change, so accepting it creates that geography rather
+  than a different approximation. Exact sliders, ranges, dependencies and
+  performance strategy remain open.
 - **Small and Medium each have one continent**; a continent-count control is
   available only for **Large, Huge, and Mega**. The selected count is a loose
   generation target, not a promise of that many ocean-separated landmasses:
@@ -388,7 +387,8 @@ accounting details need design and playtesting.
   cover**, and **objects** separately. The generator makes plausible forests,
   cacti, grass, stone, snow, water depths, and transitions for their locations.
   A dense tree stand can be one resource-bearing object with art depicting
-  several trees; cutting leaves a stump/trunk and regrowth can occur.
+  several trees. Trees yield wood when harvested, leave stumps that can regrow,
+  and can also be replanted from seeds when forest resources are depleted.
 - Generated geography includes **rivers** as well as oceans, shores and lakes.
   Rivers belong to the 2D, top-down tile world and its hydrology layer; they
   must remain continuous across an enabled east/west world seam. A noise
@@ -410,13 +410,12 @@ mountain regions rather than relying on rare seeds to reveal them. The
 attainable guarantee for each world size/climate and preview update performance
 remain open.
 
-Computment prefers agents being able to cross **one-tile-wide rivers on foot**
-and the world road system later establishing a bridge at a crossing used enough
-to warrant one. Wider/deeper river crossing rules, bridge materials/work,
-traffic threshold and whether crossing is slowed remain open. Some heavily
-established roads should become permanent rather than always decaying; what
-qualifies and how later removal works are open. Town site planning and road
-formation must be designed together, not as unrelated generators.
+Computment wants agents to cross **one-tile-wide rivers on foot, more slowly**
+than dry ground. The world may automatically add bridges at sufficiently used
+crossings; exact traffic threshold, bridge materials/work, and wider/deeper
+river crossing rules remain open. Some established roads should become
+permanent; the criterion and later removal rule remain open. Town site planning
+and road generation must be designed together, not as unrelated generators.
 
 ### Open
 
@@ -437,7 +436,7 @@ elevation and long-run rainfall, route water downhill toward coasts or inland
 lakes, accumulate upstream flow, and mark sufficiently fed channels as rivers.
 Handle trapped low areas as lakes/outlets and use east/west-wrapped neighbors
 when wrapping is enabled. River abundance, width, crossings, seasonal behavior,
-and exact effects on farms and settlements remain open. Noise is a candidate
+and exact effects on farms and Towns remain open. Noise is a candidate
 for the terrain fields, not a substitute for drainage routing. Relevant
 references: [Red Blob's noise-map guide](https://www.redblobgames.com/maps/terrain-from-noise/),
 [the polygon-map guide](https://xenon.stanford.edu/~amitp/game-programming/polygon-map-generation/),
@@ -531,7 +530,7 @@ first-complete-game roadmap.
   unrelated founder agents** using the per-agent provider/model/credential
   flow. They are grouped 2+2 into two starter households, not forced couples;
   family lines develop later through relationships and children. The households
-  exist even before formal land claims or settlement. The simulation cannot
+  exist even before formal land claims or a Town. The simulation cannot
   begin until this paused founder setup is complete. **How the initial camp is
   sited and laid out, and which starter buildings/resources are included, is
   reopened** below; the earlier individually placed kit is not the current
@@ -605,22 +604,16 @@ first-complete-game roadmap.
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
 
-### Reopened after the survival and town-layout playtest
+### Decided and open after the survival and town-layout playtest
 
-The player previously chose an empty camp location and individually placed two
-small houses, a shared storehouse, a fire/cooking area, and a workshop; the
-game connected them with a path and stocked starter food, seeds, hand tools,
-and clothing. Computment now prefers exploring a town-layout system that
-places the initial buildings and paths instead of requiring every footprint
-from the player. Whether the player chooses a general camp area, accepts a
-generated layout, or can reroll/edit it is open. The **starter building catalogue
-and stocking assumptions are also reopened**, not silently retained as a
-mandatory kit. If the shared storehouse remains, revisit its common-pool and
-settlement-resident access rules alongside the wider building design.
-
-A suitability overlay that distinguishes good, poor-but-legal, and physically
-impossible camp areas is still a useful proposal, but its scoring and UI should
-be designed against the revised setup flow.
+The player chooses a **rough camp site** in New World, with the best suitable
+areas shown. Town-generation rules place the starter buildings and roads;
+the player can accept that layout or remove it and redo it. The accepted
+starter core is **two Houses and a Warehouse**. A Farmhouse, Blacksmith and
+clothing-making place are possible additional starters, **not yet mandatory**.
+The player chooses starter supplies during New World setup. Exact suitability
+scoring, placement controls, what a redo preserves, available supply choices,
+and whether a Workshop or other building starts present remain open.
 
 ### Open
 
@@ -632,15 +625,14 @@ inheritance mechanics, continuity threshold and exit conditions,
 pregnancy/birth and childcare rules, care/resource eligibility, Jev's
 optional role in childhood, and the identity implications of player renaming.
 Base-camp placement rules and interface remain open: its order relative to
-founder placement, physically valid terrain and footprints, what the warning
-flags, how fertile land is ensured or assessed, the placement boundary's
-exact distance measurement near tile/footprint edges, whether geometric
-proximity also requires a walkable route, and how movement/undo affects
-assigned founder households and configuration. Storehouse details remain open:
-formal ownership, how settlement residency is determined, access when the
-building is outside
-all settlement borders or borders change, and how its hard access gate relates
-to any future, separate crime system. The optional survival grace period still
+founder placement, physically valid terrain and footprints, how fertile land
+is ensured or assessed, the placement boundary's exact distance measurement
+near tile/footprint edges, whether geometric proximity also requires a walkable
+route, and how redo affects assigned founder households and configuration.
+Warehouse details remain open: formal ownership, how Town residency is
+determined, access when the building is outside all Town borders or borders
+change, and how its hard access gate relates to any future crime system. The
+optional survival grace period still
 needs a duration and precise effects. Also open:
 whether unrelated newcomers can arrive without player action or are only
 introduced through Add Agent. A configurable automatic-birth limit was
@@ -745,9 +737,21 @@ direction, not proof that it will feel right in the finished game.
   on projects and social/exploration actions. This is a change to the intended
   game, not a claim that the current runtime has been modified.
 - **Food still matters; severe weather still matters.** Survival should not
-  consume nearly every decision. Severe weather should not remain severe so
-  long that agents can do little but shelter. Exact scarcity, weather duration
-  and consequences remain to be chosen.
+  consume nearly every decision. Agents choose priorities based on needs rather
+  than a universal rigid hierarchy. Better meals, farming, trade, and food
+  businesses should make nourishment part of civilization's growth, not only
+  a repetitive emergency. Food belongs in household Houses, not the Town's
+  resource Warehouse.
+- A severe weather event lasts **no more than three-quarters of a game day**.
+  An agent may shelter from storms **only in their own household's House**.
+  Weather may sometimes cause illness; illness lowers some agent capabilities
+  and recovery benefits from being fed/cared for, with staying home potentially
+  helping. Exact illness penalties, care and recovery rules remain open.
+- Exploration should have real motives: locating resources, terrain and other
+  Towns, with occasional curiosity also possible. Agents may travel as far as
+  they choose. Knowledge of what they discover can become maps, records and
+  books that agents can trade; individual agents do not automatically know
+  the player's fully visible map.
 
 ### Current prototype evidence (not finished-game intent)
 
@@ -765,14 +769,15 @@ removing the word “safe” would not itself make agents roam or discover thing
 
 Computment finds that agents spend too much time seeking food, rest and warmth
 or trying to feel safe, and wants more room for exploration, social life,
-building and invention. Whether weather exposure should be occasional context
-rather than a routine survival veto, and what food scarcity should mean, are
-still open. Retreating to a home during severe weather is a promising idea,
-not yet a finalized rule. Decide which pursuits should be available when
-agents are not in immediate danger, and give exploration a real motive/action
-rather than expecting it to emerge from idle behavior.
+building and invention. Define food scarcity and routine upkeep so a daily
+food economy matters without monopolizing action selection. Decide what an
+agent away from home, or without a House, does during a storm; how illness
+changes work/travel/social abilities without recreating an energy meter; and
+whether home accelerates healing or is required. Exploration, knowledge
+recording and trade need actual actions and information boundaries rather
+than an idle-label change.
 
-## Buildings, land, settlements, and animals
+## Buildings, land, Towns, and animals
 
 ### Decided
 
@@ -783,109 +788,124 @@ rather than expecting it to emerge from idle behavior.
   upper-size candidate, but the exact catalogue has not been chosen. Agents
   may invent new designs, including unusual shapes if the art and world rules
   can represent them; larger, irregular, or multi-floor buildings are therefore
-  possibilities, not automatic unlocks. Homes have households, storage,
-  occupancy capacity, and inspectable occupants and contents; they do not need
-  a sleep-recovery function. An entire household may shelter together even if
-  crowded, but overcrowding has consequences rather than making house size meaningless.
-  Guests may request permission to stay.
+  possibilities, not automatic unlocks. **House** replaces Shelter as the
+  residential building. It has household-exclusive storage/inventory, usable
+  by household members while physically inside; food is kept here. It provides
+  cooking, storm refuge, childcare and household property functions. Only its
+  own household's agents may enter. **There is no limit on how many household
+  members fit inside a House**; prior occupant-capacity, crowding and guest-stay
+  ideas are superseded. It has no bed or sleep-recovery role.
 - Non-residential buildings have distinct physical occupancy, workstation,
   storage, and other type-specific limits. Agents can reserve space when
   practical, queue or choose alternatives when full, and retain the blocked
   goal for later retry. The simulation owns that memory; Jev can help choose an
   alternative but is not responsible for remembering the task.
 - Building sites should come from understandable legal options considering
-  access, terrain, resources, ownership, and settlement context. Land can first
+  access, terrain, resources, ownership, and Town context. Land can first
   be claimed, shared, granted, or disputed. Monetary land values and purchase
   prices become meaningful after currencies exist. Agents can later buy/sell
   property. Roads help travel and influence site choice.
 - The world system must validate hard physical building constraints such as
   terrain, footprint and overlap with existing objects/resources/buildings.
-  Access, ownership/claims and settlement context also matter, without turning
+  Access, ownership/claims and Town context also matter, without turning
   every agent-created law into an unbreakable physical rule. **Who chooses the
   site is reopened** below; the prior answer that agents choose exact tiles is
   no longer settled.
 - **Housing priority for a newly added adult (decided):** when the adult has no
-  home, seek suitable existing housing first; start a new home project only if
-  none is suitable. Suitability, available capacity, ownership/household
-  permission and how an agent arranges a place are still open. This priority
-  does not by itself assign a household or make the player place buildings.
-- Agents formally establish settlements and borders. Village/town/city classes
-  are population-based. The player can inspect actual property and settlement
-  boundaries through map filters.
-- The **world system**, not agents or the player, determines where roads form.
-  Neither agents nor the player directly chooses road construction projects or
-  placements in this direction.
+  home, seek suitable existing household housing first; start a new House
+  project only if none is suitable. How they join an existing household and
+  gain its permission, or form a new household, remains open. There is no
+  occupancy-capacity gate.
+- **Town(s)** replaces “settlement” in player-facing terminology. Towns have
+  generated, inspectable borders with room to grow; adding a Town-assigned
+  building may expand that Town's border. Exact border geometry, margin,
+  assignment and expansion rule remain open. Prior population-based
+  village/town/city classes need reconsideration against the Town label.
+- **Warehouse** replaces Storehouse. It holds actual inspectable resource stock
+  at its location for agents/households resident in its Town, within that
+  Town's borders. Food belongs at home instead. Residency and border-change
+  access cases remain open.
+- **Workshop** remains for agent inventions/mods and is usable by outsiders.
+  Remove separate Cooking fire/Campfire and Stone hearth buildings; House
+  handles cooking. Remove Weaving frame and bed/bedroll content. A dedicated
+  clothing-making business/building is wanted, but its name and production
+  chain are open.
+- The **world/Town generation system** places Roads as Towns grow and buildings
+  are placed, rather than drawing them solely from walking traffic. It may
+  connect Towns with Roads. Agents and player do not paint individual Roads.
+  The existing starter Path is renamed Road in intended content. Busy narrow
+  river crossings can gain automatically placed bridges separately from Road
+  generation.
 - **Livestock and mounts** belong in the finished game. Hostile predators do
   **not** belong in the current plan, though they may be revisited later.
+  Their detailed design is deliberately deferred to late development.
 
 ### Reopened: incremental town layout
 
-Computment is reconsidering agent-picked coordinates in favor of **agents
-identifying a need and doing the work, while town-layout code produces a small
-set of viable, coherent sites that the agent can accept or reject**. The agent
-would retain a real say but not search the entire map tile by tile. This is a
-current preference for discussion, not a final selection policy. The same
-layout rules might arrange the initial camp rather than requiring the player
-to place every starter building. Site rules could consider reachable entrances,
-terrain, resources, existing buildings, settlement shape, claims, and paths;
-exact weights, how refusals work, and whether the layout system chooses one
-site or a shortlist remain open. The building catalogue and functions are
-also under review after survival-heavy playtesting.
+Agents identify a building need and do the work. The Town layout system offers
+**several ranked viable sites** rather than letting an agent search every tile.
+The agent can accept or reject; if they reject the offered sites, the project
+may not happen, but computment is concerned that this could stall Town growth.
+What happens after rejection is still open. Site ranking should account for
+terrain, resources, existing buildings, ownership, access, other Towns, room
+for growth and building purpose. Town appearance/layout should vary by
+Town/culture. Exact weights and when another offer appears are open.
 
-The earlier functional catalogue proposed a **workshop** for tools, crafting,
-repair and prototypes; farms with outdoor fields plus optional occupiable
-structures; and useful distinct roles for warehouses, markets and town halls.
-Which of these should exist at the start, emerge later, or be dropped is open.
-The [current-vs-vision content catalogue](content-catalog.md) is the working
-review sheet for these decisions; it is not an approved building list.
+The intended building roles now include House, Warehouse, Workshop,
+Farmhouse, farm fields, a private farm Silo/linked store, household-run Store,
+household-run Blacksmith with internal work stock, a clothing-making building,
+public Market, Town Hall, Port, and optional agent-founded Restaurant. A
+Farmhouse processes crops; its owning household places fertile fields, plants
+seeds, tends, harvests, and sells/trades the produce. Farm count is limited
+relative to Town size, with the exact rule open. Farm work stock is private to
+its household; the private Silo/linked store is distinct from the public Town
+Warehouse. The Blacksmith makes tools, with stock inside the building. A Store
+supports a household selling its products; a Market admits traders from any
+Town; a Restaurant buys ingredients, cooks and sells potentially better meals.
+Town Hall supports governance and Port supports boats. Exact stocks, recipes,
+ownership edge cases, prices, trade and starter timing remain open. See the
+[current-vs-vision content catalogue](content-catalog.md).
 
-**Clanker's proposal, not approved:** use one incremental layout service for
-starter-camp arrangement and later construction requests. Filter impossible
-footprints, then rank a small set of sites by building purpose, access,
-distance to existing activity/resources, terrain, and space for future growth.
-Agents ask for a building and can accept, refuse with a reason, or defer rather
-than searching coordinates. Keep paths physically connected; distinguish
-reserved access corridors from roads that later form through actual traffic.
-The generator should not preselect a fixed lifetime count of buildings.
+Wood, stone, iron, gold, diamond and many other crafting resources are wanted.
+Better tools should gate harvesting/mining more advanced resources, creating
+a progression incentive. **The exact ladder is open:** the stated example has
+stone requiring iron tools, iron requiring stone tools, and stone also requiring
+wood tools, which would create a dependency cycle if read literally. Do not
+implement a circular gate without clarifying the intended tiers. Wood and
+stone should both be useful for House construction; specific costs are open.
 
-### Decided road scope; formation details preferred
+**Clanker's still-open implementation proposal:** use one incremental layout
+service for starter arrangement and later construction requests. Filter
+impossible footprints, rank sites by purpose/access/terrain/resources/Town
+shape/future growth, and generate a connected Road layout with each accepted
+building. The generator should not preselect a fixed lifetime building count.
 
-The baseline has **one road type**, with no extra road categories or visual
-variations required until the first complete texture pass. Agents and the player
-do not place roads. Computment prefers roads forming from repeated walking,
-with limits so they do not appear everywhere. Lightly established, unused
-routes may fade with visible wear/decay, while sufficiently established roads
-could become permanent. A narrow-river crossing could mature into a bridge.
-Exact traffic, bridge, permanence, removal, decay and rendering rules remain
-open; road formation should coordinate with town site planning.
+### Decided Road scope; formation details open
 
-### Proposed road-formation rule, not accepted
-
-Count actual repeated journeys along neighboring tile connections, including
-diagonals, rather than painting every tile crossed once. A road appears only
-after sustained use on a locally dominant connected route; unused segments
-gradually fade. Give existing roads a modest route preference without letting
-a single early segment force all future traffic onto it. Honor the existing
-no-road rule for mountain and peak tiles. This is a candidate rule, not an
-approved threshold, decay rate, material model, or rendering design. Diagonal
-moves should not pass through blocked corners; exact movement cost and corner
-rules remain open.
+The baseline has **one Road type**, with no extra categories required yet.
+Roads are generated when Town buildings are placed, and may link Towns; they
+are not generated by footsteps. **Bridge placement is a separate possible
+response to traffic** at a narrow river crossing. Some Roads become permanent.
+Exact inter-Town route timing, Road layout and construction work, bridge
+threshold/materials, permanence/removal, and rendering remain open. Diagonal
+travel/Roads remain in scope; diagonal moves must not pass through blocked
+corners, with precise cost/corner rules open.
 
 ### Open
 
-Structure catalogue and effects; exact permitted configurations, footprint,
-floor, access, reservation, and queue rules; comfortable-capacity numbers;
-land-claim and dispute law;
-mayors and settlement governance; currency/land pricing; village/town/city
-thresholds; transport progression; road-use threshold, decay, other terrain
-eligibility, effects on travel, and junction/diagonal visuals; livestock uses
-and care; and whether other non-hostile wildlife is wanted.
+Structure catalogue and effects; exact configurations, footprints, interiors
+versus inspectable contents, non-residential access/reservations/queues;
+land claims and disputes; Town borders and governance; currency/land pricing;
+transport progression; Road permanence and bridges, other terrain eligibility,
+travel effects and junction/diagonal visuals; resource/tool tiers, farming
+workflow and farm/Town-size limit, private versus public stock, business
+economics; and later livestock/wildlife detail.
 
-## Settlement laws and governance
+## Town laws and governance
 
 ### Decided direction
 
-- Agents may establish settlement laws and later change them. These are
+- Agents may establish Town laws and later change them. These are
   **in-world social rules**, not unbreakable physics. An agent can violate a
   rule—for example, cut a tree in a protected grove—and the world can record
   the act for discovery, dispute, and consequences. The game should not simply
@@ -897,29 +917,29 @@ and care; and whether other non-hostile wildlife is wanted.
   can be represented as an action/dispute without automatically changing the
   underlying ownership record. Laws may guide or contest transfers through
   validated mechanisms, but cannot bypass those mechanisms.
-- A newly founded settlement starts with a **simple council** rather than a
+- A newly founded Town starts with a **simple council** rather than a
   single founder automatically ruling everyone. **Every adult resident** sits
-  on this initial council and can propose laws and vote. Settlements may later
+  on this initial council and can propose laws and vote. Towns may later
   change their governing arrangement through in-world decisions; the council
   is the starting form, not a universal permanent government.
 
 ### Preferred starting election trigger
 
-Once a settlement reaches **eight adult residents**—double the four-founder
+Once a Town reaches **eight adult residents**—double the four-founder
 starting population—it begins electing a smaller representative council
 instead of keeping every adult as a council member. Count adults in that
-settlement, not across the world. Eight is an initial threshold to playtest,
-not a claim that every settlement must forever follow this exact rule. All
+Town, not across the world. Eight is an initial threshold to playtest,
+not a claim that every Town must forever follow this exact rule. All
 adult residents should retain a vote in those elections.
 
 ### Open
 
-What qualifies an adult as a settlement resident, elected council size,
+What qualifies an adult as a Town resident, elected council size,
 election timing/terms, vote threshold/quorum, proposal/repeal procedure, and
 how governments may change; which laws apply to whom and where; how a
 violation is witnessed, investigated, enforced, or punished; claims and land
 disputes;
-taxes, inheritance, and interaction between conflicting settlements. Agents
+taxes, inheritance, and interaction between conflicting Towns. Agents
 should know only laws or violations they have learned about in-world.
 
 ## Combat
@@ -1060,7 +1080,7 @@ These are **open questions**, not changes to the decisions above:
    starter households, a close-kin pairing ban, and a low-population safeguard may
    eventually leave no eligible unrelated adults even if everyone wants
    children. Computment now prefers player-controlled addition of unrelated
-   adults, with placement seeding household/settlement membership. Decide
+   adults, with placement seeding household/Town membership. Decide
    explicitly whether those additions are the **only** source of unrelated
    newcomers or whether autonomous arrivals also exist; define exactly how
    close is too close. Whether automatic births need a configurable limit is
@@ -1089,7 +1109,7 @@ These are **open questions**, not changes to the decisions above:
    process/installer shape without creating a second, divergent game.
 
 Other substantive open topics: normal-session/player-intervention boundaries;
-memory and knowledge across generations; settlement government, economy,
+memory and knowledge across generations; Town government, economy,
 medicine and injuries; art reference/style and autonomous invention assets;
 save branches and mod compatibility. Resolve the finished-game experience
 before choosing an implementation sequence or narrowing it to the current

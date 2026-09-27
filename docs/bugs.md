@@ -29,10 +29,10 @@ the resolution evidence below.
 - **Selecting the active Settings category closes Settings — confirmed:**
   `ToggleSettingsSection` hides the whole panel when the requested category is
   already visible. Category buttons should select a page, not toggle it off.
-- **“Out-of-view event pop-ups” wording is unclear — confirmed UX gap:** these
-  are temporary on-screen notices for selected important events that also
-  remain in the Event Log; they are not a separate event source or in-world
-  pop-up at the event tile. Rename or explain the setting accordingly.
+- **Out-of-view event notices are unwanted — confirmed product mismatch:**
+  the current temporary notices/settings flow should be removed. Important
+  events remain accessible in the Event Log; this does not remove agent info
+  panels or other purposeful inspection UI.
 - **Wrapped-world camera stops at the east/west edges — confirmed:** the
   client clamps the horizontal camera axis and terrain renderer to one copy of
   the map. World generation can request east/west wrapping, but camera panning
@@ -46,10 +46,11 @@ the resolution evidence below.
   targets so an agent under the pointer takes priority over the ground tile;
   this is hover hit-testing/selection priority, not a larger agent hitbox.
 - **Narrow river crossings and bridges absent — current capability gap:**
-  river tiles are impassable, and no traffic-driven road or bridge system exists
-  yet. Computment prefers walking across one-tile-wide rivers, with frequently
-  used crossings eventually producing bridges; exact construction/material
-  rules remain an interview topic.
+  river tiles are impassable, and no Road or bridge system exists yet. Intended
+  one-tile river crossings are slower on foot; sufficiently used crossings can
+  automatically gain bridges. Town-generated Roads, not walking alone, serve
+  building placement and possible links between Towns. Exact construction,
+  route and material rules remain open.
 - **Agents rarely pursue non-survival activity — playtest report with confirmed
   candidate gap:** there is no ordinary exploration/curiosity candidate in the
   playable decision list. Low hunger/energy or urgent weather exposure can
