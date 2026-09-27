@@ -1187,3 +1187,18 @@ would be complicated. This resolves unauthorized use of this storehouse; it
 does not cancel the broader possibility of crime or other kinds of theft in
 the finished game. Formal ownership, residency criteria, and the access rule
 outside settlement borders remain open.
+
+### Camp placement undo and proximity (2026-09-27)
+
+1. **Question:** Before **Start World**, can the player move or undo a camp
+   structure already placed?
+   **Answer:** Yes, and the same applies to founder agents.
+2. **Question:** Must the four founders be placed near camp, or can they start
+   anywhere on the map?
+   **Answer:** Near camp. Computment suggested a circular limit and asked to
+   work out its size. They also require a separation limit for camp buildings
+   so the components cannot be placed at opposite ends of the world. Exact
+   center, geometry and distances were not chosen. Clanker then proposed an
+   initial 8-tile radius for structures and 12 tiles for founders, using the
+   current prototype's 6×5-tile auto-camp only as a scale reference; those
+   numbers are unapproved candidates.
