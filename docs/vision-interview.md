@@ -130,8 +130,15 @@ reopen the decided player-local distribution goal.
   meaningful facts. Show only facts the simulation actually knows; the exact
   panel and unavailable-field treatment remain to be designed.
 - One continuous pixel-art world view supports mouse-wheel zoom and WASD
-  panning. There is **no separate simplified regional view or second regional
-  texture set**. Zoom-out stops at a readability/performance limit.
+  panning. On an east/west-wrapped world, the camera should pan continuously
+  across the seam in either direction. There is **no separate simplified
+  regional view or second regional texture set**. Zoom-out stops at a
+  readability/performance limit; the current client stops too close, so the
+  eventual cap should allow a wider view.
+- Hovering a ground tile shows a square tile highlight. When an agent overlaps
+  that pointer location, **agent hover/selection takes priority** over the
+  ground tile. This is pointer hit-testing priority, distinct from making the
+  agent's clickable footprint spill into neighboring tiles.
 - An always-accessible **top-left Map button** expands a world overview. It
   shows the current camera rectangle; dragging it or clicking the overview
   moves the main camera. The overview can be drawn from world data rather than
@@ -142,10 +149,12 @@ reopen the decided player-local distribution goal.
   menu button at top-right. Date display format and 24-hour/AM-PM time format
   belong in UI Settings.
 - Important events appear in the **Event Log**; out-of-view events can also
-  produce small notifications, while routine activity stays quiet. Examples
-  include births, deaths, inventions, and newly founded settlements. Clicking
-  the top-bar Event Log button opens the log; clicking a located event moves
-  the camera to where it happened. Opening the log does not pause the world.
+  produce small, temporary screen notifications, while routine activity stays
+  quiet. These are **extra notices for events that remain in the full log**,
+  not a separate event stream or permanent objects placed in the world.
+  Examples include births, deaths, inventions, and newly founded settlements.
+  Clicking the top-bar Event Log button opens the log; clicking a located event
+  moves the camera to where it happened. Opening the log does not pause the world.
   Players can choose which event types show pop-up notifications; suppressing
   a pop-up does **not** remove that event from the full log.
 - World Info should let the player inspect discovered capabilities and other
@@ -156,6 +165,10 @@ reopen the decided player-local distribution goal.
   includes **Save World**, **Settings**, and **Quit to Menu**. Settings use
   categories on the left and selected controls on the right. Quit to Menu and
   Quit Game ask for confirmation.
+- Main Menu Settings must retain the **Main Menu background/context**, not
+  reveal the in-world UI underneath. Selecting the already-active Settings
+  category leaves its controls visible; category buttons are selectors, not
+  open/close toggles.
 - **Reaffirmed after the September playtest:** the Pause Menu has one compact
   action row, not three rows of buttons. It has one **Settings** entry; **Game**
   and **World** remain selectable categories inside Settings for a loaded world.
@@ -352,9 +365,11 @@ accounting details need design and playtesting.
   for unusual worlds. North/south wrapping into a torus is not intended.
 - Climate choices include **uniform**, **dominant**, and **balanced** modes,
   with advanced controls such as water percentage, continent count, and
-  resource abundance. The breadth of advanced sliders, including mountains,
-  forests and possibly other geography, is now under reconsideration; simple
-  presets should remain usable without micromanaging every value.
+  resource abundance. Keep simple presets, plus **advanced sliders for
+  meaningful geography** such as forest cover, mountain relief, water/rivers
+  and resources; not every internal generator parameter needs a control. A
+  responsive map preview updates when those choices change. Exact sliders,
+  ranges, dependencies and preview fidelity remain open.
 - **Small and Medium each have one continent**; a continent-count control is
   available only for **Large, Huge, and Mega**. The selected count is a loose
   generation target, not a promise of that many ocean-separated landmasses:
@@ -363,10 +378,12 @@ accounting details need design and playtesting.
   the planet. Different regions can experience different conditions, with the
   local climate influencing how likely rain, snow, and other conditions are.
   Visible clouds/rain/snow and rain affecting soil moisture/crops remain the
-  starting direction. The degree to which cold, heat, wetness, shelter,
-  clothing, and travel/work penalties drive agent behavior is **reopened**
-  after the survival-heavy playtest. Severe storms, floods, disasters, and
-  elaborate weather physics are not assumed for the first complete game.
+  starting direction. Severe weather matters, but should be bounded in duration
+  and should not monopolize an agent's life. The degree to which ordinary
+  cold, heat, wetness, shelter, clothing, and travel/work penalties drive
+  behavior is **reopened** after the survival-heavy playtest. Floods,
+  disasters, and elaborate weather physics are not assumed for the first
+  complete game.
 - Model **climate zone**, **elevation**, **surface**, **hydrology**, **vegetation
   cover**, and **objects** separately. The generator makes plausible forests,
   cacti, grass, stone, snow, water depths, and transitions for their locations.
@@ -389,12 +406,17 @@ accounting details need design and playtesting.
 ### Preferred after the September world-generation playtest
 
 At default settings, generated worlds should visibly include forests and
-mountain regions rather than relying on rare seeds to reveal them. Computment
-is considering sliders for many meaningful generation aspects—not necessarily
-every internal parameter—and a **live preview that updates as settings change**
-instead of a static snapshot. Keep a useful preset/default path. The exact
-controls, attainable guarantees for each world size/climate, preview fidelity,
-and update performance remain open.
+mountain regions rather than relying on rare seeds to reveal them. The
+attainable guarantee for each world size/climate and preview update performance
+remain open.
+
+Computment prefers agents being able to cross **one-tile-wide rivers on foot**
+and the world road system later establishing a bridge at a crossing used enough
+to warrant one. Wider/deeper river crossing rules, bridge materials/work,
+traffic threshold and whether crossing is slowed remain open. Some heavily
+established roads should become permanent rather than always decaying; what
+qualifies and how later removal works are open. Town site planning and road
+formation must be designed together, not as unrelated generators.
 
 ### Open
 
@@ -714,7 +736,18 @@ triggers and fallback method without Jev, and Jev's exact role
 need implementation and playtesting. The proposed lifecycle is accepted as a
 direction, not proof that it will feel right in the finished game.
 
-## Survival, rest, and exploration — reopened
+## Survival and exploration
+
+### Decided finished-game direction
+
+- **Remove energy and sleeping as mechanics entirely.** No energy meter,
+  routine energy drain, sleep action, bed-based recovery loop, or energy gate
+  on projects and social/exploration actions. This is a change to the intended
+  game, not a claim that the current runtime has been modified.
+- **Food still matters; severe weather still matters.** Survival should not
+  consume nearly every decision. Severe weather should not remain severe so
+  long that agents can do little but shelter. Exact scarcity, weather duration
+  and consequences remain to be chosen.
 
 ### Current prototype evidence (not finished-game intent)
 
@@ -722,6 +755,9 @@ There is no separate numeric **safety** need in the playable runtime. Agents
 do have hunger and energy meters, warmth/exposure and illness, shelter/rest
 benefits, weather responses, and a `safe_idle` fallback. Hunger, low energy,
 and urgent exposure can pause projects or restrict available adult actions.
+Generated-world weather is currently chosen per **32×32-tile region per world
+day**, so a severe result can occupy a whole nominal six-real-minute day in a
+new world; successive severe days can extend the interruption.
 The current candidate list has no ordinary curiosity/exploration action, so
 removing the word “safe” would not itself make agents roam or discover things.
 
@@ -729,12 +765,12 @@ removing the word “safe” would not itself make agents roam or discover thing
 
 Computment finds that agents spend too much time seeking food, rest and warmth
 or trying to feel safe, and wants more room for exploration, social life,
-building and invention. Reconsider whether energy/sleep should be a meter and
-mandatory recovery loop at all; whether weather exposure should be occasional
-context rather than a constant survival veto; and what food scarcity should
-mean. No need has yet been explicitly removed. Decide which pursuits should
-be available when agents are not in immediate danger, and give exploration a
-real motive/action rather than expecting it to emerge from idle behavior.
+building and invention. Whether weather exposure should be occasional context
+rather than a routine survival veto, and what food scarcity should mean, are
+still open. Retreating to a home during severe weather is a promising idea,
+not yet a finalized rule. Decide which pursuits should be available when
+agents are not in immediate danger, and give exploration a real motive/action
+rather than expecting it to emerge from idle behavior.
 
 ## Buildings, land, settlements, and animals
 
@@ -748,10 +784,9 @@ real motive/action rather than expecting it to emerge from idle behavior.
   may invent new designs, including unusual shapes if the art and world rules
   can represent them; larger, irregular, or multi-floor buildings are therefore
   possibilities, not automatic unlocks. Homes have households, storage,
-  occupancy capacity, and inspectable occupants and contents; their exact
-  sleeping/comfort effects are reopened with the energy mechanic. An entire
-  household may shelter together even if crowded, but
-  overcrowding has consequences rather than making house size meaningless.
+  occupancy capacity, and inspectable occupants and contents; they do not need
+  a sleep-recovery function. An entire household may shelter together even if
+  crowded, but overcrowding has consequences rather than making house size meaningless.
   Guests may request permission to stay.
 - Non-residential buildings have distinct physical occupancy, workstation,
   storage, and other type-specific limits. Agents can reserve space when
@@ -801,6 +836,8 @@ The earlier functional catalogue proposed a **workshop** for tools, crafting,
 repair and prototypes; farms with outdoor fields plus optional occupiable
 structures; and useful distinct roles for warehouses, markets and town halls.
 Which of these should exist at the start, emerge later, or be dropped is open.
+The [current-vs-vision content catalogue](content-catalog.md) is the working
+review sheet for these decisions; it is not an approved building list.
 
 **Clanker's proposal, not approved:** use one incremental layout service for
 starter-camp arrangement and later construction requests. Filter impossible
@@ -816,9 +853,11 @@ The generator should not preselect a fixed lifetime count of buildings.
 The baseline has **one road type**, with no extra road categories or visual
 variations required until the first complete texture pass. Agents and the player
 do not place roads. Computment prefers roads forming from repeated walking,
-with limits so they do not appear everywhere; unused roads should gradually
-fade, with visual stages reflecting wear/decay. Exact traffic, decay, and
-rendering rules remain open.
+with limits so they do not appear everywhere. Lightly established, unused
+routes may fade with visible wear/decay, while sufficiently established roads
+could become permanent. A narrow-river crossing could mature into a bridge.
+Exact traffic, bridge, permanence, removal, decay and rendering rules remain
+open; road formation should coordinate with town site planning.
 
 ### Proposed road-formation rule, not accepted
 

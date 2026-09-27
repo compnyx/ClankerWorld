@@ -21,12 +21,42 @@ the resolution evidence below.
 
 ## September playtest reports and confirmed product gaps
 
+- **Main Menu Settings shows the in-world backdrop — confirmed:**
+  `OpenMainMenuSettings` hides the Main Menu overlay and shows the shared
+  in-world game-menu panel. The category restriction was fixed, but the
+  background still looks like entering the world. Main Menu Settings should
+  retain the Main Menu presentation.
+- **Selecting the active Settings category closes Settings — confirmed:**
+  `ToggleSettingsSection` hides the whole panel when the requested category is
+  already visible. Category buttons should select a page, not toggle it off.
+- **“Out-of-view event pop-ups” wording is unclear — confirmed UX gap:** these
+  are temporary on-screen notices for selected important events that also
+  remain in the Event Log; they are not a separate event source or in-world
+  pop-up at the event tile. Rename or explain the setting accordingly.
+- **Wrapped-world camera stops at the east/west edges — confirmed:** the
+  client clamps the horizontal camera axis and terrain renderer to one copy of
+  the map. World generation can request east/west wrapping, but camera panning
+  does not cross the seam continuously; agent route wrapping is also incomplete.
+- **Zoom-out cap feels too close — playtest preference:** client zoom is
+  clamped to 1–4 and rendered tiles have a 12 px minimum. Revisit the visible
+  area/performance/readability cap instead of treating the current minimum as
+  the finished design.
+- **Tile-hover affordance absent — confirmed gap:** ground tiles have no
+  hover outline. Add a square tile highlight and resolve overlapping pointer
+  targets so an agent under the pointer takes priority over the ground tile;
+  this is hover hit-testing/selection priority, not a larger agent hitbox.
+- **Narrow river crossings and bridges absent — current capability gap:**
+  river tiles are impassable, and no traffic-driven road or bridge system exists
+  yet. Computment prefers walking across one-tile-wide rivers, with frequently
+  used crossings eventually producing bridges; exact construction/material
+  rules remain an interview topic.
 - **Agents rarely pursue non-survival activity — playtest report with confirmed
   candidate gap:** there is no ordinary exploration/curiosity candidate in the
   playable decision list. Low hunger/energy or urgent weather exposure can
   pause projects and narrow adult choices to routine survival. There is no
   separate numeric safety need; `safe_idle` is a fallback action, not a safety
-  meter. The desired balance of food, rest and exposure is being redesigned.
+  meter. The finished-game decision now removes energy and sleeping entirely;
+  the current survival code has not yet changed.
 - **Load World has no compatibility warning — confirmed gap:** its list shows
   only world name, current-world marker and update time. The catalog does not
   expose a compatibility assessment for each saved world, so the client cannot

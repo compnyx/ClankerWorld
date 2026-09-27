@@ -16,6 +16,7 @@ identifier reset intentionally required a fresh save and device pairing.
 | What actually works in the Godot/private-VPS prototype today? | [Current state](current-state.md) |
 | How are the current client, simulation, saves and model calls separated? | [Architecture](architecture.md) |
 | Which confirmed problems or unverified fixes remain? | [Known bugs](bugs.md) |
+| Which buildings, camp objects, resources and terrain exist now versus the reopened vision? | [Content catalogue and review sheet](content-catalog.md) |
 
 Development references: [build and test](building.md), [current private-host
 pairing](pairing.md), and [release/version policy](releasing.md).
@@ -34,6 +35,8 @@ pairing](pairing.md), and [release/version policy](releasing.md).
   invariants that current code must respect. It does not override the finished
   vision. **Known bugs** tracks confirmed gaps; current state may note the
   immediate implementation focus without creating another vision document.
+- The **content catalogue** is a review sheet joining current definitions to
+  open design questions; it does not approve costs, contents or future roster.
 - Keep these answers separate. Update the affected current document when
   behavior or policy changes; link to it instead of maintaining another copy.
 
