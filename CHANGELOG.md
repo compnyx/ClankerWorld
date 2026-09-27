@@ -8,6 +8,11 @@ release yet.
 
 ### Fixed
 
+- Signed owner reconnects now use a versioned terrain-cache claim. After an
+  initial generated-map transfer, unchanged terrain bytes are omitted from
+  routine observations; clients reuse only a matching world ID and manifest
+  and fetch a full map after reconnect without a cache, world switch or map
+  change. Ordinary world events and dynamic objects remain fresh.
 - Private-world saves now store generated terrain in versioned 64×64 byte
   chunks with per-chunk integrity hashes rather than one JSON object per tile.
   Existing v1 saves load and migrate atomically to v2/schema 19; damaged or

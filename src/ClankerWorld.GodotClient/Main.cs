@@ -1078,11 +1078,17 @@ public partial class Main : Control
         try
         {
             var requestedCursor = observationSession.EventCursor;
+            var cachedTerrain = observationSession.Current is { } held &&
+                held.Handshake.ServerCapabilities.Contains("owner-terrain-delta.v1", StringComparer.Ordinal) &&
+                held.Baseline.Snapshot.PackedTerrain is not null
+                ? held.Baseline.Snapshot : null;
             var reconnect = await ownerApi.ReconnectAsync(
                 ResolveWorldUri(),
                 registration.Authority,
                 registration.DeviceId,
                 requestedCursor,
+                cachedTerrain?.WorldId,
+                cachedTerrain?.MapManifestDigest,
                 deviceKey,
                 CancellationToken.None);
             if (!observationSession.TryAccept(reconnect, requestedCursor, out var failure))
@@ -1095,7 +1101,7 @@ public partial class Main : Control
             {
                 knownEvents.Clear();
             }
-            Render(reconnect.Baseline.Snapshot, reconnect.Baseline.Events.Events);
+            Render(observationSession.Current!.Baseline.Snapshot, reconnect.Baseline.Events.Events);
             successfulRefreshCount++;
             if (!isOwnerAction)
             {

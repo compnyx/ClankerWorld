@@ -33,7 +33,8 @@ public sealed record OwnerSignedHttpRequest<TAction>(
     TAction Action)
     where TAction : class;
 
-public sealed record OwnerReconnectAction(long AfterEventId);
+public sealed record OwnerReconnectAction(long AfterEventId,
+    string? KnownTerrainWorldId = null, string? KnownTerrainDigest = null);
 
 public sealed record OwnerControlAction(string Operation);
 public sealed record OwnerManualSaveAction(string Operation, string Value);
@@ -160,10 +161,14 @@ public static class OwnerHttpBinding
             $"payload-sha256={ToBase64Url(digest)}");
     }
 
-    public static string ReconnectPayload(OwnerReconnectAction action) => string.Join(
-        '\n',
-        "clankerworld.owner-reconnect.v1",
-        $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}");
+    public static string ReconnectPayload(OwnerReconnectAction action) =>
+        action.KnownTerrainWorldId is null && action.KnownTerrainDigest is null
+            ? string.Join('\n', "clankerworld.owner-reconnect.v1",
+                $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}")
+            : string.Join('\n', "clankerworld.owner-reconnect.v2",
+                $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}",
+                $"terrain-world-id={EncodeRequired(action.KnownTerrainWorldId!, nameof(action.KnownTerrainWorldId))}",
+                $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}");
 
     public static string EmptyPayload(string operation) => string.Join(
         '\n',

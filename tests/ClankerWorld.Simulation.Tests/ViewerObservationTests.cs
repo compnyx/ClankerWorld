@@ -1,12 +1,32 @@
 using ClankerWorld.Simulation.Content;
 using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.World;
 using ClankerWorld.Viewer.Observation;
 
 namespace ClankerWorld.Simulation.Tests;
 
 public sealed class ViewerObservationTests
 {
+    [Fact]
+    public void GeneratedReconnectOmitsOnlyAlreadyHeldTerrain()
+    {
+        var geography = new GeographyOptions("cached-terrain", WorldSizePreset.Small);
+        using var runtime = new PrivateWorldRuntime(geography.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: geography);
+        var store = new OwnerWorldObservationStore(runtime);
+        var initial = store.GetReconnectBaseline(0).Snapshot;
+        Assert.NotNull(initial.PackedTerrain);
+        Assert.Contains("owner-terrain-delta.v1", store.GetOwnerHandshake().ServerCapabilities);
+
+        var unchanged = store.GetReconnectBaseline(0, initial.WorldId, initial.MapManifestDigest).Snapshot;
+        Assert.Null(unchanged.PackedTerrain);
+        Assert.Empty(unchanged.Tiles);
+        Assert.Equal(initial.MapManifestDigest, unchanged.MapManifestDigest);
+        Assert.NotNull(store.GetReconnectBaseline(0, "other-world", initial.MapManifestDigest).Snapshot.PackedTerrain);
+        Assert.NotNull(store.GetReconnectBaseline(0, initial.WorldId, "wrong-digest").Snapshot.PackedTerrain);
+    }
+
     [Fact]
     public void ResourceProjectionCarriesAuthoritativeStockAndRegrowthIntoTheClient()
     {

@@ -105,6 +105,20 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(preview.Terrain.Data, view.Baseline.Snapshot.PackedTerrain?.Data);
                 Assert.Equal(create.WrapEastWest, view.Baseline.Snapshot.WrapsEastWest);
                 Assert.Empty(view.Baseline.Snapshot.Tiles);
+                var cachedReconnect = new OwnerReconnectAction(0, entry.WorldId,
+                    view.Baseline.Snapshot.MapManifestDigest);
+                using var observedAgain = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/reconnect", cachedReconnect,
+                    OwnerHttpBinding.ReconnectPayload(cachedReconnect));
+                Assert.Equal(HttpStatusCode.OK, observedAgain.StatusCode);
+                var cachedView = (await observedAgain.Content.ReadFromJsonAsync<ViewerOwnerReconnect>())!;
+                Assert.Null(cachedView.Baseline.Snapshot.PackedTerrain);
+                Assert.Empty(cachedView.Baseline.Snapshot.Tiles);
+                Assert.Equal(view.Baseline.Snapshot.MapManifestDigest,
+                    cachedView.Baseline.Snapshot.MapManifestDigest);
+                Assert.True((await observed.Content.ReadAsByteArrayAsync()).Length -
+                    (await observedAgain.Content.ReadAsByteArrayAsync()).Length >=
+                    view.Baseline.Snapshot.PackedTerrain!.Data.Length);
                 Assert.Empty(providers.CaptureRuntimeConfiguration().Assignments ?? []);
                 Assert.Equal(5, host.Services.GetRequiredService<WorldAutosaveStore>().Capture().IntervalMinutes);
                 Assert.DoesNotContain("test-secret-key", File.ReadAllText(Path.Combine(

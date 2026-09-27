@@ -268,7 +268,8 @@ public sealed record OwnerWorldReconnectBaseline(OwnerWorldSnapshot Snapshot, Ow
 
 public sealed record OwnerWorldReconnect(OwnerWorldHandshake Handshake, OwnerWorldReconnectBaseline Baseline);
 
-public sealed record OwnerReconnectAction(long AfterEventId);
+public sealed record OwnerReconnectAction(long AfterEventId,
+    string? KnownTerrainWorldId = null, string? KnownTerrainDigest = null);
 
 public sealed record OwnerControlAction(string Operation);
 public sealed record OwnerManualSaveAction(string Operation, string Value);
@@ -563,6 +564,20 @@ public sealed class OwnerWorldObservationSession
             return false;
         }
 
+        if (baseline.Snapshot.PackedTerrain is null && baseline.Snapshot.Tiles.Count == 0)
+        {
+            var cached = Current?.Baseline.Snapshot;
+            if (!capabilities.Contains("owner-terrain-delta.v1") || cached?.PackedTerrain is null ||
+                !string.Equals(cached.WorldId, baseline.Snapshot.WorldId, StringComparison.Ordinal) ||
+                !string.Equals(cached.MapManifestDigest, baseline.Snapshot.MapManifestDigest, StringComparison.Ordinal))
+            {
+                failure = "The owner terrain cache cannot satisfy this reconnect baseline.";
+                return false;
+            }
+            var merged = baseline.Snapshot with { PackedTerrain = cached.PackedTerrain };
+            response = response with { Baseline = baseline with { Snapshot = merged } };
+        }
+
         Current = response;
         failure = string.Empty;
         return true;
@@ -575,10 +590,14 @@ public sealed class OwnerWorldObservationSession
 /// </summary>
 public static class OwnerWorldActionPayload
 {
-    public static string Reconnect(OwnerReconnectAction action) => string.Join(
-        '\n',
-        "clankerworld.owner-reconnect.v1",
-        $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}");
+    public static string Reconnect(OwnerReconnectAction action) =>
+        action.KnownTerrainWorldId is null && action.KnownTerrainDigest is null
+            ? string.Join('\n', "clankerworld.owner-reconnect.v1",
+                $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}")
+            : string.Join('\n', "clankerworld.owner-reconnect.v2",
+                $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}",
+                $"terrain-world-id={EncodeRequired(action.KnownTerrainWorldId!, nameof(action.KnownTerrainWorldId))}",
+                $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}");
 
     public static string Control(string operation) => string.Join(
         '\n',
@@ -911,10 +930,12 @@ public sealed class OwnerWorldApi
         OwnerAuthorityIdentity authority,
         string deviceId,
         long afterEventId,
+        string? knownTerrainWorldId,
+        string? knownTerrainDigest,
         IOwnerDeviceSigner deviceKey,
         CancellationToken cancellationToken)
     {
-        var action = new OwnerReconnectAction(afterEventId);
+        var action = new OwnerReconnectAction(afterEventId, knownTerrainWorldId, knownTerrainDigest);
         return pairing.SendSignedActionAsync<OwnerReconnectAction, OwnerWorldReconnect>(
             serverUri,
             authority,

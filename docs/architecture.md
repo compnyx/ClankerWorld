@@ -34,8 +34,11 @@ them after a short grace period; reconnecting does not simulate missed time.
 The Godot terrain layer draws only camera-visible tiles from a compact local
 terrain index. Its top-left overview samples that index into a small atlas;
 neither path creates a Control per tile or a separate regional art set. The
-host sends packed terrain for generated worlds, but repeated full-map transfer
-remains a large-world blocker.
+host sends packed terrain for generated worlds. Signed reconnects advertise a
+held world ID and map digest, so unchanged terrain is omitted and the client
+reuses its verified map; first connection, world switch and digest changes
+send a full map. This whole-map delta avoids routine retransmission, but
+viewport/chunk transfer and control-receipt caching remain large-world work.
 The simulation can project Small/Medium deterministic generated geography into
 its existing physical-map contract, place an empty camp on a clear 64×64
 region, then carry generation options through save/reload and starting-agent setup.
@@ -85,8 +88,8 @@ For generated maps, the owner projection now carries terrain as row-major
 terrain-kind bytes encoded in base64; the matching Godot client decodes those
 into its compact camera/overview index. The existing 6×5 world still emits
 the former tile list for the currently paired Windows build. Generated-world
-snapshots still resend the full packed terrain on each observation; viewport
-chunk requests and cache invalidation are not implemented yet.
+reconnect snapshots omit unchanged packed terrain through a versioned cache
+claim; viewport chunk requests and partial-map deltas are not implemented yet.
 
 The private host keeps one active runtime object so existing signed controls
 remain directed at the selected world. A private catalog archives each world's

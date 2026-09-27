@@ -1,5 +1,6 @@
 using ClankerWorld.GodotClient.UI;
 using OwnerHttpBinding = ClankerWorld.Viewer.Control.OwnerHttpBinding;
+using ServerReconnectAction = ClankerWorld.Viewer.Control.OwnerReconnectAction;
 using ServerDeviceManagementAction = ClankerWorld.Viewer.Control.OwnerDeviceManagementAction;
 using ServerInstructionAction = ClankerWorld.Viewer.Control.OwnerInstructionAction;
 using ServerPairingApprovalAction = ClankerWorld.Viewer.Control.OwnerPairingApprovalAction;
@@ -9,6 +10,56 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class GodotOwnerWorldApiTests
 {
+    [Fact]
+    public void CachedTerrainReconnectPayloadMatchesHostAndLegacyPayloadRemainsStable()
+    {
+        var digest = new string('a', 64);
+        Assert.Equal(OwnerHttpBinding.ReconnectPayload(new ServerReconnectAction(5)),
+            OwnerWorldActionPayload.Reconnect(new OwnerReconnectAction(5)));
+        Assert.Equal(OwnerHttpBinding.ReconnectPayload(new ServerReconnectAction(5, "world-1", digest)),
+            OwnerWorldActionPayload.Reconnect(new OwnerReconnectAction(5, "world-1", digest)));
+    }
+
+    [Fact]
+    public void ReconnectReusesOnlyTheSameWorldAndManifestTerrain()
+    {
+        var first = CreateCoherentReconnect();
+        var packed = new OwnerWorldPackedTerrain(1, 1, "terrain-kind-v1", "AA==");
+        first = first with
+        {
+            Handshake = first.Handshake with
+            {
+                ServerCapabilities = [.. first.Handshake.ServerCapabilities, "owner-terrain-delta.v1"],
+            },
+            Baseline = first.Baseline with
+            {
+                Snapshot = first.Baseline.Snapshot with { Tiles = [], PackedTerrain = packed },
+            },
+        };
+        var session = new OwnerWorldObservationSession();
+        Assert.True(session.TryAccept(first, 3, out var firstFailure), firstFailure);
+        var delta = first with
+        {
+            Baseline = first.Baseline with
+            {
+                Snapshot = first.Baseline.Snapshot with { Tiles = [], PackedTerrain = null },
+                Events = first.Baseline.Events with { AfterEventId = 5, Events = [] },
+            },
+        };
+        Assert.True(session.TryAccept(delta, 5, out var deltaFailure), deltaFailure);
+        Assert.Same(packed, session.Current!.Baseline.Snapshot.PackedTerrain);
+        Assert.False(session.TryAccept(delta with
+        {
+            Baseline = delta.Baseline with
+            {
+                Snapshot = delta.Baseline.Snapshot with { MapManifestDigest = "changed-map" },
+            },
+        }, 5, out _));
+        Assert.Same(packed, session.Current!.Baseline.Snapshot.PackedTerrain);
+        session.ResetAfterLoad();
+        Assert.False(session.TryAccept(delta, 5, out _));
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(1_460)]

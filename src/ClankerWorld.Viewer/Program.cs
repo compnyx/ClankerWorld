@@ -357,6 +357,17 @@ app.MapPost("/api/v1/owner/reconnect", (
         });
     }
 
+    if ((request.Action.KnownTerrainWorldId is null) != (request.Action.KnownTerrainDigest is null) ||
+        request.Action.KnownTerrainWorldId is { } worldId && (string.IsNullOrWhiteSpace(worldId) || worldId.Length > 256) ||
+        request.Action.KnownTerrainDigest is { } digest &&
+            (digest.Length != 64 || digest.Any(character => character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))))
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["knownTerrainDigest"] = ["The cached terrain world and lowercase manifest digest must be supplied together."],
+        });
+    }
+
     var authorization = authorizer.Authorize(
         request,
         "POST",
@@ -371,7 +382,8 @@ app.MapPost("/api/v1/owner/reconnect", (
 
     return Results.Ok(new ViewerOwnerReconnect(
         observations.GetOwnerHandshake(),
-        observations.GetReconnectBaseline(request.Action.AfterEventId)));
+        observations.GetReconnectBaseline(request.Action.AfterEventId,
+            request.Action.KnownTerrainWorldId, request.Action.KnownTerrainDigest)));
 });
 
 app.MapPost("/api/v1/owner/control/life-pace", (

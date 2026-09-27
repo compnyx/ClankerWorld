@@ -56,7 +56,7 @@ public sealed class OwnerWorldObservationStore
 
     public ViewerHandshake GetOwnerHandshake() => new(
         new ProtocolVersion(Major: 1, Minor: 1),
-        privateRuntime is null ? OwnerServerCapabilities.ToArray() : [.. OwnerServerCapabilities, "owner-life-pace.v1", "owner-jev-assistance.v1", "owner-building-design.v1"],
+        privateRuntime is null ? OwnerServerCapabilities.ToArray() : [.. OwnerServerCapabilities, "owner-life-pace.v1", "owner-jev-assistance.v1", "owner-building-design.v1", "owner-terrain-delta.v1"],
         OwnerClientCapabilities.ToArray());
 
     public ViewerWorldSnapshot GetSnapshot() => privateRuntime is not null
@@ -84,12 +84,13 @@ public sealed class OwnerWorldObservationStore
             capture.Events.Select(ToEvent).ToArray());
     }
 
-    public ViewerReconnectBaseline GetReconnectBaseline(long afterEventId)
+    public ViewerReconnectBaseline GetReconnectBaseline(long afterEventId,
+        string? knownTerrainWorldId = null, string? knownTerrainDigest = null)
     {
         if (privateRuntime is not null)
         {
             var state = privateRuntime.ExportState();
-            var privateSnapshot = ToSnapshot(state);
+            var privateSnapshot = ToSnapshot(state, knownTerrainWorldId, knownTerrainDigest);
             return new ViewerReconnectBaseline(
                 privateSnapshot,
                 new ViewerEventSlice(
@@ -190,7 +191,8 @@ public sealed class OwnerWorldObservationStore
         };
     }
 
-    private static ViewerWorldSnapshot ToSnapshot(PrivateWorldRuntimeState state)
+    private static ViewerWorldSnapshot ToSnapshot(PrivateWorldRuntimeState state,
+        string? knownTerrainWorldId = null, string? knownTerrainDigest = null)
     {
         var map = state.Map;
         var ecology = state.WorldSystems?.Ecology.Resources.ToDictionary(resource => resource.Id, StringComparer.Ordinal);
@@ -214,7 +216,10 @@ public sealed class OwnerWorldObservationStore
         }
         var jobs = state.WorldSimulation?.ProductionJobs.Concat(state.WorldSimulation.CropBuilds ?? []).ToArray() ?? [];
         var latestEventId = state.Events.Count == 0 ? 0 : state.Events[^1].EventId;
-        var packedTerrain = state.Geography is null ? null : PackTerrain(map);
+        var terrainUnchanged = state.Geography is not null &&
+            string.Equals(knownTerrainWorldId, state.Society.Society.WorldId, StringComparison.Ordinal) &&
+            string.Equals(knownTerrainDigest, map.ManifestDigest, StringComparison.Ordinal);
+        var packedTerrain = state.Geography is null || terrainUnchanged ? null : PackTerrain(map);
         var campWeather = state.WorldSystems is { } currentSystems
             ? WeatherRules.At(currentSystems,
                 map.CampObjects.First(item => item.Kind == "cooking").Position, map.Height)
@@ -223,7 +228,7 @@ public sealed class OwnerWorldObservationStore
             state.Society.Society.WorldId,
             state.Society.Society.WorldTick,
             map.ManifestDigest,
-            (packedTerrain is null ? map.Tiles : [])
+            (state.Geography is null ? map.Tiles : [])
                 .OrderBy(tile => tile.Position.Y)
                 .ThenBy(tile => tile.Position.X)
                 .Select(tile => new ViewerTile(tile.Position.X, tile.Position.Y, ToWireValue(tile.Terrain)))
