@@ -1167,3 +1167,13 @@ yet decided: the accepted camp has two starter households before any formal
 settlement, while the present prototype tracks starter stock by household even
 though there is a common storage site. Neither the old “shared” label nor the
 prototype's inventory model should silently settle the finished-game rule.
+
+### Starter storehouse common pool and settlement access (2026-09-27)
+
+In answer to whether the starter storehouse should hold one common pool or
+separate household-owned supplies in the same building, computment chose
+**one common pool**. They added: “when a settlement does exist if the
+storehouse is in it then only agents who live in that settlement can use it.”
+This resolves the earlier access question for a storehouse inside an existing
+settlement. It does not decide formal ownership, the definition of residency,
+access outside settlement borders, border changes, or unauthorized taking.

@@ -471,9 +471,11 @@ first-complete-game roadmap.
   exist even before any formal land claims or settlement. The player
   individually places **two small houses**, a **shared storehouse**, a
   **fire/cooking area**, and a **basic workshop**. The game connects them with a
-  path and stocks starter
-  food, seeds, hand tools, and clothing. Nearby fertile land remains part of
-  the desired camp setting. Furniture can be abstracted as inspectable building
+  path and stocks starter food, seeds, hand tools, and clothing. The storehouse
+  holds **one common pool** for both starter households. If a settlement later
+  exists and the storehouse is within its borders, **only agents who live in
+  that settlement may use it**. Nearby fertile land remains part of the desired
+  camp setting. Furniture can be abstracted as inspectable building
   contents/capabilities rather than every chair being drawn. A poor camp site
   is allowed with a warning rather than rejected solely for its survival
   disadvantages; physically impossible placements still need rules.
@@ -544,14 +546,14 @@ optional role in childhood, and the identity implications of player renaming.
 Base-camp placement rules and interface remain open: its order relative to
 founder placement, physically valid terrain and footprints, what the warning
 flags, how fertile land is ensured or assessed, and whether placement can be
-revised before Start World. The shared storehouse's ownership and access rules
-are also open: the camp begins before a formal settlement, and the one shared
-structure does not by itself decide whether its contents are common to both
-households or belong to a later settlement. The optional survival grace period
-still needs a duration and precise effects. Also open: whether unrelated
-newcomers can arrive without player action or are only introduced through Add
-Agent. A configurable
-automatic-birth limit was considered, briefly accepted, then explicitly
+revised before Start World. Storehouse details remain open: formal ownership,
+how settlement residency is determined, access when the building is outside
+all settlement borders or borders change, and whether unauthorized taking is
+possible as a recorded violation rather than ordinary use. The optional
+survival grace period still needs a duration and precise effects. Also open:
+whether unrelated newcomers can arrive without player action or are only
+introduced through Add Agent. A configurable automatic-birth limit was
+considered, briefly accepted, then explicitly
 reopened: computment will decide **after playtesting actual birth frequency,
 population growth, and model cost** whether a cap belongs in the game. Do not
 assume a cap or its precedence over the continuity safeguard before that
