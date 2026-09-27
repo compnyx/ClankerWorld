@@ -108,6 +108,9 @@ public sealed class SeededHarnessTests
         Assert.True(map.IsPassable(river));
         Assert.False(map.IsBuildable(river));
         Assert.Equal(200, map.FootTravelCost(river));
+        Assert.True(map.CanFootStep(new GridPoint(1, 1), river));
+        Assert.True(map.CanFootStep(river, new GridPoint(3, 1)));
+        Assert.False(map.CanFootStep(new GridPoint(1, 1), new GridPoint(2, 0)));
         Assert.True(mountainMap.IsPassable(mountain));
         Assert.False(mountainMap.IsBuildable(mountain));
         Assert.Equal(200, mountainMap.FootTravelCost(mountain));
@@ -117,6 +120,18 @@ public sealed class SeededHarnessTests
             ? TerrainKind.River : point.X == 1 ? TerrainKind.Meadow : TerrainKind.Ocean);
         Assert.Contains(new GridPoint(1, 2), DeterministicRouteFinder.Find(vertical,
             new GridPoint(1, 0), new GridPoint(1, 4)));
+
+        var channel = TerrainMap(5, 4, point => point.X == 2
+            ? TerrainKind.River : TerrainKind.Meadow);
+        Assert.True(channel.CanFootStep(new GridPoint(1, 1), new GridPoint(2, 1)));
+        Assert.True(channel.CanFootStep(new GridPoint(2, 1), new GridPoint(3, 1)));
+        Assert.False(channel.CanFootStep(new GridPoint(2, 1), new GridPoint(2, 2)));
+        Assert.False(channel.CanFootStep(new GridPoint(1, 1), new GridPoint(2, 2)));
+        Assert.False(channel.CanFootStep(new GridPoint(2, 1), new GridPoint(3, 2)));
+        var alongChannel = DeterministicMovementResolver.Resolve(channel,
+            [new MovementActor("walker", new GridPoint(2, 1), 0)],
+            [new MovementIntent("walker", new GridPoint(2, 2))]);
+        Assert.Equal(new GridPoint(2, 1), alongChannel.GetActor("walker").Position);
     }
 
     [Fact]
@@ -167,6 +182,8 @@ public sealed class SeededHarnessTests
             with { WrapsEastWest = true };
         Assert.True(map.IsPassable(seamRiver));
         Assert.Equal(200, map.FootTravelCost(seamRiver));
+        Assert.True(map.CanFootStep(new GridPoint(4, 1), seamRiver));
+        Assert.True(map.CanFootStep(seamRiver, new GridPoint(1, 1)));
         Assert.Equal(new[] { new GridPoint(4, 1), seamRiver, new GridPoint(1, 1) },
             DeterministicRouteFinder.Find(map, new GridPoint(4, 1), new GridPoint(1, 1)));
 

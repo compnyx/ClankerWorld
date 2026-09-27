@@ -8,6 +8,9 @@ release yet.
 
 ### Fixed
 
+- Agents can cross narrow river tiles on foot only between opposite dry banks.
+  They no longer walk along a channel or cut diagonally through its water;
+  wider rivers remain impassable without later transport or bridges.
 - Added a reviewable selected-tile inspection prototype. Clicking ground
   highlights the tile and shows observed terrain, objects, resources,
   buildings, regional weather and moisture. Elevation and fertility are

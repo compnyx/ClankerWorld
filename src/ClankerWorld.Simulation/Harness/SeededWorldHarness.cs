@@ -114,6 +114,26 @@ public sealed record SeededMap(
     {
         if (!IsPassable(origin) || !IsPassable(destination) || FootDistance(origin, destination) != 1)
             return false;
+        var originIsRiver = TerrainAt(origin) == (byte)TerrainKind.River;
+        var destinationIsRiver = TerrainAt(destination) == (byte)TerrainKind.River;
+        if (originIsRiver || destinationIsRiver)
+        {
+            // A narrow river is a bank-to-bank crossing, not a footpath along
+            // the channel or a diagonal shortcut through the water.
+            if (originIsRiver && destinationIsRiver || IsDiagonalFootStep(origin, destination))
+                return false;
+            var river = originIsRiver ? origin : destination;
+            var bank = originIsRiver ? destination : origin;
+            var dx = bank.X - river.X;
+            if (WrapsEastWest)
+            {
+                if (dx == Width - 1) dx = -1;
+                else if (dx == 1 - Width) dx = 1;
+            }
+            var dy = bank.Y - river.Y;
+            return Math.Abs(dx) + Math.Abs(dy) == 1 && IsDryBank(bank) &&
+                IsDryBank(new GridPoint(river.X - dx, river.Y - dy));
+        }
         if (!IsDiagonalFootStep(origin, destination)) return true;
         // Both orthogonal shoulders must be traversable. A diagonal cannot
         // squeeze around a wall, peak, deep river, or map edge.
