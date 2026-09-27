@@ -489,7 +489,10 @@ first-complete-game roadmap.
   progress toward the required four founders. During this paused setup, the
   player can move or undo placement of both camp structures and founder agents.
   Founders must start near the camp, and the camp structures must form a
-  bounded cluster rather than being scattered across the world.
+  bounded cluster rather than being scattered across the world. For initial
+  playtesting, the **fire/cooking area is the camp center**: other structures
+  must be within an **8-logical-tile circular radius**, and founder placements
+  within a **12-tile circular radius**. These numbers can be tuned after play.
 - Each agent independently has a chosen provider/model, private memory and
   context, goals/personality, call schedule, usage, and failure state. Different
   agents may use the same stored key. Agents choose their own personality,
@@ -540,15 +543,6 @@ first-complete-game roadmap.
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
 
-### Proposed placement scale, not yet accepted
-
-A circular placement boundary around a camp center is a candidate, not yet a
-locked shape or size. Clanker's initial sizing suggestion is an **8-logical-tile
-radius for structures** and a **12-tile radius for founders**. The current
-automatic prototype camp spans only 6×5 tiles; that is a scale reference, not
-a finished-game footprint requirement. These radii need computment's answer
-and later visual/playability testing.
-
 ### Open
 
 Expected/variable lifespan below the six-hour cap, founders' starting ages,
@@ -561,9 +555,11 @@ optional role in childhood, and the identity implications of player renaming.
 Base-camp placement rules and interface remain open: its order relative to
 founder placement, physically valid terrain and footprints, what the warning
 flags, how fertile land is ensured or assessed, the placement boundary's
-center, shape and radii, and how movement/undo affects assigned founder
-households and configuration. Storehouse details remain open: formal ownership,
-how settlement residency is determined, access when the building is outside
+exact distance measurement near tile/footprint edges, whether geometric
+proximity also requires a walkable route, and how movement/undo affects
+assigned founder households and configuration. Storehouse details remain open:
+formal ownership, how settlement residency is determined, access when the
+building is outside
 all settlement borders or borders change, and how its hard access gate relates
 to any future, separate crime system. The optional survival grace period still
 needs a duration and precise effects. Also open:

@@ -1202,3 +1202,12 @@ outside settlement borders remain open.
    initial 8-tile radius for structures and 12 tiles for founders, using the
    current prototype's 6×5-tile auto-camp only as a scale reference; those
    numbers are unapproved candidates.
+
+### Camp radius and center accepted for playtesting (2026-09-27)
+
+Computment accepted Clanker's initial suggestion: use the fire/cooking area as
+the center of circular placement limits, with other camp structures within an
+8-logical-tile radius and founder agents within a 12-tile radius. These are
+starting values for playtesting, not immutable balance constants. Whether a
+geometrically nearby position also needs a walkable route, and exact handling
+of multi-tile footprints at the boundary, remain open.
