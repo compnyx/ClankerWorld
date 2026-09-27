@@ -69,6 +69,11 @@ full bootstrap, revocation, and transport policy lives in
 
 ## Reproducibility proof
 
+After `dotnet restore --locked-mode`, run `dotnet format --no-restore` before
+committing C# changes to apply the repository formatting rules. Then run
+`dotnet format --verify-no-changes --no-restore` to check that no formatting
+changes remain.
+
 On a fresh clone with the selected SDK:
 
 ```bash

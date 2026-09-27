@@ -67,14 +67,21 @@ public sealed class ManualWorldSaveStore
                 throw new InvalidDataException("The selected checkpoint does not match its metadata.");
 
             var backupName = "Before overwriting: " + previousMetadata.Save.Name;
-            var backup = previousMetadata.Save with { Id = Guid.NewGuid().ToString("N"),
-                Name = backupName[..Math.Min(80, backupName.Length)], CreatedUtc = DateTimeOffset.UtcNow };
+            var backup = previousMetadata.Save with
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = backupName[..Math.Min(80, backupName.Length)],
+                CreatedUtc = DateTimeOffset.UtcNow
+            };
             WriteAtomic(StatePath(backup.Id), previousBytes);
             WriteAtomic(MetadataPath(backup.Id), JsonSerializer.SerializeToUtf8Bytes(
                 previousMetadata with { Save = backup }));
 
-            var saved = previousMetadata.Save with { CreatedUtc = DateTimeOffset.UtcNow,
-                WorldTick = state.Society.Society.WorldTick };
+            var saved = previousMetadata.Save with
+            {
+                CreatedUtc = DateTimeOffset.UtcNow,
+                WorldTick = state.Society.Society.WorldTick
+            };
             WriteAtomic(StatePath(id), PrivateWorldRuntimeCodec.Encode(state), overwrite: true);
             WriteAtomic(MetadataPath(id), JsonSerializer.SerializeToUtf8Bytes(new Metadata(
                 saved, assignments, autosaveSettings, state.Society.Society.WorldId)), overwrite: true);

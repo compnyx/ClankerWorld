@@ -320,13 +320,16 @@ public sealed class SocietyTests
         // A restored queue still marks this born child as needing its own
         // selection, including saves written before the observation flag.
         var unmarked = runtime.ExportState();
-        unmarked = unmarked with { Cognition = unmarked.Cognition with
+        unmarked = unmarked with
         {
-            Queue = unmarked.Cognition.Queue.Select(item => item with
+            Cognition = unmarked.Cognition with
             {
-                Observation = item.Observation with { RequiresPersonalProvider = false },
-            }).ToArray(),
-        } };
+                Queue = unmarked.Cognition.Queue.Select(item => item with
+                {
+                    Observation = item.Observation with { RequiresPersonalProvider = false },
+                }).ToArray(),
+            }
+        };
         using (var recovered = SocietyWorldRuntime.Restore(unmarked))
         {
             Assert.True(Assert.Single(recovered.Capture().Cognition.Queue).Observation.RequiresPersonalProvider);

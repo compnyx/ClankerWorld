@@ -88,8 +88,11 @@ public sealed class ProviderUsageStore
             {
                 if (state.AttemptLimit is null)
                     throw new InvalidOperationException("Enable a paid-call limit before granting more calls.");
-                state = state with { AttemptLimit = checked(Math.Max(state.AttemptLimit.Value,
-                    state.Rows.Sum(row => row.Attempts)) + action.AdditionalCalls) };
+                state = state with
+                {
+                    AttemptLimit = checked(Math.Max(state.AttemptLimit.Value,
+                    state.Rows.Sum(row => row.Attempts)) + action.AdditionalCalls)
+                };
             }
             else state = state with { AttemptLimit = action.AttemptLimit };
             Save();

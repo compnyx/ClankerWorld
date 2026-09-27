@@ -51,8 +51,11 @@ public sealed class SeededHarnessTests
         Assert.Equal(new[] { origin, diagonal, new GridPoint(2, 2) },
             DeterministicRouteFinder.Find(open, origin, new GridPoint(2, 2)));
 
-        var wall = open with { Tiles = open.Tiles.Select(tile => tile.Position == new GridPoint(1, 0)
-            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        var wall = open with
+        {
+            Tiles = open.Tiles.Select(tile => tile.Position == new GridPoint(1, 0)
+            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray()
+        };
         Assert.False(wall.CanFootStep(origin, diagonal));
         Assert.DoesNotContain(diagonal, wall.FootNeighbors(origin));
         Assert.Equal(new[] { origin, new GridPoint(0, 1), diagonal },
@@ -69,8 +72,11 @@ public sealed class SeededHarnessTests
         Assert.Contains(destination, wrapped.FootNeighbors(origin));
         Assert.Equal(new[] { origin, destination }, DeterministicRouteFinder.Find(wrapped, origin, destination));
 
-        var blocked = wrapped with { Tiles = wrapped.Tiles.Select(tile => tile.Position == new GridPoint(4, 1)
-            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        var blocked = wrapped with
+        {
+            Tiles = wrapped.Tiles.Select(tile => tile.Position == new GridPoint(4, 1)
+            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray()
+        };
         Assert.False(blocked.CanFootStep(origin, destination));
         Assert.DoesNotContain(destination, blocked.FootNeighbors(origin));
     }
@@ -159,8 +165,11 @@ public sealed class SeededHarnessTests
             DeterministicRouteFinder.Find(wrapped, new GridPoint(0, 0), new GridPoint(4, 0)));
         Assert.Equal(5, DeterministicRouteFinder.Find(bounded, west, east).Count);
 
-        var blockedSeam = wrapped with { Tiles = wrapped.Tiles.Select(tile => tile.Position == east
-            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        var blockedSeam = wrapped with
+        {
+            Tiles = wrapped.Tiles.Select(tile => tile.Position == east
+            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray()
+        };
         Assert.Equal(new[] { west, new GridPoint(1, 1), new GridPoint(2, 1), new GridPoint(3, 1) },
             DeterministicRouteFinder.Find(blockedSeam, west, new GridPoint(3, 1)));
 
@@ -179,7 +188,8 @@ public sealed class SeededHarnessTests
         var seamRiver = new GridPoint(0, 1);
         var map = TerrainMap(5, 3, point => point == seamRiver ? TerrainKind.River :
             point.Y != 1 && point.X is 0 or 1 ? TerrainKind.Ocean : TerrainKind.Meadow)
-            with { WrapsEastWest = true };
+            with
+        { WrapsEastWest = true };
         Assert.True(map.IsPassable(seamRiver));
         Assert.Equal(200, map.FootTravelCost(seamRiver));
         Assert.True(map.CanFootStep(new GridPoint(4, 1), seamRiver));
@@ -187,8 +197,11 @@ public sealed class SeededHarnessTests
         Assert.Equal(new[] { new GridPoint(4, 1), seamRiver, new GridPoint(1, 1) },
             DeterministicRouteFinder.Find(map, new GridPoint(4, 1), new GridPoint(1, 1)));
 
-        var wide = map with { Tiles = map.Tiles.Select(tile => tile.Position == new GridPoint(1, 1)
-            ? tile with { Terrain = TerrainKind.River } : tile).ToArray() };
+        var wide = map with
+        {
+            Tiles = map.Tiles.Select(tile => tile.Position == new GridPoint(1, 1)
+            ? tile with { Terrain = TerrainKind.River } : tile).ToArray()
+        };
         Assert.False(wide.IsPassable(seamRiver));
         Assert.False(wide.IsPassable(new GridPoint(1, 1)));
     }

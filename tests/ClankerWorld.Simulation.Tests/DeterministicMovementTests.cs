@@ -23,9 +23,12 @@ public sealed class DeterministicMovementTests
         Assert.Empty(occupied.Events);
 
         var baseMap = Map();
-        var blockedCorner = baseMap with { Tiles = baseMap.Tiles.Select(tile =>
+        var blockedCorner = baseMap with
+        {
+            Tiles = baseMap.Tiles.Select(tile =>
             tile.Position == new GridPoint(1, 0)
-                ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+                ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray()
+        };
         var blocked = DeterministicMovementResolver.Resolve(blockedCorner,
             [new MovementActor("walker", start, 0)], [new MovementIntent("walker", target)]);
         Assert.Equal(start, blocked.GetActor("walker").Position);
@@ -35,8 +38,11 @@ public sealed class DeterministicMovementTests
     public void CompetingDiagonalClaimsUseNormalReservationOrderAndWrappedSeams()
     {
         var baseMap = Map();
-        var map = baseMap with { Tiles = baseMap.Tiles.Select(tile =>
-            tile with { Terrain = TerrainKind.Meadow }).ToArray() };
+        var map = baseMap with
+        {
+            Tiles = baseMap.Tiles.Select(tile =>
+            tile with { Terrain = TerrainKind.Meadow }).ToArray()
+        };
         var target = new GridPoint(1, 1);
         var contested = DeterministicMovementResolver.Resolve(map,
             [new MovementActor("bravo", new GridPoint(2, 0), 0),

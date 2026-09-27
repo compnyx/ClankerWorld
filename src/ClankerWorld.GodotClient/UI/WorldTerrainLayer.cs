@@ -192,11 +192,11 @@ public partial class WorldTerrainLayer : Control
         // Trees are objects, not baked ground colors: keep them visible both
         // above full-size tiles and above the small-tile palette cache.
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
-        for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
-        {
-            var tree = trees[y * world.Width + (wrapsEastWest ? Mod(x, world.Width) : x)];
-            if (tree != 0) DrawTree(new Vector2(x * stride, y * stride), tree);
-        }
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            {
+                var tree = trees[y * world.Width + (wrapsEastWest ? Mod(x, world.Width) : x)];
+                if (tree != 0) DrawTree(new Vector2(x * stride, y * stride), tree);
+            }
         DrawPrecipitation(bounds, stride);
         if (hoveredTile is { } hover && tileSize > 0 &&
             hover.Y >= bounds.Top && hover.Y < bounds.Top + bounds.Height)
@@ -231,23 +231,23 @@ public partial class WorldTerrainLayer : Control
         // Region bands are clipped to the visible map, so broad clouds need
         // neither per-tile nodes nor a full-world weather texture.
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y += 6)
-        for (var x = bounds.Left; x < bounds.Left + bounds.Width; x += 6)
-        {
-            var weather = WeatherAt(x, y);
-            if (weather is not ("rain" or "snow" or "storm")) continue;
-            var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
-            var left = canonicalX / weatherRegionSize * weatherRegionSize;
-            var top = y / weatherRegionSize * weatherRegionSize;
-            var radiusTiles = Math.Min(2.2f, Math.Min(
-                Math.Min(canonicalX + 3 - left, left + weatherRegionSize - canonicalX - 3),
-                Math.Min(y + 3 - top, top + weatherRegionSize - y - 3)));
-            if (radiusTiles <= 0) continue;
-            var center = new Vector2((x + 3) * stride, (y + 3) * stride);
-            var radius = radiusTiles * stride;
-            DrawCircle(center, radius, weather == "storm"
-                ? new Color(0.13f, 0.20f, 0.25f, 0.13f)
-                : new Color(0.88f, 0.94f, 0.96f, 0.10f));
-        }
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x += 6)
+            {
+                var weather = WeatherAt(x, y);
+                if (weather is not ("rain" or "snow" or "storm")) continue;
+                var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
+                var left = canonicalX / weatherRegionSize * weatherRegionSize;
+                var top = y / weatherRegionSize * weatherRegionSize;
+                var radiusTiles = Math.Min(2.2f, Math.Min(
+                    Math.Min(canonicalX + 3 - left, left + weatherRegionSize - canonicalX - 3),
+                    Math.Min(y + 3 - top, top + weatherRegionSize - y - 3)));
+                if (radiusTiles <= 0) continue;
+                var center = new Vector2((x + 3) * stride, (y + 3) * stride);
+                var radius = radiusTiles * stride;
+                DrawCircle(center, radius, weather == "storm"
+                    ? new Color(0.13f, 0.20f, 0.25f, 0.13f)
+                    : new Color(0.88f, 0.94f, 0.96f, 0.10f));
+            }
     }
 
     private void DrawPrecipitation((int Left, int Top, int Width, int Height) bounds, int stride)
@@ -258,29 +258,29 @@ public partial class WorldTerrainLayer : Control
         var firstX = bounds.Left - Mod(bounds.Left, 4);
         var firstY = bounds.Top - Mod(bounds.Top, 4);
         for (var y = firstY; y < bounds.Top + bounds.Height; y += 4)
-        for (var x = firstX; x < bounds.Left + bounds.Width; x += 4)
-        {
-            if (x < bounds.Left || y < bounds.Top) continue;
-            var weather = WeatherAt(x, y);
-            if (weather is not ("rain" or "snow" or "storm")) continue;
-            var hash = unchecked((uint)(x * 73856093) ^ (uint)(y * 19349663));
-            var markX = x + 1 + (int)(hash % 3);
-            var markY = y + 1 + (int)((hash >> 8) % 3);
-            if (WeatherAt(markX, markY) != weather) continue;
-            var position = new Vector2(markX * stride, markY * stride);
-            if (weather == "snow")
+            for (var x = firstX; x < bounds.Left + bounds.Width; x += 4)
             {
-                DrawCircle(position, Math.Max(1.5f, tileSize * 0.08f),
-                    new Color(0.98f, 0.99f, 1f, 0.75f));
+                if (x < bounds.Left || y < bounds.Top) continue;
+                var weather = WeatherAt(x, y);
+                if (weather is not ("rain" or "snow" or "storm")) continue;
+                var hash = unchecked((uint)(x * 73856093) ^ (uint)(y * 19349663));
+                var markX = x + 1 + (int)(hash % 3);
+                var markY = y + 1 + (int)((hash >> 8) % 3);
+                if (WeatherAt(markX, markY) != weather) continue;
+                var position = new Vector2(markX * stride, markY * stride);
+                if (weather == "snow")
+                {
+                    DrawCircle(position, Math.Max(1.5f, tileSize * 0.08f),
+                        new Color(0.98f, 0.99f, 1f, 0.75f));
+                }
+                else
+                {
+                    var length = Math.Max(3f, tileSize * (weather == "storm" ? 0.55f : 0.38f));
+                    DrawLine(position, position + new Vector2(-length * 0.34f, length),
+                        new Color(0.70f, 0.86f, 1f, weather == "storm" ? 0.82f : 0.64f),
+                        Math.Max(1f, tileSize * 0.045f));
+                }
             }
-            else
-            {
-                var length = Math.Max(3f, tileSize * (weather == "storm" ? 0.55f : 0.38f));
-                DrawLine(position, position + new Vector2(-length * 0.34f, length),
-                    new Color(0.70f, 0.86f, 1f, weather == "storm" ? 0.82f : 0.64f),
-                    Math.Max(1f, tileSize * 0.045f));
-            }
-        }
     }
 
     private void DrawTree(Vector2 position, byte tree)

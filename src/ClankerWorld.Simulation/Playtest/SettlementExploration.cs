@@ -88,11 +88,14 @@ public sealed partial class PrivateWorldRuntime
         var visited = exploration.VisitedTiles.Contains(moved.Position)
             ? exploration.VisitedTiles
             : exploration.VisitedTiles.Append(moved.Position).TakeLast(ExplorationMemoryLimit).ToArray();
-        inhabitants[actor] = moved with { Exploration = exploration with
+        inhabitants[actor] = moved with
         {
-            VisitedTiles = visited,
-            OutingPath = exploration.OutingPath.Append(moved.Position).ToArray(),
-        } };
+            Exploration = exploration with
+            {
+                VisitedTiles = visited,
+                OutingPath = exploration.OutingPath.Append(moved.Position).ToArray(),
+            }
+        };
         if (!exploration.VisitedTiles.Contains(moved.Position))
         {
             var terrain = map.Tiles.First(tile => tile.Position == moved.Position).Terrain;
@@ -107,12 +110,15 @@ public sealed partial class PrivateWorldRuntime
     {
         if (exploration.OutingPath.Count == 1)
         {
-            inhabitants[actor] = person with { Exploration = exploration with
+            inhabitants[actor] = person with
             {
-                OutingPath = [],
-                Returning = false,
-                LastOutingTick = WorldTick,
-            } };
+                Exploration = exploration with
+                {
+                    OutingPath = [],
+                    Returning = false,
+                    LastOutingTick = WorldTick,
+                }
+            };
             AppendEvent("exploration_completed", $"{actor}:visited={exploration.VisitedTiles.Count}");
             return;
         }
@@ -122,16 +128,24 @@ public sealed partial class PrivateWorldRuntime
         MoveToward(actor, inhabitants[actor], destination, "explore_return");
         var moved = inhabitants[actor];
         if (moved.Position == destination)
-            inhabitants[actor] = moved with { Exploration = exploration with
+            inhabitants[actor] = moved with
             {
-                OutingPath = exploration.OutingPath.Take(exploration.OutingPath.Count - 1).ToArray(),
-            } };
+                Exploration = exploration with
+                {
+                    OutingPath = exploration.OutingPath.Take(exploration.OutingPath.Count - 1).ToArray(),
+                }
+            };
         else if (moved.MoveWaitTicks >= 30)
         {
-            inhabitants[actor] = moved with { Exploration = exploration with
+            inhabitants[actor] = moved with
             {
-                OutingPath = [], Returning = false, LastOutingTick = WorldTick,
-            } };
+                Exploration = exploration with
+                {
+                    OutingPath = [],
+                    Returning = false,
+                    LastOutingTick = WorldTick,
+                }
+            };
             AppendEvent("exploration_aborted", $"{actor}:return_blocked");
         }
     }
