@@ -24,8 +24,10 @@ the resolution evidence below.
 - **Load World has no compatibility warning — confirmed gap:** its list shows
   only world name, current-world marker and update time. The catalog does not
   expose a compatibility assessment for each saved world, so the client cannot
-  warn reliably before selection. Computment prefers a warning for existing
-  saves; exact incompatible/migration behavior remains an interview question.
+  warn reliably before selection. Intended behavior: show evidence-based
+  compatibility status and block only saves actually known to be unloadable;
+  preserve them. Version difference alone must not imply incompatibility.
+  Migration can wait until a later stage of game development.
 - **Manual-save overwrite unavailable — confirmed gap:** Save World only
   creates a new opaque-ID checkpoint. Reusing a visible name creates another
   checkpoint with that name; the client has no select-and-overwrite action.
@@ -40,7 +42,8 @@ the resolution evidence below.
 - **Resolution control is misleading — confirmed:** choosing 1280×720,
   1600×900 or 1920×1080 only calls Godot's window-size setter; the game
   viewport remains configured at 1280×720 with canvas-item stretching. The
-  control should reflect the intended display/render behavior and its label.
+  intended Game Settings have separate Window Size and Render Resolution
+  controls; exact scaling/fullscreen behavior remains to be designed.
 - **Agent marker hitboxes overflow tiles — confirmed:** marker buttons are
   clamped to 52–78 px even when a zoomed-out tile is smaller, and offsets for
   multiple occupants add 22 px. Their clickable areas can extend into adjacent
@@ -59,7 +62,9 @@ the resolution evidence below.
   the current model prompt gives each unnamed agent the same short naming
   instruction and no world culture, existing-name context or uniqueness rule.
   This plausibly narrows variety, but actual outputs and models are needed to
-  distinguish prompt effects from repetition by a particular provider.
+  distinguish prompt effects from repetition by a particular provider. The
+  intended naming flow keeps self-chosen full names without sending the whole
+  existing-name list to the model, and rejects a taken full name for retry.
 
 ## Original reports and resolution evidence
 

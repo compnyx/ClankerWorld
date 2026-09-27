@@ -163,15 +163,22 @@ reopen the decided player-local distribution goal.
   prototype from before the revised agent-driven invention vision. This does
   not remove agents' ability to invent or settle any future way to inspect
   their designs.
+- Game Settings should offer **Window Size** and **Render Resolution** as
+  separate controls. Changing only the window dimensions must not be presented
+  as changing the game's render resolution. Exact presets, scaling behavior,
+  fullscreen interaction and pixel-art/UI layout rules remain open.
 - Adding an adult agent opens a flow to select a provider, one of its stored
   API credentials or a newly entered one, and a model, then place the agent in
   the world. Existing credentials can be reused by multiple agents. A player
   may also add another key for the **same provider** and choose which key that
   agent uses; there is no single-key-per-provider restriction. The agent
   chooses its own name after placement; the player can rename it later. Agents
-  should use full names with a surname and may choose a middle name; exact
-  cultural naming rules and handling of similar or duplicate choices remain
-  open.
+  should choose full names with a surname and may choose a middle name. Do not
+  include every existing agent name in the naming prompt merely to avoid
+  collisions. The world should reject an already-taken full name and let the
+  agent choose again; similar but distinct names are allowed. Exact duplicate
+  matching, retries/failure fallback, player renaming collisions and cultural
+  naming context remain open.
 - Selecting an agent opens an **interactive info popup near that agent**. The
   player can change that agent's provider and model there, including choosing
   an appropriate stored/new credential when needed. Agent inspection does not
@@ -571,6 +578,15 @@ first-complete-game roadmap.
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
 
+### Preferred, pending confirmation
+
+Computment is considering a relationship progression from couple/partnership
+to marriage, with marriage required before the couple can have a child. On
+marriage, the partners would choose **one partner's existing surname to share**.
+This is a proposed revision, not yet a settled eligibility rule. Clarify how
+it interacts with the low-population continuity safeguard, and whether every
+child must be born to a currently married pair before treating it as decided.
+
 ### Open
 
 Expected/variable lifespan below the six-hour cap, founders' starting ages,
@@ -906,18 +922,20 @@ library handles revisions and conflicting imports.
   checkpoint; creating a new save remains a separate action. Typing a matching
   name alone must not replace an existing save. Recovery/backup behavior after
   overwrite remains open.
+- Load World should show an existing save's assessed compatibility and warn
+  before selection when it cannot load. The assessment must use actual
+  save/version and required-content checks.
+  **Block loading only when an actual compatibility check establishes that
+  the save cannot be loaded**; a version difference or old timestamp alone is
+  not evidence of incompatibility. Preserve a blocked save rather than
+  deleting or overwriting it. Development playtest saves may legitimately
+  become incompatible as formats change; migration support is a later design
+  goal, not a current requirement. How to present an unknown assessment and
+  the exact compatibility contract remain open.
 - World-created inventions and active mods travel with that world's save;
   provider credentials and graphical/device settings are global. The global
   library reads the latest save for each world rather than silently merging
   their creations.
-
-### Preferred from playtesting
-
-**Load World should warn about compatibility of existing worlds before the
-player opens one.** The status should come from actual save/version and required
-content checks, not from age or a guessed label. The presentation of unknown,
-migratable and incompatible cases, and whether an incompatible world can be
-attempted or only preserved/exported, remain open.
 
 ### Open
 
