@@ -6,6 +6,55 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class DeterministicMovementTests
 {
     [Fact]
+    public void DiagonalIntentRequiresClearShouldersIncludingOccupiedTiles()
+    {
+        var start = new GridPoint(0, 0);
+        var target = new GridPoint(1, 1);
+        var free = DeterministicMovementResolver.Resolve(Map(),
+            [new MovementActor("walker", start, 0)],
+            [new MovementIntent("walker", target)]);
+        Assert.Equal(target, free.GetActor("walker").Position);
+
+        var occupied = DeterministicMovementResolver.Resolve(Map(),
+            [new MovementActor("walker", start, 0),
+             new MovementActor("other", new GridPoint(1, 0), 0)],
+            [new MovementIntent("walker", target)]);
+        Assert.Equal(start, occupied.GetActor("walker").Position);
+        Assert.Empty(occupied.Events);
+
+        var baseMap = Map();
+        var blockedCorner = baseMap with { Tiles = baseMap.Tiles.Select(tile =>
+            tile.Position == new GridPoint(1, 0)
+                ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        var blocked = DeterministicMovementResolver.Resolve(blockedCorner,
+            [new MovementActor("walker", start, 0)], [new MovementIntent("walker", target)]);
+        Assert.Equal(start, blocked.GetActor("walker").Position);
+    }
+
+    [Fact]
+    public void CompetingDiagonalClaimsUseNormalReservationOrderAndWrappedSeams()
+    {
+        var baseMap = Map();
+        var map = baseMap with { Tiles = baseMap.Tiles.Select(tile =>
+            tile with { Terrain = TerrainKind.Meadow }).ToArray() };
+        var target = new GridPoint(1, 1);
+        var contested = DeterministicMovementResolver.Resolve(map,
+            [new MovementActor("bravo", new GridPoint(2, 0), 0),
+             new MovementActor("alpha", new GridPoint(0, 0), 0)],
+            [new MovementIntent("bravo", target), new MovementIntent("alpha", target)]);
+        Assert.Equal(target, contested.GetActor("alpha").Position);
+        Assert.Equal(new GridPoint(2, 0), contested.GetActor("bravo").Position);
+        Assert.Equal("destination_reserved", contested.Events.Single(item => item.ActorId == "bravo").Reason);
+
+        var wrapped = map with { WrapsEastWest = true };
+        var west = new GridPoint(0, 1);
+        var eastSouth = new GridPoint(map.Width - 1, 2);
+        var across = DeterministicMovementResolver.Resolve(wrapped,
+            [new MovementActor("walker", west, 0)], [new MovementIntent("walker", eastSouth)]);
+        Assert.Equal(eastSouth, across.GetActor("walker").Position);
+    }
+
+    [Fact]
     public void SameTargetContentionPrefersWaitTicksThenImmutableActorIdRegardlessOfInputOrder()
     {
         var actors = new[]

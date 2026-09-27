@@ -2655,7 +2655,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             Position = next,
             MoveWaitTicks = 0,
-            TravelCooldownTicks = map.FootTravelCost(next) / 100 - 1,
+            TravelCooldownTicks = (map.FootStepCost(state.Position, next) + 99) / 100 - 1,
             EnergyBasisPoints = Math.Max(0, state.EnergyBasisPoints - weatherCost)
         };
         AppendEvent("inhabitant_moved", $"{inhabitantId}:{state.Position.X},{state.Position.Y}->{next.X},{next.Y}:{reason}");
@@ -2696,12 +2696,15 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
             foreach (var next in map.FootNeighbors(current))
             {
-                if (!map.IsPassable(next) || occupied.Contains(next))
+                if (occupied.Contains(next) ||
+                    map.IsDiagonalFootStep(current, next) &&
+                    (occupied.Contains(new GridPoint(next.X, current.Y)) ||
+                     occupied.Contains(new GridPoint(current.X, next.Y))))
                 {
                     continue;
                 }
 
-                var cost = checked(priority.Cost + map.FootTravelCost(next));
+                var cost = checked(priority.Cost + map.FootStepCost(current, next));
                 if (best.TryGetValue(next, out var previous) && previous <= cost)
                     continue;
                 best[next] = cost;

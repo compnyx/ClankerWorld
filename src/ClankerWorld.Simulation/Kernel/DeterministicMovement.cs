@@ -10,7 +10,7 @@ namespace ClankerWorld.Simulation.Kernel;
 public sealed record MovementActor(string Id, GridPoint Position, int MoveWaitTicks);
 
 /// <summary>
-/// A request to move exactly one cardinal tile in the current movement phase.
+/// A request to move exactly one legal cardinal or diagonal tile in the current movement phase.
 /// </summary>
 public sealed record MovementIntent(string ActorId, GridPoint Destination);
 
@@ -64,7 +64,10 @@ public static class DeterministicMovementResolver
                 throw new InvalidDataException("A movement intent names an unknown actor.");
             }
 
-            if (!map.IsPassable(intent.Destination) || map.FootDistance(actor.Position, intent.Destination) != 1)
+            if (!map.CanFootStep(actor.Position, intent.Destination) ||
+                map.IsDiagonalFootStep(actor.Position, intent.Destination) &&
+                (occupants.ContainsKey(new GridPoint(intent.Destination.X, actor.Position.Y)) ||
+                 occupants.ContainsKey(new GridPoint(actor.Position.X, intent.Destination.Y))))
             {
                 reasons.Add(actor.Id, "invalid_destination");
                 continue;

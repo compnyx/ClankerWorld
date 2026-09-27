@@ -146,7 +146,7 @@ public sealed partial class PrivateWorldRuntime
             exploration.VisitedTiles.Any(point => !map.IsPassable(point)) ||
             exploration.OutingPath.Any(point => !map.IsPassable(point)) ||
             exploration.OutingPath.Zip(exploration.OutingPath.Skip(1),
-                (first, second) => map.FootDistance(first, second)).Any(distance => distance != 1))
+                (first, second) => map.CanFootStep(first, second)).Any(legal => !legal))
             throw new InvalidDataException("The saved local exploration record is invalid.");
     }
 }

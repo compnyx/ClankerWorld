@@ -28,21 +28,50 @@ public sealed class SeededHarnessTests
     [Fact]
     public void EqualCostRouteUsesTheDeclaredStableTieBreakOrder()
     {
-        var map = SeededMapGenerator.Generate("camp-alpha");
+        var map = TerrainMap(3, 2, _ => TerrainKind.Meadow);
         var origin = new GridPoint(0, 0);
         var destination = new GridPoint(2, 1);
-        var expected = new[]
-        {
-            new GridPoint(0, 0),
-            new GridPoint(1, 0),
-            new GridPoint(2, 0),
-            new GridPoint(2, 1),
-        };
+        var expected = new[] { origin, new GridPoint(1, 1), destination };
 
         for (var run = 0; run < 10; run++)
         {
             Assert.Equal(expected, DeterministicRouteFinder.Find(map, origin, destination));
         }
+    }
+
+    [Fact]
+    public void DiagonalRoutesHaveAStableCostAndCannotClipBlockedCorners()
+    {
+        var open = TerrainMap(4, 4, _ => TerrainKind.Meadow);
+        var origin = new GridPoint(0, 0);
+        var diagonal = new GridPoint(1, 1);
+        Assert.True(open.CanFootStep(origin, diagonal));
+        Assert.Equal(141, open.FootStepCost(origin, diagonal));
+        Assert.Equal(new[] { origin, diagonal, new GridPoint(2, 2) },
+            DeterministicRouteFinder.Find(open, origin, new GridPoint(2, 2)));
+
+        var wall = open with { Tiles = open.Tiles.Select(tile => tile.Position == new GridPoint(1, 0)
+            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        Assert.False(wall.CanFootStep(origin, diagonal));
+        Assert.DoesNotContain(diagonal, wall.FootNeighbors(origin));
+        Assert.Equal(new[] { origin, new GridPoint(0, 1), diagonal },
+            DeterministicRouteFinder.Find(wall, origin, diagonal));
+    }
+
+    [Fact]
+    public void WrappedDiagonalRequiresBothShouldersAtTheSeam()
+    {
+        var origin = new GridPoint(0, 1);
+        var destination = new GridPoint(4, 2);
+        var wrapped = TerrainMap(5, 4, _ => TerrainKind.Meadow) with { WrapsEastWest = true };
+        Assert.True(wrapped.CanFootStep(origin, destination));
+        Assert.Contains(destination, wrapped.FootNeighbors(origin));
+        Assert.Equal(new[] { origin, destination }, DeterministicRouteFinder.Find(wrapped, origin, destination));
+
+        var blocked = wrapped with { Tiles = wrapped.Tiles.Select(tile => tile.Position == new GridPoint(4, 1)
+            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        Assert.False(blocked.CanFootStep(origin, destination));
+        Assert.DoesNotContain(destination, blocked.FootNeighbors(origin));
     }
 
     [Fact]
@@ -71,16 +100,22 @@ public sealed class SeededHarnessTests
         var river = new GridPoint(2, 1);
         var mountain = new GridPoint(1, 0);
         var map = TerrainMap(5, 3, point => point == river ? TerrainKind.River :
-            point == mountain ? TerrainKind.Mountain : TerrainKind.Meadow);
+            point.Y == 1 ? TerrainKind.Meadow : TerrainKind.Ocean);
+        var mountainMap = TerrainMap(5, 3, point => point == mountain
+            ? TerrainKind.Mountain : TerrainKind.Meadow);
 
         Assert.True(map.IsPassable(river));
         Assert.False(map.IsBuildable(river));
         Assert.Equal(200, map.FootTravelCost(river));
-        Assert.True(map.IsPassable(mountain));
-        Assert.False(map.IsBuildable(mountain));
-        Assert.Equal(200, map.FootTravelCost(mountain));
+        Assert.True(mountainMap.IsPassable(mountain));
+        Assert.False(mountainMap.IsBuildable(mountain));
+        Assert.Equal(200, mountainMap.FootTravelCost(mountain));
         Assert.Contains(river, DeterministicRouteFinder.Find(map, new GridPoint(0, 1), new GridPoint(4, 1)));
-        Assert.Contains(river, DeterministicRouteFinder.Find(map, new GridPoint(2, 0), new GridPoint(2, 2)));
+
+        var vertical = TerrainMap(3, 5, point => point == new GridPoint(1, 2)
+            ? TerrainKind.River : point.X == 1 ? TerrainKind.Meadow : TerrainKind.Ocean);
+        Assert.Contains(new GridPoint(1, 2), DeterministicRouteFinder.Find(vertical,
+            new GridPoint(1, 0), new GridPoint(1, 4)));
     }
 
     [Fact]

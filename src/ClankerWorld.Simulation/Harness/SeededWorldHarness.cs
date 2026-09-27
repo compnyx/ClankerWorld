@@ -89,21 +89,60 @@ public sealed record SeededMap(
         var horizontal = Math.Abs(origin.X - destination.X);
         if (WrapsEastWest)
             horizontal = Math.Min(horizontal, Width - horizontal);
-        return horizontal + Math.Abs(origin.Y - destination.Y);
+        return Math.Max(horizontal, Math.Abs(origin.Y - destination.Y));
     }
+
+    public int FootRouteHeuristicCost(GridPoint origin, GridPoint destination)
+    {
+        var horizontal = Math.Abs(origin.X - destination.X);
+        if (WrapsEastWest)
+            horizontal = Math.Min(horizontal, Width - horizontal);
+        var vertical = Math.Abs(origin.Y - destination.Y);
+        var diagonal = Math.Min(horizontal, vertical);
+        return checked(diagonal * 141 + (Math.Max(horizontal, vertical) - diagonal) * 100);
+    }
+
+    public bool IsDiagonalFootStep(GridPoint origin, GridPoint destination)
+    {
+        if (!Contains(origin) || !Contains(destination)) return false;
+        var horizontal = Math.Abs(origin.X - destination.X);
+        if (WrapsEastWest) horizontal = Math.Min(horizontal, Width - horizontal);
+        return horizontal == 1 && Math.Abs(origin.Y - destination.Y) == 1;
+    }
+
+    public bool CanFootStep(GridPoint origin, GridPoint destination)
+    {
+        if (!IsPassable(origin) || !IsPassable(destination) || FootDistance(origin, destination) != 1)
+            return false;
+        if (!IsDiagonalFootStep(origin, destination)) return true;
+        // Both orthogonal shoulders must be traversable. A diagonal cannot
+        // squeeze around a wall, peak, deep river, or map edge.
+        return IsPassable(new GridPoint(destination.X, origin.Y)) &&
+            IsPassable(new GridPoint(origin.X, destination.Y));
+    }
+
+    public int FootStepCost(GridPoint origin, GridPoint destination) =>
+        !CanFootStep(origin, destination)
+            ? throw new ArgumentOutOfRangeException(nameof(destination), "The foot step is illegal.")
+            : checked(FootTravelCost(destination) * (IsDiagonalFootStep(origin, destination) ? 141 : 100) / 100);
 
     public IEnumerable<GridPoint> FootNeighbors(GridPoint point)
     {
         if (!Contains(point))
             throw new ArgumentOutOfRangeException(nameof(point));
-        if (point.Y > 0)
-            yield return new GridPoint(point.X, point.Y - 1);
-        if (WrapsEastWest || point.X + 1 < Width)
-            yield return new GridPoint((point.X + 1) % Width, point.Y);
-        if (point.Y + 1 < Height)
-            yield return new GridPoint(point.X, point.Y + 1);
-        if (WrapsEastWest || point.X > 0)
-            yield return new GridPoint((point.X - 1 + Width) % Width, point.Y);
+        var seen = new HashSet<GridPoint>();
+        foreach (var (dx, dy) in new (int X, int Y)[]
+        {
+            (0, -1), (1, 0), (0, 1), (-1, 0),
+            (1, -1), (1, 1), (-1, 1), (-1, -1),
+        })
+        {
+            var x = point.X + dx;
+            if (WrapsEastWest) x = (x % Width + Width) % Width;
+            var next = new GridPoint(x, point.Y + dy);
+            if (seen.Add(next) && CanFootStep(point, next))
+                yield return next;
+        }
     }
 
     // Construction eligibility is separate from travel: future mountain
@@ -664,7 +703,7 @@ public static class MapAcceptance
 }
 
 /// <summary>
-/// Four-direction A* with the contract's deterministic queue-key ordering.
+/// Eight-direction A* with deterministic cardinal/diagonal costs and queue ordering.
 /// </summary>
 public static class DeterministicRouteFinder
 {
@@ -704,7 +743,7 @@ public static class DeterministicRouteFinder
                     continue;
                 }
 
-                var candidate = new RouteRecord(checked(node.G + map.FootTravelCost(next)), node.Position);
+                var candidate = new RouteRecord(checked(node.G + map.FootStepCost(node.Position, next)), node.Position);
                 if (best.TryGetValue(next, out var old) && Compare(candidate, old) >= 0)
                 {
                     continue;
@@ -751,7 +790,7 @@ public static class DeterministicRouteFinder
 
     private static RoutePriority ToPriority(SeededMap map, RouteNode node, GridPoint destination)
     {
-        var heuristic = checked(map.FootDistance(node.Position, destination) * 100);
+        var heuristic = map.FootRouteHeuristicCost(node.Position, destination);
         return new RoutePriority(
             checked(node.G + heuristic),
             heuristic,

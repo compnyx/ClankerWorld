@@ -408,8 +408,10 @@ accounting details need design and playtesting.
   Agents may cross **mountain** tiles, but more slowly; **peak** tiles are
   impassable. Exact mountain travel cost remains open.
 - In the intended finished game, agents can **move diagonally** on the 2D tile
-  map, and roads can also run diagonally. The current playable route finder
-  still uses cardinal neighbors only; diagonal movement is not implemented.
+  map, and roads can also run diagonally. The playable foot route finder now
+  supports diagonal steps at 141% of cardinal entry cost and requires both
+  orthogonal shoulder tiles to be passable; occupied shoulders also block a
+  live diagonal move. Diagonal Roads remain unimplemented.
 
 ### Decided crossings and preferred default terrain visibility
 
@@ -1007,8 +1009,9 @@ other event can remove a Road—and thus whether the earlier temporary versus
 permanent distinction still means anything—remains open. Exact inter-Town
 route timing, layout, bridge thresholds/radius/materials and rendering remain
 open. Diagonal travel/Roads remain in scope; diagonal moves must not pass
-through blocked corners, with precise
-cost/corner rules open.
+  through blocked corners. Playable foot movement now uses the strict
+  two-clear-shoulder rule and a 141% diagonal route cost; diagonal Road
+  construction/visuals remain open.
 
 ### Open
 

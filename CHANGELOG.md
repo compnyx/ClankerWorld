@@ -53,6 +53,9 @@ release yet.
 
 ### Added
 
+- Agents now route and move diagonally when both orthogonal corner tiles are
+  clear. Diagonal steps have a deterministic longer cost, work across wrapped
+  east/west seams, and cannot squeeze past blocked or occupied corners.
 - Stable adult agents can now choose short curiosity outings. They scout only
   adjacent passable ground, remember tiles they actually visit, and return to
   their starting point. Hunger, exhaustion and urgent exposure take precedence;
