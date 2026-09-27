@@ -301,8 +301,7 @@ public sealed partial class PrivateWorldRuntime
             (resource.Kind == input.ResourceId || (input.ResourceId == "wood" && resource.Kind == "construction")) &&
             resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
             map.IsReachableFromCampOnFoot(resource.Position))
-            .OrderBy(resource => Math.Abs(resource.Position.X - state.Position.X) +
-                Math.Abs(resource.Position.Y - state.Position.Y))
+            .OrderBy(resource => map.FootDistance(resource.Position, state.Position))
             .FirstOrDefault();
         if (source is null)
         {

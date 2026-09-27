@@ -281,7 +281,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             throw new InvalidDataException("The private-world map does not match deterministic regeneration.");
         }
 
-        runtime.map = state.Map;
+        // Older generated checkpoints did not serialize the route-topology flag.
+        // Geography already binds that choice, while the v1 terrain manifest
+        // remains byte-compatible with existing saves.
+        runtime.map = state.Geography is null ? state.Map :
+            state.Map with { WrapsEastWest = state.Geography.WrapEastWest };
         runtime.eventHistoryFloor = state.EventHistoryFloor;
         runtime.historyArchiveHead = state.HistoryArchiveHead;
         runtime.checkpointSchemaVersion = Math.Max(3, state.SchemaVersion);
@@ -2645,13 +2649,16 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             .Where(item => item.InhabitantId != inhabitantId)
             .Select(item => item.Position)
             .ToHashSet();
-        var open = new Queue<GridPoint>();
-        var visited = new HashSet<GridPoint> { origin };
+        var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
+        var best = new Dictionary<GridPoint, int> { [origin] = 0 };
         var predecessor = new Dictionary<GridPoint, GridPoint>();
-        open.Enqueue(origin);
+        var order = 0;
+        open.Enqueue(origin, (0, origin.Y, origin.X, order++));
 
-        while (open.TryDequeue(out var current))
+        while (open.TryDequeue(out var current, out var priority))
         {
+            if (priority.Cost != best[current])
+                continue;
             if (IsWithinInteractionRange(current, destination, interactionRange))
             {
                 var route = new List<GridPoint> { current };
@@ -2665,15 +2672,19 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 return route;
             }
 
-            foreach (var next in MapAcceptance.CardinalNeighbors(current))
+            foreach (var next in map.FootNeighbors(current))
             {
-                if (!map.IsPassable(next) || occupied.Contains(next) || !visited.Add(next))
+                if (!map.IsPassable(next) || occupied.Contains(next))
                 {
                     continue;
                 }
 
+                var cost = checked(priority.Cost + map.FootTravelCost(next));
+                if (best.TryGetValue(next, out var previous) && previous <= cost)
+                    continue;
+                best[next] = cost;
                 predecessor[next] = current;
-                open.Enqueue(next);
+                open.Enqueue(next, (cost, next.Y, next.X, order++));
             }
         }
 
@@ -2693,15 +2704,14 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
     }
 
-    private static bool IsWithinInteractionRange(GridPoint origin, GridPoint destination, int interactionRange) =>
-        Math.Abs(origin.X - destination.X) + Math.Abs(origin.Y - destination.Y) <= interactionRange;
+    private bool IsWithinInteractionRange(GridPoint origin, GridPoint destination, int interactionRange) =>
+        map.FootDistance(origin, destination) <= interactionRange;
 
     private MapResource? AvailableFoodSource(GridPoint position) => map.Resources
         .Where(resource => resource.Kind == "food" &&
             resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
             map.IsReachableFromCampOnFoot(resource.Position))
-        .OrderBy(resource => Math.Abs(resource.Position.X - position.X) +
-            Math.Abs(resource.Position.Y - position.Y))
+        .OrderBy(resource => map.FootDistance(resource.Position, position))
         .FirstOrDefault();
 
     private void HarvestFood(string inhabitantId, PlaytestInhabitantState state)

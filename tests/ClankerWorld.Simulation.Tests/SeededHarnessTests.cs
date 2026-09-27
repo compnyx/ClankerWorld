@@ -1,4 +1,5 @@
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Kernel;
 
 namespace ClankerWorld.Simulation.Tests;
 
@@ -91,6 +92,52 @@ public sealed class SeededHarnessTests
             tile => Assert.False(map.IsPassable(tile.Position)));
         Assert.Throws<InvalidOperationException>(() =>
             DeterministicRouteFinder.Find(map, new GridPoint(1, 1), new GridPoint(4, 1)));
+    }
+
+    [Fact]
+    public void WrappedRoutesAndMovementCrossEitherSeamOnlyWhenTheWorldWraps()
+    {
+        var bounded = TerrainMap(5, 3, _ => TerrainKind.Meadow);
+        var wrapped = bounded with { WrapsEastWest = true };
+        var west = new GridPoint(0, 1);
+        var east = new GridPoint(4, 1);
+
+        Assert.Equal(new[] { west, east }, DeterministicRouteFinder.Find(wrapped, west, east));
+        Assert.Equal(new[] { east, west }, DeterministicRouteFinder.Find(wrapped, east, west));
+        Assert.Equal(new[] { new GridPoint(0, 0), new GridPoint(4, 0) },
+            DeterministicRouteFinder.Find(wrapped, new GridPoint(0, 0), new GridPoint(4, 0)));
+        Assert.Equal(5, DeterministicRouteFinder.Find(bounded, west, east).Count);
+
+        var blockedSeam = wrapped with { Tiles = wrapped.Tiles.Select(tile => tile.Position == east
+            ? tile with { Terrain = TerrainKind.Peak } : tile).ToArray() };
+        Assert.Equal(new[] { west, new GridPoint(1, 1), new GridPoint(2, 1), new GridPoint(3, 1) },
+            DeterministicRouteFinder.Find(blockedSeam, west, new GridPoint(3, 1)));
+
+        var across = DeterministicMovementResolver.Resolve(wrapped,
+            [new MovementActor("walker", west, 0)], [new MovementIntent("walker", east)]);
+        var blocked = DeterministicMovementResolver.Resolve(bounded,
+            [new MovementActor("walker", west, 0)], [new MovementIntent("walker", east)]);
+        Assert.Equal(east, across.GetActor("walker").Position);
+        Assert.Equal(west, blocked.GetActor("walker").Position);
+        Assert.Empty(blocked.Events);
+    }
+
+    [Fact]
+    public void WrappedSeamRiverIsWalkableOnlyWhenItsOppositeBanksAreDry()
+    {
+        var seamRiver = new GridPoint(0, 1);
+        var map = TerrainMap(5, 3, point => point == seamRiver ? TerrainKind.River :
+            point.Y != 1 && point.X is 0 or 1 ? TerrainKind.Ocean : TerrainKind.Meadow)
+            with { WrapsEastWest = true };
+        Assert.True(map.IsPassable(seamRiver));
+        Assert.Equal(200, map.FootTravelCost(seamRiver));
+        Assert.Equal(new[] { new GridPoint(4, 1), seamRiver, new GridPoint(1, 1) },
+            DeterministicRouteFinder.Find(map, new GridPoint(4, 1), new GridPoint(1, 1)));
+
+        var wide = map with { Tiles = map.Tiles.Select(tile => tile.Position == new GridPoint(1, 1)
+            ? tile with { Terrain = TerrainKind.River } : tile).ToArray() };
+        Assert.False(wide.IsPassable(seamRiver));
+        Assert.False(wide.IsPassable(new GridPoint(1, 1)));
     }
 
     private static SeededMap TerrainMap(int width, int height, Func<GridPoint, TerrainKind> terrain) =>

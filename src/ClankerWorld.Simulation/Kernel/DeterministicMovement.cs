@@ -64,7 +64,7 @@ public static class DeterministicMovementResolver
                 throw new InvalidDataException("A movement intent names an unknown actor.");
             }
 
-            if (!map.IsPassable(intent.Destination) || !IsCardinalStep(actor.Position, intent.Destination))
+            if (!map.IsPassable(intent.Destination) || map.FootDistance(actor.Position, intent.Destination) != 1)
             {
                 reasons.Add(actor.Id, "invalid_destination");
                 continue;
@@ -179,9 +179,6 @@ public static class DeterministicMovementResolver
 
         return new MovementResolution(nextActors, events);
     }
-
-    private static bool IsCardinalStep(GridPoint origin, GridPoint destination) =>
-        (Math.Abs(origin.X - destination.X) + Math.Abs(origin.Y - destination.Y)) == 1;
 
     private static void ValidateActors(SeededMap map, MovementActor[] actors)
     {

@@ -28,7 +28,8 @@ the resolution evidence below.
 - **Wrapped-world camera stops at the east/west edges — confirmed:** the
   client clamps the horizontal camera axis and terrain renderer to one copy of
   the map. World generation can request east/west wrapping, but camera panning
-  does not cross the seam continuously; agent route wrapping is also incomplete.
+  does not cross the seam continuously; agent routes now honor the saved
+  east/west wrapping choice.
 - **Zoom-out cap feels too close — playtest preference:** client zoom is
   clamped to 1–4 and rendered tiles have a 12 px minimum. Revisit the visible
   area/performance/readability cap instead of treating the current minimum as

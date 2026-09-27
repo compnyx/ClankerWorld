@@ -36,6 +36,7 @@ public sealed class GeographyGeneratorTests
             startPace: WorldStartPace.FounderSetup, geographyOptions: options);
         var initial = world.ExportState();
         Assert.Equal(options, initial.Geography);
+        Assert.True(initial.Map.WrapsEastWest);
         Assert.Empty(world.Inhabitants);
         Assert.True(world.Society.IsPaused);
         var projection = new OwnerWorldObservationStore(world).GetSnapshot();
@@ -71,6 +72,12 @@ public sealed class GeographyGeneratorTests
         Assert.Equal(1, restored.WorldTick);
         Assert.Equal(initial.Map.ManifestDigest, restored.ExportState().Map.ManifestDigest);
         Assert.Equal(options, restored.ExportState().Geography);
+        Assert.True(restored.ExportState().Map.WrapsEastWest);
+        using var legacyCheckpoint = PrivateWorldRuntime.Restore(saved with
+        {
+            Map = saved.Map with { WrapsEastWest = false },
+        });
+        Assert.True(legacyCheckpoint.ExportState().Map.WrapsEastWest);
         Assert.Equal(4, restored.Inhabitants.Count);
         Assert.True(restored.WorldSystems.Chunks.Count > 1);
         Assert.All(restored.ExportState().Map.Resources, site =>

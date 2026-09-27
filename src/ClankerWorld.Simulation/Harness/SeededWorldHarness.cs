@@ -59,6 +59,9 @@ public sealed record SeededMap(
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public byte[]? ClimateZones { get; init; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool WrapsEastWest { get; init; }
+
     // Keep the index outside the record: a cache field would silently change
     // record equality and could be copied into a `with` map with new tiles.
     private static readonly ConditionalWeakTable<SeededMap, byte[]> TerrainIndexes = new();
@@ -79,6 +82,28 @@ public sealed record SeededMap(
             (byte)TerrainKind.Mountain => 200,
             _ => 100,
         };
+
+    public int FootDistance(GridPoint origin, GridPoint destination)
+    {
+        var horizontal = Math.Abs(origin.X - destination.X);
+        if (WrapsEastWest)
+            horizontal = Math.Min(horizontal, Width - horizontal);
+        return horizontal + Math.Abs(origin.Y - destination.Y);
+    }
+
+    public IEnumerable<GridPoint> FootNeighbors(GridPoint point)
+    {
+        if (!Contains(point))
+            throw new ArgumentOutOfRangeException(nameof(point));
+        if (point.Y > 0)
+            yield return new GridPoint(point.X, point.Y - 1);
+        if (WrapsEastWest || point.X + 1 < Width)
+            yield return new GridPoint((point.X + 1) % Width, point.Y);
+        if (point.Y + 1 < Height)
+            yield return new GridPoint(point.X, point.Y + 1);
+        if (WrapsEastWest || point.X > 0)
+            yield return new GridPoint((point.X - 1 + Width) % Width, point.Y);
+    }
 
     // Construction eligibility is separate from travel: future mountain
     // paths must not silently become build sites when traversal is expanded.
@@ -109,8 +134,13 @@ public sealed record SeededMap(
             IsDryBank(north) && IsDryBank(south);
     }
 
-    private bool IsDryBank(GridPoint point) => Contains(point) &&
-        (IsOpenGround(TerrainAt(point)) || TerrainAt(point) == (byte)TerrainKind.Mountain);
+    private bool IsDryBank(GridPoint point)
+    {
+        if (WrapsEastWest && point.Y >= 0 && point.Y < Height)
+            point = new GridPoint((point.X % Width + Width) % Width, point.Y);
+        return Contains(point) &&
+            (IsOpenGround(TerrainAt(point)) || TerrainAt(point) == (byte)TerrainKind.Mountain);
+    }
 
     private byte TerrainAt(GridPoint point) =>
         TerrainIndexes.GetValue(this, static map =>
@@ -301,7 +331,7 @@ public static class GeneratedCampMapGenerator
         var distributed = GenerateResourceSites(options, geography, kinds, objects, resources);
         var withoutDigest = new SeededMap(width, height, 0, tiles, objects,
             resources.Concat(distributed).ToArray(), string.Empty)
-        { ClimateZones = climateZones };
+        { ClimateZones = climateZones, WrapsEastWest = options.WrapEastWest };
         var map = withoutDigest with { ManifestDigest = MapManifestCodec.Digest(withoutDigest) };
         var validation = MapAcceptance.Validate(map, allowEmptyCamp: true);
         if (!validation.IsValid)
@@ -555,7 +585,7 @@ public static class MapAcceptance
         queue.Enqueue(origin);
         while (queue.TryDequeue(out var current))
         {
-            foreach (var next in CardinalNeighbors(current))
+            foreach (var next in map.FootNeighbors(current))
             {
                 if (map.IsPassable(next) && visited.Add(next))
                 {
@@ -567,13 +597,6 @@ public static class MapAcceptance
         return visited;
     }
 
-    internal static IReadOnlyList<GridPoint> CardinalNeighbors(GridPoint point) =>
-    [
-        new GridPoint(point.X, point.Y - 1),
-        new GridPoint(point.X + 1, point.Y),
-        new GridPoint(point.X, point.Y + 1),
-        new GridPoint(point.X - 1, point.Y),
-    ];
 }
 
 /// <summary>
@@ -594,7 +617,7 @@ public static class DeterministicRouteFinder
         var best = new Dictionary<GridPoint, RouteRecord>();
         var nodeId = 0;
         var start = new RouteNode(origin, origin, 0, nodeId++);
-        open.Enqueue(start, ToPriority(start, destination));
+        open.Enqueue(start, ToPriority(map, start, destination));
         best.Add(origin, new RouteRecord(0, origin));
 
         while (open.TryDequeue(out var node, out _))
@@ -610,7 +633,7 @@ public static class DeterministicRouteFinder
                 return Reconstruct(predecessor, origin, destination);
             }
 
-            foreach (var next in MapAcceptance.CardinalNeighbors(node.Position))
+            foreach (var next in map.FootNeighbors(node.Position))
             {
                 if (!map.IsPassable(next))
                 {
@@ -626,7 +649,7 @@ public static class DeterministicRouteFinder
                 best[next] = candidate;
                 predecessor[next] = node.Position;
                 var nextNode = new RouteNode(next, node.Position, candidate.Cost, nodeId++);
-                open.Enqueue(nextNode, ToPriority(nextNode, destination));
+                open.Enqueue(nextNode, ToPriority(map, nextNode, destination));
             }
         }
 
@@ -662,10 +685,9 @@ public static class DeterministicRouteFinder
         return route;
     }
 
-    private static RoutePriority ToPriority(RouteNode node, GridPoint destination)
+    private static RoutePriority ToPriority(SeededMap map, RouteNode node, GridPoint destination)
     {
-        var heuristic = checked((Math.Abs(node.Position.X - destination.X) +
-            Math.Abs(node.Position.Y - destination.Y)) * 100);
+        var heuristic = checked(map.FootDistance(node.Position, destination) * 100);
         return new RoutePriority(
             checked(node.G + heuristic),
             heuristic,

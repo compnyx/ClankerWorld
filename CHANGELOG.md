@@ -32,6 +32,9 @@ release yet.
 - Agents can walk through one-tile-wide river crossings and mountain tiles at
   half the dry-ground travel speed. Wider river sections, peaks, lakes and
   oceans remain impassable, and river/mountain tiles remain non-buildable.
+- Generated worlds with east/west wrapping now route agents and evaluate
+  interaction range across the seam; non-wrapped worlds retain bounded paths.
+  Old generated checkpoints inherit their saved wrapping choice on reload.
 
 - Generated Small/Medium worlds now place sparse food, fiber, seed, stone and
   regrowing wood sites beyond the starter camp according to local ground.
