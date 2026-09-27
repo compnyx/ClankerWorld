@@ -125,6 +125,9 @@ public partial class Main
     private void ShowMainMenu()
     {
         isInWorld = false;
+        mainMenuCard.Show();
+        menuShade.ZIndex = 90;
+        gameMenuPanel.ZIndex = 100;
         mainMenuOverlay.Show();
         RefreshMainMenuAvailability();
     }
@@ -166,7 +169,10 @@ public partial class Main
     private void OpenMainMenuSettings()
     {
         returnToMainMenu = true;
-        mainMenuOverlay.Hide();
+        mainMenuOverlay.Show();
+        mainMenuCard.Hide();
+        menuShade.ZIndex = 190;
+        gameMenuPanel.ZIndex = 200;
         menuHeadingLabel.Text = "Game Settings";
         menuResumeButton.Text = "Back to Main Menu";
         SetWorldMenuActionsVisible(false);

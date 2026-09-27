@@ -124,7 +124,14 @@ public partial class Main : Control
     private readonly Button quitGameButton = new();
     private readonly ConfirmationDialog quitGameConfirmation = new();
     private readonly CheckBox fullscreenToggle = new();
-    private readonly OptionButton resolutionChoice = new();
+    private readonly OptionButton windowSizeChoice = new();
+    private readonly OptionButton renderResolutionChoice = new();
+    private static readonly Vector2I[] DisplaySizePresets =
+    [
+        new(1280, 720),
+        new(1600, 900),
+        new(1920, 1080),
+    ];
     private readonly OptionButton clockFormatChoice = new();
     private readonly OptionButton dateFormatChoice = new();
     private readonly OptionButton lifePaceChoice = new();
@@ -195,6 +202,7 @@ public partial class Main : Control
     public override void _Ready()
     {
         displayPreferences = displayPreferencesStore.Load();
+        ApplySavedDisplaySettings();
         BuildLayout();
         ShowMainMenu();
         if (OS.GetCmdlineUserArgs().Contains("--ui-smoke-test", StringComparer.Ordinal))
@@ -246,16 +254,48 @@ public partial class Main : Control
                 worldPreview.Hide();
             }
             OpenMainMenuSettings();
-            if (mainMenuOverlay.Visible || !gameMenuPanel.Visible || !gameSettingsContent.Visible ||
+            if (!mainMenuOverlay.Visible || mainMenuCard.Visible || !gameMenuPanel.Visible || !gameSettingsContent.Visible ||
                 worldSettingsCategoryButton.Visible || worldSettingsContent.Visible)
-                throw new InvalidOperationException("Main Menu Settings must show only Game Settings.");
+                throw new InvalidOperationException("Main Menu Settings must keep the title background and show only Game Settings.");
+            gameSettingsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            gameSettingsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            gameSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (!settingsPanel.Visible || !gameSettingsContent.Visible)
+                throw new InvalidOperationException("The selected Settings category must remain open.");
             worldSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (!gameMenuPanel.Visible || !gameSettingsContent.Visible || worldSettingsContent.Visible ||
                 !returnToMainMenu)
                 throw new InvalidOperationException("World Settings cannot be opened from the Main Menu.");
             await CloseGameMenuAsync();
-            if (!mainMenuOverlay.Visible || gameMenuPanel.Visible)
+            if (!mainMenuOverlay.Visible || !mainMenuCard.Visible || gameMenuPanel.Visible)
                 throw new InvalidOperationException("Closing Game Settings must return to the Main Menu.");
+            var displayWindow = GetWindow();
+            var originalWindowSize = displayWindow.Size;
+            var originalRenderSize = displayWindow.ContentScaleSize;
+            var originalDisplayPreferences = displayPreferences;
+            var originalWindowChoice = windowSizeChoice.Selected;
+            var originalRenderChoice = renderResolutionChoice.Selected;
+            try
+            {
+                windowSizeChoice.Select(1);
+                SetWindowSize(1);
+                if (displayWindow.Size != DisplaySizePresets[1] || displayWindow.ContentScaleSize != originalRenderSize)
+                    throw new InvalidOperationException("Window Size must change only the physical window size.");
+                renderResolutionChoice.Select(2);
+                SetRenderResolution(2);
+                if (displayWindow.Size != DisplaySizePresets[1] ||
+                    displayWindow.ContentScaleSize != DisplaySizePresets[2] ||
+                    displayWindow.ContentScaleMode != Window.ContentScaleModeEnum.Viewport)
+                    throw new InvalidOperationException("Render Resolution must change only the viewport's render size.");
+            }
+            finally
+            {
+                displayWindow.Size = originalWindowSize;
+                displayWindow.ContentScaleSize = originalRenderSize;
+                windowSizeChoice.Select(originalWindowChoice);
+                renderResolutionChoice.Select(originalRenderChoice);
+                SaveDisplayPreferences(originalDisplayPreferences);
+            }
             mainMenuOverlay.Hide();
             isInWorld = true;
             returnToMainMenu = false;
@@ -275,6 +315,11 @@ public partial class Main : Control
                             ShowSettingsSection(worldSpecific);
                             if (gameSettingsContent.Visible == worldSpecific || worldSettingsContent.Visible != worldSpecific)
                                 throw new InvalidOperationException("Game and World Settings must show different controls.");
+                            (worldSpecific ? worldSettingsCategoryButton : gameSettingsCategoryButton)
+                                .EmitSignal(BaseButton.SignalName.Pressed);
+                            if (!settingsPanel.Visible || gameSettingsContent.Visible == worldSpecific ||
+                                worldSettingsContent.Visible != worldSpecific)
+                                throw new InvalidOperationException("Re-selecting a Settings category must leave its page open.");
                         }
                         else settingsPanel.Hide();
                         foreach (var selected in new[] { false, true, false })
@@ -1873,19 +1918,6 @@ public partial class Main : Control
         RenderProviderConfiguration();
     }
 
-    private void ToggleSettingsSection(bool worldSpecific)
-    {
-        if (settingsPanel.Visible && worldSettingsContent.Visible == worldSpecific)
-        {
-            settingsPanel.Hide();
-            cognitionApiKeyInput.Text = string.Empty;
-            ApplyResponsiveLayout();
-            return;
-        }
-
-        ShowSettingsSection(worldSpecific);
-    }
-
     private void ShowSettingsSection(bool worldSpecific)
     {
         if (worldSpecific && (!isInWorld || returnToMainMenu)) return;
@@ -2145,12 +2177,12 @@ public partial class Main : Control
 
         gameSettingsButton.Text = "Game Settings";
         StyleButton(gameSettingsButton);
-        gameSettingsButton.Pressed += () => ToggleSettingsSection(worldSpecific: false);
+        gameSettingsButton.Pressed += () => ShowSettingsSection(worldSpecific: false);
         menuActions.AddChild(gameSettingsButton);
 
         worldSettingsButton.Text = "World Settings";
         StyleButton(worldSettingsButton);
-        worldSettingsButton.Pressed += () => ToggleSettingsSection(worldSpecific: true);
+        worldSettingsButton.Pressed += () => ShowSettingsSection(worldSpecific: true);
         menuActions.AddChild(worldSettingsButton);
 
         menuCreationButton.Text = "Create";
@@ -2197,12 +2229,26 @@ public partial class Main : Control
         fullscreenToggle.Toggled += SetFullscreen;
         gameSettingsContent.AddChild(fullscreenToggle);
 
-        resolutionChoice.AddItem("1280 × 720");
-        resolutionChoice.AddItem("1600 × 900");
-        resolutionChoice.AddItem("1920 × 1080");
-        resolutionChoice.Selected = 0;
-        resolutionChoice.ItemSelected += SetWindowResolution;
-        gameSettingsContent.AddChild(resolutionChoice);
+        foreach (var preset in DisplaySizePresets)
+        {
+            var label = $"{preset.X} × {preset.Y}";
+            windowSizeChoice.AddItem(label);
+            renderResolutionChoice.AddItem(label);
+        }
+        windowSizeChoice.Selected = DisplaySizeIndex(GetWindow().Size);
+        windowSizeChoice.Disabled = fullscreenToggle.ButtonPressed;
+        windowSizeChoice.TooltipText = "Physical window dimensions in windowed mode. Fullscreen uses your display's size.";
+        windowSizeChoice.ItemSelected += SetWindowSize;
+        gameSettingsContent.AddChild(DisplaySettingRow("Window Size", windowSizeChoice));
+        renderResolutionChoice.Selected = DisplaySizeIndex(GetWindow().ContentScaleSize);
+        renderResolutionChoice.TooltipText = "Base size rendered by the game, scaled to fit the window or display.";
+        renderResolutionChoice.ItemSelected += SetRenderResolution;
+        gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
+        gameSettingsContent.AddChild(new Label
+        {
+            Text = "Render Resolution scales the whole game, including UI. Different aspect ratios use letterboxing.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        });
 
         var clockFormatRow = new HBoxContainer();
         clockFormatRow.AddChild(new Label { Text = "Time display" });
@@ -2707,27 +2753,57 @@ public partial class Main : Control
         ShowSettingsSection(worldSpecific: false);
     }
 
-    private static void SetFullscreen(bool enabled)
+    private void SetFullscreen(bool enabled)
     {
         DisplayServer.WindowSetMode(enabled
             ? DisplayServer.WindowMode.Fullscreen
             : DisplayServer.WindowMode.Windowed);
+        windowSizeChoice.Disabled = enabled;
+        if (!enabled)
+            GetWindow().Size = DisplaySizePresets[windowSizeChoice.Selected];
     }
 
-    private void SetWindowResolution(long index)
+    private void ApplySavedDisplaySettings()
     {
-        if (fullscreenToggle.ButtonPressed)
-        {
-            return;
-        }
+        var window = GetWindow();
+        var windowSize = new Vector2I(displayPreferences.WindowWidth, displayPreferences.WindowHeight);
+        var renderSize = new Vector2I(displayPreferences.RenderWidth, displayPreferences.RenderHeight);
+        window.ContentScaleMode = Window.ContentScaleModeEnum.Viewport;
+        window.ContentScaleAspect = Window.ContentScaleAspectEnum.Keep;
+        window.ContentScaleSize = DisplaySizePresets[DisplaySizeIndex(renderSize)];
+        if (DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Windowed)
+            window.Size = DisplaySizePresets[DisplaySizeIndex(windowSize)];
+    }
 
-        var size = index switch
-        {
-            1 => new Vector2I(1600, 900),
-            2 => new Vector2I(1920, 1080),
-            _ => new Vector2I(1280, 720),
-        };
-        DisplayServer.WindowSetSize(size);
+    private static int DisplaySizeIndex(Vector2I size)
+    {
+        for (var index = 0; index < DisplaySizePresets.Length; index++)
+            if (DisplaySizePresets[index] == size) return index;
+        return 0;
+    }
+
+    private static HBoxContainer DisplaySettingRow(string label, OptionButton choice)
+    {
+        var row = new HBoxContainer();
+        row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(135, 0) });
+        choice.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        row.AddChild(choice);
+        return row;
+    }
+
+    private void SetWindowSize(long index)
+    {
+        var size = DisplaySizePresets[(int)index];
+        SaveDisplayPreferences(displayPreferences with { WindowWidth = size.X, WindowHeight = size.Y });
+        if (!fullscreenToggle.ButtonPressed)
+            GetWindow().Size = size;
+    }
+
+    private void SetRenderResolution(long index)
+    {
+        var size = DisplaySizePresets[(int)index];
+        GetWindow().ContentScaleSize = size;
+        SaveDisplayPreferences(displayPreferences with { RenderWidth = size.X, RenderHeight = size.Y });
     }
 
     private void SetClockFormat(long index)

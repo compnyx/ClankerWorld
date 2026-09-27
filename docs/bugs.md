@@ -21,14 +21,6 @@ the resolution evidence below.
 
 ## September playtest reports and confirmed product gaps
 
-- **Main Menu Settings shows the in-world backdrop — confirmed:**
-  `OpenMainMenuSettings` hides the Main Menu overlay and shows the shared
-  in-world game-menu panel. The category restriction was fixed, but the
-  background still looks like entering the world. Main Menu Settings should
-  retain the Main Menu presentation.
-- **Selecting the active Settings category closes Settings — confirmed:**
-  `ToggleSettingsSection` hides the whole panel when the requested category is
-  already visible. Category buttons should select a page, not toggle it off.
 - **Out-of-view event notices are unwanted — confirmed product mismatch:**
   the current temporary notices/settings flow should be removed. Important
   events remain accessible in the Event Log; this does not remove agent info
@@ -82,11 +74,6 @@ the resolution evidence below.
   Quit Game belongs to the Main Menu, not the Pause Menu.
   The player-facing `Create` building-design workbench is a pre-revision
   prototype and should be removed; agent-driven invention remains in scope.
-- **Resolution control is misleading — confirmed:** choosing 1280×720,
-  1600×900 or 1920×1080 only calls Godot's window-size setter; the game
-  viewport remains configured at 1280×720 with canvas-item stretching. The
-  intended Game Settings have separate Window Size and Render Resolution
-  controls; exact scaling/fullscreen behavior remains to be designed.
 - **Agent marker hitboxes overflow tiles — confirmed:** marker buttons are
   clamped to 52–78 px even when a zoomed-out tile is smaller, and offsets for
   multiple occupants add 22 px. Their clickable areas can extend into adjacent

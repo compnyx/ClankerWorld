@@ -73,14 +73,19 @@ public sealed class GameUiTextTests
         {
             var store = new GameDisplayPreferencesStore(Path.Combine(directory, "game-settings.json"));
             Assert.False(store.Load().UseTwelveHourClock);
-            store.Save(new GameDisplayPreferences(UseTwelveHourClock: true));
+            store.Save(new GameDisplayPreferences(UseTwelveHourClock: true,
+                WindowWidth: 1600, WindowHeight: 900, RenderWidth: 1920, RenderHeight: 1080));
             var restored = new GameDisplayPreferencesStore(Path.Combine(directory, "game-settings.json")).Load();
             Assert.True(restored.UseTwelveHourClock);
             Assert.True(restored.NotifyBirths);
+            Assert.Equal((1600, 900), (restored.WindowWidth, restored.WindowHeight));
+            Assert.Equal((1920, 1080), (restored.RenderWidth, restored.RenderHeight));
             store.Save(restored with { NotifyDeaths = false, DateFormat = "ymd" });
             Assert.False(store.Load().AllowsNotification("death"));
             Assert.True(store.Load().AllowsNotification("birth"));
             Assert.Equal("ymd", store.Load().DateFormat);
+            Assert.Equal((1600, 900), (store.Load().WindowWidth, store.Load().WindowHeight));
+            Assert.Equal((1920, 1080), (store.Load().RenderWidth, store.Load().RenderHeight));
         }
         finally
         {

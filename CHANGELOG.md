@@ -8,6 +8,10 @@ release yet.
 
 ### Fixed
 
+- Main Menu Settings keeps the title-screen background, and selecting the
+  already-active Settings page no longer closes it. Game Settings now separates
+  physical Window Size from Render Resolution; both choices are remembered
+  locally, with viewport scaling applied to the game and UI.
 - Main Menu Settings now hides and blocks World Settings until a world is
   loaded, so opening settings cannot jump into the world. Removed the dark
   gaps between square terrain tiles that appeared as black grid lines.

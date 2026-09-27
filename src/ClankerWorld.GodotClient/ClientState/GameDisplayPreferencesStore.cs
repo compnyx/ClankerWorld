@@ -11,7 +11,11 @@ public sealed record GameDisplayPreferences(
     bool NotifyDeaths = true,
     bool NotifyInventions = true,
     bool NotifySettlements = true,
-    string DateFormat = "dmy")
+    string DateFormat = "dmy",
+    int WindowWidth = 1280,
+    int WindowHeight = 720,
+    int RenderWidth = 1280,
+    int RenderHeight = 720)
 {
     public bool AllowsNotification(string category) => category switch
     {
