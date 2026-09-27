@@ -159,15 +159,18 @@ reopen the decided player-local distribution goal.
   borders, Town borders, and similar world facts. The UI must not invent
   ownership or borders that agents have not established.
 - The top-right menu button opens the **Pause Menu** and pauses the world. It
-  includes **Save World**, **Settings**, and **Quit to Menu**. Settings use
-  categories on the left and selected controls on the right. Quit to Menu and
-  Quit Game ask for confirmation.
+  contains **Save World**, **Settings**, **Mod Library**, then **Quit to Menu**
+  at the bottom. There is **no Quit Game action in the Pause Menu**; Quit Game
+  belongs to the Main Menu. Settings use categories on the left and selected
+  controls on the right. Quit to Menu and Main Menu Quit Game ask for
+  confirmation.
 - Main Menu Settings must retain the **Main Menu background/context**, not
   reveal the in-world UI underneath. Selecting the already-active Settings
   category leaves its controls visible; category buttons are selectors, not
   open/close toggles.
-- **Reaffirmed after the September playtest:** the Pause Menu has one compact
-  action row, not three rows of buttons. It has one **Settings** entry; **Game**
+- **Reaffirmed after the September playtest:** the Pause Menu is compact, not
+  the current three-row button grid. Keep the order above so Quit to Menu is
+  always last/bottom. It has one **Settings** entry; **Game**
   and **World** remain selectable categories inside Settings for a loaded world.
   Main Menu Settings still exposes Game only. **Remove the current player-facing
   `Create` building-design workbench entirely**; computment considers it a
@@ -227,16 +230,18 @@ opening Main Menu settings must never enter a world.
 
 In the **Add Agent** placement view, show existing household property and
 Town borders so computment can see the new agent's initial affiliation.
-Suggested precedence: placement on household-owned tiles joins that household
-(and its enclosing Town, if any); placement elsewhere within a
+Placement on household-owned tiles **forces the new agent into that household**
+(and its enclosing Town, if any); this player setup action does not seek
+household consent. Placement elsewhere within a
 Town joins the Town but no household; placement on unclaimed land
 outside both starts an independent agent. Location establishes **starting
 social membership**, not biological ancestry or permanent membership based on
 where the agent later walks. A player-added adult could be a new unrelated
-  unrelated family line even when placed inside an existing household. Exact overlap,
-capacity, consent, and invalid-placement rules are still open. The agreed
-first-Town household setup below is separate from this later Add Agent
-placement rule.
+family line even when placed inside an existing household. Exact overlap,
+invalid-placement rules, and later voluntary household changes remain open.
+This forced Add Agent membership is distinct from inviting a nonmember to
+visit a House. The agreed first-Town household setup below is separate from
+this later Add Agent placement rule.
 
 ### Open
 
@@ -307,7 +312,10 @@ The recent history should persist with the world save but remain bounded.
 - **Preferred:** biological age corresponds to elapsed world/calendar time,
   but its display and life-stage milestones need rethinking for short lives.
   Night should occupy more of each cycle relative to daylight than in the
-  earlier proposed split; its exact share is not decided.
+  earlier proposed split; its exact share is not decided. Night affects
+  temperature and weather, without a sleep/energy requirement or a separate
+  night-only travel, visibility, work or social restriction. Weather itself
+  can still affect agents under the ordinary weather rules.
 
 ### Current prototype evidence (not a finished-game decision)
 
@@ -411,8 +419,10 @@ remain open.
 
 Computment wants agents to cross **one-tile-wide rivers on foot, more slowly**
 than dry ground. The world automatically adds bridges at sufficiently used
-crossings. Once a bridge is placed, a no-other-bridge radius prevents one
-appearing right next to it. Exact radius, traffic threshold, bridge
+crossings. Once a bridge is placed, a no-other-bridge radius prevents a
+redundant bridge appearing right next to it on the **same crossing/river**.
+It does not block a needed bridge over a separate nearby stream. Exact radius,
+traffic threshold, bridge
 materials/work, and wider/deeper river crossing rules remain open. Town site
 planning and Road generation must be designed together; Road persistence is
 specified in the building/Town section below.
@@ -798,8 +808,9 @@ than an idle-label change.
 - Each building **type has a few supported shapes of its own**, rather than
   choosing freely from every shape/material/floor/state combination. There is
   initially **one standard appearance per supported design**; duplicate houses
-  of the same type and size may look alike. **3×3** remains a sensible early
-  upper-size candidate, but the exact catalogue has not been chosen. Agents
+  of the same type and size may look alike. The sizes decided below govern
+  Houses, Warehouses and Stores; other building footprints await the content
+  catalogue. Agents
   may invent new designs, including unusual shapes if the art and world rules
   can represent them; larger, irregular, or multi-floor buildings are therefore
   possibilities, not automatic unlocks. **House** replaces Shelter as the
@@ -812,6 +823,13 @@ than an idle-label change.
   ideas are superseded. It has no bed or sleep-recovery role. A selected
   building exposes inspectable occupants, stock and ownership in a panel;
   there are **no visible/enterable room interiors**.
+- **Storage-driven building expansion:** a House starts at **1×1** and can
+  expand to **1×2** or **2×2** when its household needs more storage.
+  This increases storage, not its unlimited occupant count. A Warehouse starts
+  at **2×2** and can expand to **2×3** for more storage. A Store may be **1×1**
+  or **1×2**, likewise tied to storage. Exact capacity per footprint, costs,
+  expansion triggers and other building footprints belong in the full content
+  catalogue; do not invent those values yet.
 - Non-residential buildings have distinct physical occupancy, workstation,
   storage, and other type-specific limits. Agents can reserve space when
   practical, queue or choose alternatives when full, and retain the blocked
@@ -880,7 +898,9 @@ open. Farm work stock
 is private to its household; the private Silo/linked store is distinct from the
 public Town
 Warehouse. The Blacksmith makes tools, with stock inside the building. A Store
-supports a household selling its products; a Market admits traders from any
+supports a household selling its products. Goods must be physically carried
+to the Store and kept in its own stock before sale; a Store cannot sell from
+a remote House, farm, or Warehouse inventory. A Market admits traders from any
 Town; a Restaurant buys ingredients, cooks and sells potentially better meals.
 Town Hall supports governance and Port supports boats. Exact stocks, recipes,
 ownership edge cases, prices, trade and starter timing remain open. See the
@@ -908,10 +928,11 @@ Roads appear immediately with Town buildings and automatically link Towns
 Towns remain unconnected by Road; boats or later transport may still connect
 their travelers. Roads are not generated by footsteps or a separate building
 project. Agents and player do not paint Road tiles. Roads speed up travel.
-**Bridge placement
-responds to traffic** at narrow river crossings, even without a planned Road,
-and excludes another bridge in a nearby radius. Generated Roads **remain after
-the supporting building is removed or a Town is abandoned**. Whether any
+**Bridge placement responds to traffic** at narrow river crossings, even
+without a planned Road, and excludes a redundant nearby bridge over the same
+crossing/river, not a necessary bridge over a different nearby stream.
+Generated Roads **remain after the supporting building is removed or a Town
+is abandoned**. Whether any
 other event can remove a Road—and thus whether the earlier temporary versus
 permanent distinction still means anything—remains open. Exact inter-Town
 route timing, layout, bridge thresholds/radius/materials and rendering remain
@@ -1032,7 +1053,9 @@ slaughter or hunting ever becomes part of the game.
   download or silent global installation. The exact file format and package
   user interface remain open.
 - Both the Pause Menu and Main Menu have a **Mod Library** surface. The in-world
-  view shows active/developing/failed creations, authors, and dependencies. The
+  Pause Menu entry sits immediately above its bottom **Quit to Menu** action;
+  the Pause Menu does not offer Quit Game. The in-world view shows
+  active/developing/failed creations, authors, and dependencies. The
   global view browses the latest save for each world and handles the personal
   library and imports/exports. Tabs such as This World, Personal Library,
   Import/Export, and History are accepted as an initial organization.
@@ -1144,34 +1167,30 @@ These are **open questions**, not changes to the decisions above:
    Decide exact starter items/quantities and where agents make first-tier
    tools without those buildings. More farms may answer food shortages when
    yields fall; the population-and-yield planning rule remains open.
-8. **Automatic infrastructure edge cases.** Towns connect by Road where a
-   legal land route exists and can remain disconnected otherwise. Define
-   whether Roads or bridges consume materials, whether bridge spacing applies
-   only to the same river, and whether anything besides explicit world edits
-   can remove a Road. Roads remain after buildings or Towns disappear, so a
-   separate temporary/permanent distinction may be unnecessary.
-9. **Home invitations versus membership.** Guests may enter a House, but its
-    stock is household-private, while Add Agent placement on household land
-    was previously suggested to join that household automatically. Define
-    consent to membership, guest cooking/storm access, and what happens when
-    an agent leaves or changes household.
-10. **Physical stocks and trade.** Food is held at Houses, Town resources at
-    Warehouses, and farm/Blacksmith stock at businesses, while outsiders can
-    visit a Market or Workshop. Decide how goods physically move into Stores,
-    Restaurants and Markets, and when ownership changes; location-specific
-    inventories cannot be an invisible shared pool.
-11. **Compact Pause Menu versus Mod Library.** The menu is specified as one
-    row of Save World, Settings and Quit to Menu, but a separate accepted
-    vision section says the Pause Menu also exposes a Mod Library. Decide
-    where the in-world library opens without resurrecting the old crowded UI.
-12. **House form without capacity.** Household occupancy is unlimited and
-    rooms are not drawn. Decide whether larger/stone Houses matter through
-    storage, cooking, protection, status or aesthetics, so building upgrades
-    have a purpose without reintroducing an occupancy limit.
-13. **Night without sleep.** The world still has a day/night cycle, but agents
-    never need to sleep. Decide whether night affects visibility, travel,
-    temperature or social behavior, rather than silently creating a new
-    rest/energy gate.
+8. **Automatic infrastructure details.** Towns connect by Road where a legal
+   land route exists and can remain disconnected otherwise. Bridge spacing
+   prevents redundant crossings on the same river but does not block a needed
+   bridge on a separate nearby stream. Decide the actual spacing/traffic
+   thresholds, whether Roads or bridges consume materials, and whether
+   anything besides explicit world edits can remove a Road. Roads remain after
+   buildings or Towns disappear, so a separate temporary/permanent distinction
+   may be unnecessary.
+9. **Home invitations and later membership.** Add Agent placement on household
+   land forcibly assigns starting membership, without a consent step. Guests
+   may enter by invitation but cannot use private inventory. Decide guest
+   cooking/storm access and how agents later leave or change households.
+10. **Physical stocks and trade.** Store goods must be transported there and
+    stored on site before sale. Decide transport and ownership-transfer details
+    for Stores, Restaurants and Markets; location-specific inventories cannot
+    be an invisible shared pool.
+11. **Building storage catalogue.** Houses start at 1×1 and may expand to
+    1×2 or 2×2,
+    Warehouses 2×2 → 2×3, and Stores may be 1×1 or 1×2. These choices raise
+    storage, not House occupancy. Decide capacities, costs, expansion triggers
+    and footprints/functions of other buildings in the full asset catalogue.
+12. **Night and weather details.** Night affects temperature and weather, with
+    no sleep/energy gate or independent night-only restrictions. Decide exact
+    temperature and weather effects alongside the day/night split.
 
 Other substantive open topics: normal-session/player-intervention boundaries;
 memory and knowledge across generations; Town government, economy,

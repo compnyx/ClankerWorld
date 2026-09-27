@@ -50,7 +50,8 @@ the resolution evidence below.
   one-tile river crossings are slower on foot; sufficiently used crossings can
   automatically gain bridges. Town-generated Roads, not walking alone, serve
   building placement and automatic links between Towns when a legal land route
-  exists. Bridges need spacing so they do not appear next to one another.
+  exists. Bridges need spacing against redundant crossings on the same river,
+  without blocking needed crossings on a separate nearby stream.
   Exact routes, bridge radius and
   materials remain open.
 - **Agents rarely pursue non-survival activity — playtest report with confirmed
@@ -75,7 +76,9 @@ the resolution evidence below.
 - **Pause Menu layout and labels — confirmed mismatch:** the client lays out
   eight actions in a three-column grid across three rows. It exposes separate
   Game Settings and World Settings buttons, plus `Create`. The intended menu
-  has one compact row and one Settings entry, with Game and World inside it.
+  is compact, with Save World, Settings, Mod Library, then Quit to Menu always
+  at the bottom. It has one Settings entry, with Game and World inside it;
+  Quit Game belongs to the Main Menu, not the Pause Menu.
   The player-facing `Create` building-design workbench is a pre-revision
   prototype and should be removed; agent-driven invention remains in scope.
 - **Resolution control is misleading — confirmed:** choosing 1280×720,
