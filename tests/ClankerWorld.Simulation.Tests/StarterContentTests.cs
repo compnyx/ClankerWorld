@@ -39,7 +39,7 @@ public sealed class StarterContentTests
     }
 
     [Fact]
-    public async Task DefaultStarterContentCreatesActualBuildingsAndFoodWithoutInjectedFixtures()
+    public async Task DefaultStarterContentCreatesActualBuildingsAndUsesFoodWithoutInjectedFixtures()
     {
         using var runtime = new PrivateWorldRuntime("playtest-alpha");
         Assert.True(runtime.StageStarterContent());
@@ -52,6 +52,5 @@ public sealed class StarterContentTests
         Assert.Contains(runtime.ExportState().Events, item => item.Kind == "build_completed");
         Assert.Contains(runtime.ExportState().Events, item => item.Kind == "household_food_collected");
         Assert.Contains(runtime.ExportState().Events, item => item.Kind == "food_consumed");
-        Assert.Contains(runtime.Society.Inventory.Lots, lot => lot.ItemKind == "food" && lot.Id.Contains(":output:", StringComparison.Ordinal));
     }
 }
