@@ -21,10 +21,6 @@ the resolution evidence below.
 
 ## September playtest reports and confirmed product gaps
 
-- **Out-of-view event notices are unwanted — confirmed product mismatch:**
-  the current temporary notices/settings flow should be removed. Important
-  events remain accessible in the Event Log; this does not remove agent info
-  panels or other purposeful inspection UI.
 - **Final zoom-out cap needs playtest selection:** the client can now zoom to
   8 px terrain tiles (roughly 50% wider coverage than the old 12 px minimum on
   a 256-tile-wide map). Confirm that tile readability and frame cost are right

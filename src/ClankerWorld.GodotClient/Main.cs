@@ -33,9 +33,6 @@ public partial class Main : Control
 
     private readonly Label statusLabel = new();
     private readonly PanelContainer statusToast = new();
-    private readonly PanelContainer eventNoticePanel = new();
-    private readonly Button eventNoticeButton = new();
-    private readonly Godot.Timer eventNoticeTimer = new();
     private readonly PanelContainer connectionPanel = new();
     private readonly Button settingsButton = new();
     private readonly Button modLibraryButton = new();
@@ -192,9 +189,6 @@ public partial class Main : Control
     private bool draggingMap;
     private GameDisplayPreferences displayPreferences = new();
     private OwnerWorldCalendarPace? observedCalendarPace;
-    private string? notificationWorldId;
-    private long lastNotificationEventId;
-    private long? visibleNoticeEventId;
 
     public Main()
     {
@@ -703,31 +697,25 @@ public partial class Main : Control
                 inhabitantSocialDetails.Text.Contains("I hid the garden tools", StringComparison.Ordinal))
                 throw new InvalidOperationException("Historical private memories must be inspectable separately from public social notes.");
             memoriesPanel.Hide();
-            var originalPreferences = displayPreferences;
-            displayPreferences = displayPreferences with { NotifyDeaths = true };
-            notificationWorldId = historicalSnapshot.WorldId;
-            lastNotificationEventId = 100;
             cameraZoom = 4;
             RenderMap(historicalSnapshot);
-            var noticeDestination = cameraCenterTiles.X < 8
+            var deathDestination = cameraCenterTiles.X < 8
                 ? new OwnerWorldPosition(15, 11) : new OwnerWorldPosition(0, 0);
-            var deathNotice = new OwnerWorldEvent(101, 2, "inhabitant_removed", deceased.Id,
-                noticeDestination);
-            knownEvents[101] = deathNotice;
-            ShowImportantEventNotice(historicalSnapshot, [deathNotice]);
-            if (!eventNoticePanel.Visible || !eventNoticeButton.Text.Contains("Mira died", StringComparison.Ordinal))
-                throw new InvalidOperationException("An out-of-view death must produce an optional notification.");
-            var beforeNoticeJump = cameraCenterTiles;
-            eventNoticeButton.EmitSignal(BaseButton.SignalName.Pressed);
-            if (eventNoticePanel.Visible || cameraCenterTiles.DistanceTo(beforeNoticeJump) < 0.5f)
-                throw new InvalidOperationException("The event notification must jump to its location.");
-            displayPreferences = displayPreferences with { NotifyDeaths = false };
-            var suppressedNotice = deathNotice with { EventId = 102 };
-            knownEvents[102] = suppressedNotice;
-            ShowImportantEventNotice(historicalSnapshot, [suppressedNotice]);
-            if (eventNoticePanel.Visible || !knownEvents.ContainsKey(102))
-                throw new InvalidOperationException("Disabled pop-ups must stay quiet without removing the event log entry.");
-            displayPreferences = originalPreferences;
+            knownEvents[101] = new OwnerWorldEvent(101, 2, "inhabitant_removed", deceased.Id,
+                deathDestination);
+            RenderEventLog();
+            if (!eventLog.GetParsedText().Contains("died.", StringComparison.Ordinal) ||
+                DescribeWorldEvent(knownEvents[101], historicalSnapshot) != "Mira died." ||
+                gameSettingsContent.GetChildren().OfType<Label>()
+                    .Any(label => label.Text.Contains("event pop-ups", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Deaths must remain in the Event Log without an event pop-up setting.");
+            ToggleEvents();
+            if (!eventsPanel.Visible || !selectedInhabitantCard.Visible)
+                throw new InvalidOperationException("The Event Log and agent info panel must remain available.");
+            var beforeDeathJump = cameraCenterTiles;
+            eventLog.EmitSignal(RichTextLabel.SignalName.MetaClicked, "101");
+            if (eventsPanel.Visible || cameraCenterTiles.DistanceTo(beforeDeathJump) < 0.5f)
+                throw new InvalidOperationException("A death in the Event Log must jump to its location.");
             var parentPosition = new OwnerWorldPosition(1, 1);
             var parent = new OwnerWorldInhabitant("living-parent", "Rowan", "active", parentPosition,
                 7_000, 8_000, [], [new("age-band", "adult")],
@@ -777,7 +765,7 @@ public partial class Main : Control
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
             quitGameConfirmation.Hide();
-            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, event jumps, event pop-ups, private thoughts, memories, deceased inspection and family tree.");
+            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, private thoughts, memories, deceased inspection and family tree.");
             GetTree().Quit();
         }
         catch (Exception exception)
@@ -2436,16 +2424,6 @@ public partial class Main : Control
         dateFormatRow.AddChild(dateFormatChoice);
         gameSettingsContent.AddChild(dateFormatRow);
 
-        gameSettingsContent.AddChild(new Label { Text = "Out-of-view event pop-ups" });
-        AddNotificationPreference("Births", displayPreferences.NotifyBirths,
-            enabled => displayPreferences with { NotifyBirths = enabled });
-        AddNotificationPreference("Deaths", displayPreferences.NotifyDeaths,
-            enabled => displayPreferences with { NotifyDeaths = enabled });
-        AddNotificationPreference("Inventions", displayPreferences.NotifyInventions,
-            enabled => displayPreferences with { NotifyInventions = enabled });
-        AddNotificationPreference("New settlements", displayPreferences.NotifySettlements,
-            enabled => displayPreferences with { NotifySettlements = enabled });
-
         var lifePaceRow = new HBoxContainer();
         lifePaceRow.AddChild(new Label { Text = "Aging multiplier" });
         lifePaceChoice.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -2736,18 +2714,6 @@ public partial class Main : Control
 
     private void BuildStatusToast(Control content)
     {
-        eventNoticeButton.CustomMinimumSize = new Vector2(320, 42);
-        eventNoticeButton.TooltipText = "Jump to this event or open the full event log.";
-        StyleButton(eventNoticeButton);
-        eventNoticeButton.Pressed += OpenEventNotice;
-        AddPanelContents(eventNoticePanel, eventNoticeButton);
-        eventNoticePanel.ZIndex = 119;
-        eventNoticePanel.Hide();
-        content.AddChild(eventNoticePanel);
-        eventNoticeTimer.OneShot = true;
-        eventNoticeTimer.Timeout += () => eventNoticePanel.Hide();
-        content.AddChild(eventNoticeTimer);
-
         statusLabel.Text = "Connecting…";
         statusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         statusLabel.HorizontalAlignment = HorizontalAlignment.Center;
@@ -2987,14 +2953,6 @@ public partial class Main : Control
             Render(current.Baseline.Snapshot, []);
     }
 
-    private void AddNotificationPreference(
-        string label, bool selected, Func<bool, GameDisplayPreferences> update)
-    {
-        var toggle = new CheckBox { Text = label, ButtonPressed = selected };
-        toggle.Toggled += enabled => SaveDisplayPreferences(update(enabled));
-        gameSettingsContent.AddChild(toggle);
-    }
-
     private void SaveDisplayPreferences(GameDisplayPreferences updated)
     {
         displayPreferences = updated;
@@ -3091,50 +3049,7 @@ public partial class Main : Control
         RenderWorldDetails(snapshot);
         RenderModLibrary(snapshot);
         RenderEventLog();
-        ShowImportantEventNotice(snapshot, appendedEvents);
         RefreshControlAvailability();
-    }
-
-    private void ShowImportantEventNotice(
-        OwnerWorldSnapshot snapshot, IReadOnlyList<OwnerWorldEvent> appendedEvents)
-    {
-        if (notificationWorldId != snapshot.WorldId)
-        {
-            notificationWorldId = snapshot.WorldId;
-            lastNotificationEventId = knownEvents.Count == 0 ? 0 : knownEvents.Keys.Max();
-            eventNoticePanel.Hide();
-            return;
-        }
-
-        var newEvents = appendedEvents.Where(item => item.EventId > lastNotificationEventId)
-            .OrderBy(item => item.EventId).ToArray();
-        if (newEvents.Length == 0) return;
-        lastNotificationEventId = newEvents[^1].EventId;
-        var visible = worldOverview.VisibleTiles;
-        var important = newEvents.LastOrDefault(item =>
-            GameUiText.NotificationCategory(item.Kind) is { } category &&
-            displayPreferences.AllowsNotification(category) &&
-            (item.Position is null || !visible.HasPoint(new Vector2(item.Position.X + 0.5f, item.Position.Y + 0.5f))));
-        if (important is null) return;
-
-        visibleNoticeEventId = important.EventId;
-        var description = DescribeWorldEvent(important, snapshot);
-        eventNoticeButton.Text = (description.Length > 110 ? description[..107] + "…" : description) +
-            (important.Position is null ? " · Open log" : " · Jump");
-        eventNoticePanel.Show();
-        eventNoticeTimer.Start(7);
-        ApplyResponsiveLayout();
-    }
-
-    private void OpenEventNotice()
-    {
-        eventNoticePanel.Hide();
-        eventNoticeTimer.Stop();
-        if (visibleNoticeEventId is not { } id || !knownEvents.TryGetValue(id, out var worldEvent)) return;
-        if (worldEvent.Position is not null)
-            JumpToEvent(id.ToString(CultureInfo.InvariantCulture));
-        else if (!eventsPanel.Visible)
-            ToggleEvents();
     }
 
     private static bool HasMap(OwnerWorldSnapshot snapshot) =>
@@ -3843,9 +3758,6 @@ public partial class Main : Control
         eventsPanel.Position = new Vector2(
             Math.Max(14, viewport.X - Math.Max(eventsPanel.Size.X, eventsPanel.CustomMinimumSize.X) - 14),
             14);
-        var noticeSize = eventNoticePanel.GetCombinedMinimumSize();
-        eventNoticePanel.Position = new Vector2(
-            Math.Max(14, (viewport.X - noticeSize.X) / 2), 14);
         var familySize = new Vector2(Math.Clamp(viewport.X - 28, 320, 840),
             Math.Clamp(viewport.Y - 28, 280, 600));
         familyTreePanel.Size = familySize;

@@ -7,25 +7,11 @@ namespace ClankerWorld.GodotClient.ClientState;
 /// </summary>
 public sealed record GameDisplayPreferences(
     bool UseTwelveHourClock = false,
-    bool NotifyBirths = true,
-    bool NotifyDeaths = true,
-    bool NotifyInventions = true,
-    bool NotifySettlements = true,
     string DateFormat = "dmy",
     int WindowWidth = 1280,
     int WindowHeight = 720,
     int RenderWidth = 1280,
-    int RenderHeight = 720)
-{
-    public bool AllowsNotification(string category) => category switch
-    {
-        "birth" => NotifyBirths,
-        "death" => NotifyDeaths,
-        "invention" => NotifyInventions,
-        "settlement" => NotifySettlements,
-        _ => false,
-    };
-}
+    int RenderHeight = 720);
 
 public sealed class GameDisplayPreferencesStore(string path)
 {

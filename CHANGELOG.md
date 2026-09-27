@@ -11,6 +11,9 @@ release yet.
 - New World now refreshes the exact seed/settings preview after edits without
   requiring another button press. Stale previews cannot enable Create World;
   preview failures leave the active world unchanged.
+- Out-of-view event pop-ups and their Game Settings switches are gone. Births,
+  deaths and other important events remain in the Event Log, where located
+  entries can still move the camera to the event.
 - The Pause Menu now shows Save World, Settings, Mod Library, and Quit to Menu
   in a compact vertical order, with Quit to Menu last. Game and World are
   categories inside Settings; Quit Game remains on the Main Menu. The old

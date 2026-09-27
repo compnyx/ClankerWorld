@@ -77,12 +77,9 @@ public sealed class GameUiTextTests
                 WindowWidth: 1600, WindowHeight: 900, RenderWidth: 1920, RenderHeight: 1080));
             var restored = new GameDisplayPreferencesStore(Path.Combine(directory, "game-settings.json")).Load();
             Assert.True(restored.UseTwelveHourClock);
-            Assert.True(restored.NotifyBirths);
             Assert.Equal((1600, 900), (restored.WindowWidth, restored.WindowHeight));
             Assert.Equal((1920, 1080), (restored.RenderWidth, restored.RenderHeight));
-            store.Save(restored with { NotifyDeaths = false, DateFormat = "ymd" });
-            Assert.False(store.Load().AllowsNotification("death"));
-            Assert.True(store.Load().AllowsNotification("birth"));
+            store.Save(restored with { DateFormat = "ymd" });
             Assert.Equal("ymd", store.Load().DateFormat);
             Assert.Equal((1600, 900), (store.Load().WindowWidth, store.Load().WindowHeight));
             Assert.Equal((1920, 1080), (store.Load().RenderWidth, store.Load().RenderHeight));
@@ -91,17 +88,6 @@ public sealed class GameUiTextTests
         {
             if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
         }
-    }
-
-    [Theory]
-    [InlineData("child_born", "birth")]
-    [InlineData("inhabitant_removed", "death")]
-    [InlineData("inhabitant_building_proposed", "invention")]
-    [InlineData("settlement_founded", "settlement")]
-    [InlineData("food_consumed", null)]
-    public void OnlyImportantEventsBecomeOptionalPopups(string kind, string? category)
-    {
-        Assert.Equal(category, GameUiText.NotificationCategory(kind));
     }
 
     [Theory]
