@@ -533,9 +533,19 @@ first-complete-game roadmap.
   agents may use the same stored key. Agents choose their own personality,
   aspirations, skills, and initial identity. The player can add adults freely.
 - Agents have no genders. Children have **two parents**. Parents choose the
-  child's name and provider/model. Children inherit tendencies, abilities,
+  child's name and provider/model; the child's surname must be one of the two
+  parents' surnames. Children inherit tendencies, abilities,
   culture, and provider/model settings; baby appearance uses baby art. Close
   biological relatives cannot pair.
+- Agents can become a couple and then marry. **Marriage is not required to have
+  a child.** When they marry, both partners must share one of their existing
+  surnames, chosen by the partners in a dedicated conversation. That
+  conversation is initiated even if they are far apart in the world: a narrow
+  exception to ordinary proximity-bound conversation, not a general remote
+  communication ability. A completed marriage must not be left without a
+  shared surname. The conversation must be bounded; the exact way to reach
+  agreement or handle provider failure/nonagreement within that bound remains
+  open.
 - **A child uses their own selected personal LLM once they leave infancy.**
   Infants do not make calls to their personal model. The parents' provider/model
   choice can be stored at birth, then used when that agent enters the child
@@ -577,15 +587,6 @@ first-complete-game roadmap.
   threshold may be the first implementation, but the finished system should
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
-
-### Preferred, pending confirmation
-
-Computment is considering a relationship progression from couple/partnership
-to marriage, with marriage required before the couple can have a child. On
-marriage, the partners would choose **one partner's existing surname to share**.
-This is a proposed revision, not yet a settled eligibility rule. Clarify how
-it interacts with the low-population continuity safeguard, and whether every
-child must be born to a currently married pair before treating it as decided.
 
 ### Open
 
@@ -664,7 +665,11 @@ another sprite family at first.
   conclude, disagree, withdraw, or postpone. Ordinary job scheduling should
   not cut it off mid-sentence. Danger or urgent needs may interrupt; a bounded
   final wrap-up round can avoid endless looping. If unresolved, say so rather
-  than fabricate agreement, and allow later resumption.
+  than fabricate agreement, and allow later resumption. The marriage-surname
+  conversation above is a special case: it must be started even across the
+  world, must be bounded, and a marriage cannot complete with its surname
+  undecided. Loop protection is accepted as a design direction, **not yet a
+  specified or implemented turn limit**.
 - Socializing agents display a chat bubble above their sprites. Clicking opens
   a nearby popup with a summary; expanding reveals the complete conversation.
 - Jev may notice social moments, retrieve memories, summarize, or route cheap
@@ -727,13 +732,19 @@ direction, not proof that it will feel right in the finished game.
   access, terrain, resources, ownership, and settlement context. Land can first
   be claimed, shared, granted, or disputed. Monetary land values and purchase
   prices become meaningful after currencies exist. Agents can later buy/sell
-  property. Roads help travel and influence site choice. The earlier assumption
-  that agents choose the exact tile is now being reconsidered.
-- **Reconsidering (not decided):** an agent could still decide that a home or
-  other building is needed and gather/build it, while a deterministic world
-  layout system chooses a legal, suitable site as the settlement grows. This
-  would replace the earlier assumption that the agent selects the exact tile;
-  do not treat either site-choice owner as final until computment resolves it.
+  property. Roads help travel and influence site choice.
+- **Agents choose the exact site/footprint** for a building they decide is
+  needed, then gather/build it. The world system validates hard physical
+  constraints such as terrain, footprint and overlap with existing
+  objects/resources/buildings. Access, ownership/claims and settlement context
+  also matter, without turning every
+  agent-created law into an unbreakable physical rule. If a proposed site fails,
+  the agent must reconsider rather than the world silently placing the building
+  somewhere else. The world may expose map facts or candidate sites to make
+  this choice tractable, but the final choice remains the agent's. This
+  supersedes the proposal that a deterministic town-layout system selects the
+  final site. Exact candidate information, suitability weights, consent and
+  retry limits remain open.
 - **Housing priority for a newly added adult (decided):** when the adult has no
   home, seek suitable existing housing first; start a new home project only if
   none is suitable. Suitability, available capacity, ownership/household
