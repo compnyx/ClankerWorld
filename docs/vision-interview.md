@@ -393,9 +393,9 @@ accounting details need design and playtesting.
 - Model **climate zone**, **elevation**, **surface**, **hydrology**, **vegetation
   cover**, and **objects** separately. The generator makes plausible forests,
   cacti, grass, stone, snow, water depths, and transitions for their locations.
-  A dense tree stand can be one resource-bearing object with art depicting
-  several trees. Trees yield wood when harvested, leave stumps that can regrow,
-  and can also be replanted from seeds when forest resources are depleted.
+  Each tile holds **at most one tree**; do not depict several harvestable trees
+  as one stand on a tile. Trees yield wood when harvested, leave stumps that can
+  regrow, and can also be replanted from seeds when forest resources are depleted.
 - Generated geography includes **rivers** as well as oceans, shores and lakes.
   Rivers belong to the 2D, top-down tile world and its hydrology layer; they
   must remain continuous across an enabled east/west world seam. A noise
@@ -404,8 +404,9 @@ accounting details need design and playtesting.
 - Agents can reshape some terrain through activity. They can cross water with
   crafted boats and shore-connected ports and can later invent improvements.
   Roads exist and influence travel and building placement. **Mountain and peak
-  tiles cannot hold construction**—including buildings, farms and roads. Travel
-  rules for those elevations are a separate decision.
+  tiles cannot hold construction**—including buildings, farms and roads.
+  Agents may cross **mountain** tiles, but more slowly; **peak** tiles are
+  impassable. Exact mountain travel cost remains open.
 - In the intended finished game, agents can **move diagonally** on the 2D tile
   map, and roads can also run diagonally. The current playable route finder
   still uses cardinal neighbors only; diagonal movement is not implemented.
@@ -419,7 +420,9 @@ remain open.
 
 Computment wants agents to cross **one-tile-wide rivers on foot, more slowly**
 than dry ground. The world automatically adds bridges at sufficiently used
-crossings. Once a bridge is placed, a no-other-bridge radius prevents a
+crossings. A generated Road may also **create a bridge immediately** where its
+route meets a bridgeable river; it need not wait for traffic there. Once a
+bridge is placed, a no-other-bridge radius prevents a
 redundant bridge appearing right next to it on the **same crossing/river**.
 It does not block a needed bridge over a separate nearby stream. Exact radius,
 traffic threshold, bridge
@@ -429,7 +432,8 @@ specified in the building/Town section below.
 
 ### Open
 
-The complete terrain/vegetation/object catalogue; exact climate-generation
+Exact terrain/vegetation/object mechanics beyond the accepted base
+[asset roster](finished-game-asset-roster.md); exact climate-generation
 formulas, map topology at polar edges, biome transitions, water and elevation
 rules, resource distributions, continent-count variation and incidental islands,
 travel times, world-size performance, and limits
@@ -464,6 +468,13 @@ call for each weather change.
 - **Pixel art** is the visual style. **32×32-pixel ground tiles** and **PNG
   runtime assets** are the initial standard. Taller agents/trees and multi-tile
   buildings can use larger transparent images anchored to logical tiles.
+- **Straight top-down** is the chosen art perspective for now: show the tops of
+  objects, not isometric sides. Isometric would need a visual comparison before
+  reconsideration, and no second isometric asset library is currently planned.
+- For a given terrain surface, start with roughly **two texture tiles**—for
+  example, clean grass and a subtly different grass tile. Small ground details
+  belong mainly in those textures, rather than being a large set of separate
+  decorative world objects. Functional transitions/edges are separate.
 - Ground remains square-tiled, but permanent **black tile-border grid lines**
   are not part of the intended presentation; they would clash with textures.
 - Most production textures will likely be created with AI help, including work
@@ -486,6 +497,10 @@ call for each weather change.
   permanently limited to the original art catalogue. Each new design still
   needs a valid visual/gameplay representation; this does not authorize every
   theoretical combination.
+- Worn everyday, cold or wet clothing **does not change an agent's map sprite
+  appearance**. Clothing has item icons and gameplay effects. Armor imagery
+  may be prompted as new art later; whether worn armor is shown on agents and
+  the exact generation/approval workflow remain open.
 
 ### Proposed, not yet settled
 
@@ -506,7 +521,7 @@ method remains Clanker's proposal, not an accepted implementation rule.
 
 ### Open
 
-Camera/art perspective; exact palette and style guide; animation standards;
+Exact palette and style guide; animation standards;
 AI-generation provider and spending controls; how much visual cleanup can be
 automated; quality criteria; asset size budgets; and the final art/content
 metadata contract. Also open: the minimum distinct designs each category
@@ -623,18 +638,21 @@ first-complete-game roadmap.
 The player chooses a **rough site for the first Town** in New World, with the
 best suitable areas shown. Town-generation rules place its starting buildings
 and Roads; the player can accept that layout or remove it and redo it. The **only
-guaranteed starter buildings are two Houses and a Warehouse**, connected by
-generated Roads. Farmhouse, Blacksmith, clothing-making place and Workshop
+guaranteed starter buildings are **two Houses, a Warehouse, a Farmhouse, and a
+Blacksmith**, connected by generated Roads. The two starting households can
+claim the Farmhouse and Blacksmith so each has a productive role. How those
+initial claims are offered/assigned is open. Clothing-making place and Workshop
 are not guaranteed starters; agents may develop them later.
-The player chooses starter supplies during New World setup, but a **minimum
-food supply and some tools are guaranteed** so the first Town can begin.
-Exact item names, quantities, suitability scoring, placement controls, what
+The player chooses starter supplies during New World setup, but **food portions
+in the Houses, at least one usable wooden axe and one usable wooden pickaxe**
+are guaranteed so the first Town can begin. Exact counts beyond these minima,
+other items, suitability scoring, placement controls, what
 a redo preserves, available supply choices, and whether any nonguaranteed
 building can appear at start remain open. The
 [content catalogue](content-catalog.md) compares current definitions with the
-vision; a [finished-game asset roster](finished-game-asset-roster.md) now
-proposes the complete base tool/item/food/object/art set for review. Its added
-choices are not yet selected or approved.
+vision; the [finished-game asset roster](finished-game-asset-roster.md) records
+the now-accepted base tool/item/food/object/art set and explicitly marked
+remaining choices.
 
 ### Open
 
@@ -807,9 +825,8 @@ than an idle-label change.
 - Each building **type has a few supported shapes of its own**, rather than
   choosing freely from every shape/material/floor/state combination. There is
   initially **one standard appearance per supported design**; duplicate houses
-  of the same type and size may look alike. The sizes decided below govern
-  Houses, Warehouses and Stores; other building footprints await the content
-  catalogue. Agents
+  of the same type and size may look alike. The decided footprints are listed
+  below and in the [accepted asset roster](finished-game-asset-roster.md). Agents
   may invent new designs, including unusual shapes if the art and world rules
   can represent them; larger, irregular, or multi-floor buildings are therefore
   possibilities, not automatic unlocks. **House** replaces Shelter as the
@@ -863,16 +880,67 @@ than an idle-label change.
   Town's borders. Food belongs at home instead. Residency and border-change
   access cases remain open.
 - **Workshop** remains for agent inventions/mods and is usable by outsiders.
-  Remove separate Cooking fire/Campfire and Stone hearth buildings; House
-  handles cooking. Remove Weaving frame and bed/bedroll content. A dedicated
-  clothing-making business/building is wanted, but its name and production
-  chain are open.
+  Its footprint is **2×2**. Its mechanic/code is a **late-development phase**:
+  first establish a functioning simulation and broader base asset set, then
+  build the invention/mod loop on that foundation. This is staging, not removal
+  from the intended finished game. Remove separate Cooking fire/Campfire and
+  Stone hearth buildings; House handles cooking. Remove Weaving frame and
+  bed/bedroll content. A dedicated **Tailor Shop** makes clothing at **1×1 or
+  2×2**; its exact production chain remains open.
 - **Roads and bridges:** the world system generates infrastructure, not the
   player or individual agent. The full agreed road rule is below; the starter
   Path becomes a Road in intended content.
 - **Livestock and mounts** belong in the finished game. Hostile predators do
   **not** belong in the current plan, though they may be revisited later.
-  Their detailed design is deliberately deferred to late development.
+  The accepted base roster is **chickens (eggs), sheep (wool), cows (milk), and
+  horses (mounts)**. Leather/wool and milk/egg products are late-development
+  items alongside animal husbandry. Their detailed mechanics are deliberately
+  deferred to late development; slaughter/hunting is not assumed.
+
+### Accepted finished-game base roster and building sizes
+
+Computment accepted all unmentioned entries of the initial
+[asset-roster review](finished-game-asset-roster.md) and amended specific rows
+as recorded here. The roster's numbered entries are the detailed accepted
+**base content**; open recipes, costs, capacities, animation budgets and
+invented content are not silently approved. In particular:
+
+- Terrain uses roughly two subtle textures per surface, with most little
+  grass/stone/leaf details baked into texture variation. A tile has at most
+  one tree. Iron, gold and diamond deposits are visibly distinct
+  **ore-bearing outcrops**, not ground veins.
+- The farm roster includes **universal grain** (no named grain species),
+  **potatoes**, a cultivated leafy green distinct from wild greens that
+  satisfies more hunger, and orchard fruit. Flour is a sellable Farmhouse
+  intermediate, including at a Market; cloth is likewise a real intermediate
+  item.
+- The Blacksmith refines **iron ore into a separate metal item**, then uses it to
+  make tools. Selling spare refined metal directly from the Blacksmith is
+  a strong proposed extension awaiting final confirmation. The Blacksmith
+  already sells tools directly and takes tool-making requests—no separate
+  Store is required for its own products.
+- The accepted medical goods include **bandages and medicine**. Exact
+  ingredients, healing effects, care actions and supply chain are open.
+- Farmhouse **1×1 or 1×2**; adjacent private Silo **1×1**; Blacksmith
+  **1×2 or 2×2**; Tailor Shop **1×1 or 2×2**; Workshop **2×2**;
+  Restaurant **1×2 or 2×2**; Clinic/healer's shop **1×1 or 1×2**.
+  Market's main building is **2×2** with separate **1×1 stalls** and an
+  approximately **10×12 clear stall-reservation area**. Town Hall is
+  **3×4**. These are building/plot footprints, not interior rooms.
+- Port is **2×4**, rotatable to all four cardinal directions. One tile of its
+  four-tile length rests on land; three extend over water. Keep clear docking
+  space along both long sides of that three-tile water section. Exact placement
+  clearance and boat docking/queue rules remain open.
+- Combat gear includes a spear, sword, shield and armor alongside the
+  dual-purpose axe. Clothing does not change an agent's map appearance; the
+  visual treatment of worn armor remains open.
+  Maps, written records and books are accepted knowledge goods; law, claims,
+  ownership and wills are mainly inspectable **data/gameplay**, not a demand
+  for separate physical document objects.
+
+The accepted roster includes proposed-but-now-chosen families such as clay,
+pottery, rope, orchard fruit and carry aids. Their exact gameplay value and
+recipe are still to be worked out, not grounds to relabel them unaccepted.
 
 ### Decided incremental Town layout; open ranking and retry details
 
@@ -886,23 +954,24 @@ for growth and building purpose. Town appearance/layout should vary by
 Town/culture. Exact weights and when another offer appears are open.
 
 The intended building roles now include House, Warehouse, Workshop,
-Farmhouse, farm fields, a private farm Silo/linked store, household-run Store,
-household-run Blacksmith with internal work stock, a clothing-making building,
-public Market, Town Hall, Port, and optional agent-founded Restaurant. A
+Farmhouse, farm fields, an adjacent private farm Silo, household-run Store,
+household-run Blacksmith with internal work stock and direct sales, Tailor Shop,
+public Market and stalls, Town Hall, Port, Clinic, and optional agent-founded
+Restaurant. A
 Farmhouse processes crops; its owning household places fertile fields, plants
 seeds, tends, harvests, and sells/trades the produce. Farm count responds to
 **Town population and farm yields**; a shortage or reduced yield can justify
 more farming rather than a hard cap blocking recovery. The exact formula is
 open. Farm work stock
-is private to its household; the private Silo/linked store is distinct from the
-public Town
-Warehouse. The Blacksmith makes tools, with stock inside the building. A Store
+is private to its household; its Silo is distinct from the public Town
+Warehouse. The Blacksmith makes and sells tools on site and can accept
+specific tool-making requests, with stock inside the building. A Store
 supports a household selling its products. Goods must be physically carried
 to the Store and kept in its own stock before sale; a Store cannot sell from
 a remote House, farm, or Warehouse inventory. A Market admits traders from any
 Town; a Restaurant buys ingredients, cooks and sells potentially better meals.
 Town Hall supports governance and Port supports boats. Exact stocks, recipes,
-ownership edge cases, prices, trade and starter timing remain open. See the
+ownership edge cases, prices and trade remain open. See the
 [current-vs-vision content catalogue](content-catalog.md).
 
 Wood, stone, iron, gold, diamond and many other crafting resources are wanted.
@@ -928,8 +997,10 @@ Towns remain unconnected by Road; boats or later transport may still connect
 their travelers. Roads are not generated by footsteps or a separate building
 project. Agents and player do not paint Road tiles. Roads speed up travel.
 **Bridge placement responds to traffic** at narrow river crossings, even
-without a planned Road, and excludes a redundant nearby bridge over the same
-crossing/river, not a necessary bridge over a different nearby stream.
+without a planned Road. A Road generation pass also builds a bridge immediately
+if its legal route encounters a bridgeable river. Either case excludes a
+redundant nearby bridge over the same crossing/river, not a necessary bridge
+over a different nearby stream.
 Generated Roads **remain after the supporting building is removed or a Town
 is abandoned**. Whether any
 other event can remove a Road—and thus whether the earlier temporary versus
@@ -941,7 +1012,8 @@ cost/corner rules open.
 
 ### Open
 
-Structure catalogue and effects; exact configurations, footprints, building
+Further structure effects; exact configurations and unchosen footprints;
+building
 inspection fields, invitation and non-residential access/reservations/queues;
 land claims and disputes; Town borders and governance; currency/land pricing;
 transport progression; Road permanence and bridges, other terrain eligibility,
@@ -1020,6 +1092,13 @@ slaughter or hunting ever becomes part of the game.
 ## Inventions, mods, and technology
 
 ### Decided
+
+The Workshop and broader invention/mod mechanics are **late-development work**:
+first make the base simulation functional and its asset set fuller. They remain
+part of the intended finished game, including imported mods; this is a build
+sequence, not a removal or automatic post-launch deferral. Art generation for
+new inventions, fallback representation, and prompted armor visuals will be
+designed in that phase rather than assumed solved by the base roster.
 
 - Agents can eventually create buildings, tools, crops, machines, art, laws,
   currencies, and other economic/cultural systems. They cannot invent or alter
@@ -1162,15 +1241,18 @@ These are **open questions**, not changes to the decisions above:
    may encourage marriage but cannot require it for birth. Still decide the
    bounded marriage-surname conversation's tie-break method, turn limit, and
    provider-failure behavior.
-7. **Starter economy and tool bootstrap.** A minimum food supply and some
-   tools are guaranteed, but no farm, Blacksmith or Workshop is guaranteed.
-   Decide exact starter items/quantities and where agents make first-tier
-   tools without those buildings. More farms may answer food shortages when
+7. **Starter economy and tool bootstrap.** The first Town guarantees two
+   Houses, a Warehouse, Farmhouse and Blacksmith, plus food at the Houses and
+   at least one usable wooden axe and wooden pickaxe. Decide the remaining
+   starter quantities/items, initial business-claim flow,
+   and how first-tier tools are made when the Blacksmith is unavailable.
+   More farms may answer food shortages when
    yields fall; the population-and-yield planning rule remains open.
 8. **Automatic infrastructure details.** Towns connect by Road where a legal
    land route exists and can remain disconnected otherwise. Bridge spacing
    prevents redundant crossings on the same river but does not block a needed
-   bridge on a separate nearby stream. Decide the actual spacing/traffic
+   bridge on a separate nearby stream. A generated Road may bridge a legal
+   crossing immediately. Decide the actual spacing/traffic
    thresholds, whether Roads or bridges consume materials, and whether
    anything besides explicit world edits can remove a Road. Roads remain after
    buildings or Towns disappear, so a separate temporary/permanent distinction
@@ -1184,10 +1266,10 @@ These are **open questions**, not changes to the decisions above:
     for Stores, Restaurants and Markets; location-specific inventories cannot
     be an invisible shared pool.
 11. **Building storage catalogue.** Houses start at 1×1 and may expand to
-    1×2 or 2×2,
-    Warehouses 2×2 → 2×3, and Stores may be 1×1 or 1×2. These choices raise
-    storage, not House occupancy. Decide capacities, costs, expansion triggers
-    and footprints/functions of other buildings in the full asset catalogue.
+    1×2 or 2×2, Warehouses 2×2 → 2×3, and Stores may be 1×1 or 1×2. These
+    choices raise storage, not House occupancy. The other chosen building
+    footprints are in the accepted roster above. Decide capacities, costs,
+    expansion triggers, Market reservation behavior and Port clearance details.
 12. **Night and weather details.** Night affects temperature and weather, with
     no sleep/energy gate or independent night-only restrictions. Decide exact
     temperature and weather effects alongside the day/night split.

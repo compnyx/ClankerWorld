@@ -92,8 +92,9 @@ the resolution evidence below.
   tiles. Keep selection reliable while making the interactive footprint clear.
 - **Generated vegetation is not represented as forest objects/art — confirmed
   gap:** forest currently means a ground-kind/color and sparse resource sites;
-  the Godot terrain renderer draws colored rectangles, not foliage sprites or
-  coherent tree stands. The full vegetation/object/art pass remains unbuilt.
+  the Godot terrain renderer draws colored rectangles, not individual tree
+  sprites. The finished vision allows at most one tree per tile; its
+  vegetation/object/art pass remains unbuilt.
 - **Mountains/peaks not seen in playtest — unverified occurrence, confirmed
   visibility gap:** generation does classify dry-land elevation ≥215 as
   mountain and ≥245 as peak, so the terrain kinds exist. Their distribution

@@ -39,7 +39,7 @@ already placed in the world.
 | Cooking fire | 4 wood | 1 | Heat when fuelled; meal: 2 food + 1 wood → 4 food, 12 ticks | No interior | **Remove as separate building**; cooking belongs in House |
 | Workshop | 10 wood | 1 | Tools: 3 wood → 1 tool, 20 ticks | No interior | **Keep** for inventions/mods, including access by outsiders; tool-production split with Blacksmith open |
 | Stone hearth | 8 stone + 4 wood | 2 | Heat when fuelled; hearty meal: 2 food + 1 wood → 5 food, 12 ticks | No interior | **Remove** as separate building |
-| Weaving frame | 4 fiber + 4 wood | 1 | Bedding: 4 fiber → 1 bedding, 18 ticks; clothing: 6 fiber → 1 clothing, 24 ticks | No interior | **Remove**; replace clothing function with dedicated business/building, name open |
+| Weaving frame | 4 fiber + 4 wood | 1 | Bedding: 4 fiber → 1 bedding, 18 ticks; clothing: 6 fiber → 1 clothing, 24 ticks | No interior | **Remove**; replace clothing function with accepted Tailor Shop |
 
 Source: [starter definitions](../src/ClankerWorld.Simulation/Playtest/StarterContent.cs),
 [settlement definitions](../src/ClankerWorld.Simulation/Playtest/SettlementContent.cs),
@@ -98,7 +98,7 @@ change through harvesting. Source:
 | Terrain kind now | Movement/building now | Vision/status |
 | --- | --- | --- |
 | Meadow, sand, forest, snow | Passable and buildable ground | Forest is mostly a **color/ground kind**, not generated trees |
-| Mountain, peak | Impassable and not buildable | Visible regions wanted; travel rules open; no construction remains current vision |
+| Mountain, peak | Impassable and not buildable | Finished vision: mountain passable but slower, peak impassable; neither permits construction. Current pathing still blocks both |
 | River, lake, ocean, fixture water | Impassable and not buildable | One-tile river crossing slower on foot; traffic may create a spaced bridge; wider water needs boats/ports |
 
 The terrain renderer currently draws colored tiles and a few glyphs, not a
@@ -108,40 +108,44 @@ finished foliage/object art layer. Sources:
 
 ## Intended content roles — **not implemented as described**
 
-The **first Town** is created during paused New World setup. Its only
-guaranteed starting buildings are **two Houses and one Warehouse**, joined
-immediately by generated Roads. A minimum food supply and some tools are also
-guaranteed; exact names and quantities are open. Other buildings may develop
-later; none is guaranteed at New World creation. Building inspection uses a panel for
+The **first Town** is created during paused New World setup. Its guaranteed
+starting buildings are **two Houses, one Warehouse, one Farmhouse and one
+Blacksmith**, joined immediately by generated Roads. The two starting
+households can claim the productive buildings. Food portions in the Houses
+and at least one usable wooden axe and wooden pickaxe are also guaranteed;
+further counts and supplies are open. Other
+buildings may develop later; none is guaranteed at New World creation.
+Building inspection uses a panel for
 occupants, stocks and ownership, not visible room interiors.
 
 | Concept | Intended role | Current interview status |
 | --- | --- | --- |
 | House | Starts 1×1; storage-driven expansion to 1×2 or 2×2; household members and invited visitors, no occupant limit, private food/resources only accessible to members inside; cooking, storm refuge, childcare/property | **Decided role and footprints**; storage capacities, costs, invitation details and cooking recipes open |
 | Warehouse | Starts 2×2; expands to 2×3 for more storage; Town-resident communal resources, physically inspectable stock | **Decided role and footprints**; capacities, costs, residency and border changes open |
-| Workshop | Inventions/mods, accessible to outsiders | **Decided role**; other crafting jobs and starter presence open |
-| Farm fields + Farmhouse | Household plants/tends/harvests fertile fields; Farmhouse processes crops | **Decided role**; population and yield inform expansion, but shortage can justify another farm; exact rule open |
-| Farm Silo or linked store | Private farm work stock | **Preferred**, exact form and access open |
-| Blacksmith | Household-owned tool business with internal work stock | **Decided role**; recipes/tier progression open |
-| Clothing-making building | Makes clothing as a distinct business | **Decided role**, name and chain open; Tailor Shop is Clanker's suggestion |
+| Workshop | 2×2 invention/mod venue, accessible to outsiders | **Decided role and footprint**; mechanics/code staged for late development |
+| Farm fields + Farmhouse | Household plants/tends/harvests fertile fields; 1×1 or 1×2 Farmhouse processes crops | **Decided role and footprints**; population and yield inform expansion, but shortage can justify another farm; exact rule open |
+| Farm Silo | Adjacent 1×1 private farm work stock | **Decided form/footprint**; capacity and access details open |
+| Blacksmith | 1×2 or 2×2 household tool business, refines ore, sells tools and takes tool requests directly with internal stock | **Decided role and footprints**; selling refined metal to other crafts is proposed, recipes/tier progression open |
+| Tailor Shop | 1×1 or 2×2 clothing-making business | **Decided role/name/footprints**; chain open |
 | Store | Household-run 1×1 or 1×2 shop; goods must be carried there and stored on site before sale, with expansion supporting more storage | **Decided role and footprints**; capacities, costs and other economy rules open |
-| Market | Trading venue open to agents from any Town | **Decided role**; distinction from Store and management open |
-| Restaurant | Optional agent-founded business that buys ingredients and sells cooked meals | **Decided possible building**; quality/pricing open |
-| Town Hall | Town governance | **Decided role**; timing/mechanics open |
-| Port | Boat access | **Decided role**; timing/mechanics open |
-| Roads and bridges | Fast Roads appear with Town buildings and connect Towns if a legal land route exists; traffic may add bridges with spacing against redundant bridges on the same crossing, without blocking separate nearby streams; Roads survive building/Town loss | **Decided direction**; layout, removal edge cases, bridge threshold/radius open |
-| Trees, stumps, seeds and regrowth | Physical harvestable forest with regrowth and planting | **Decided direction**; ecology rates/art open |
+| Market | 2×2 main building; 1×1 stalls and roughly 10×12 reserved clear area; trading open to agents from any Town | **Decided role and footprints**; management and reservation rule details open |
+| Restaurant | Optional agent-founded 1×2 or 2×2 business buying ingredients and selling cooked meals | **Decided role and footprints**; quality/pricing open |
+| Clinic | 1×1 or 1×2 care business | **Decided role and footprints**; treatment chain open |
+| Town Hall | 3×4 Town governance building | **Decided role and footprint**; timing/mechanics open |
+| Port | Rotatable 2×4 access: one tile of length on land, three over water, with side docking clearance | **Decided role and footprint**; exact clearance/docking rules open |
+| Roads and bridges | Fast Roads appear with Town buildings and connect Towns if a legal land route exists; traffic or a generated Road crossing may add bridges, with spacing against redundant bridges on the same crossing but not separate nearby streams; Roads survive building/Town loss | **Decided direction**; layout, removal edge cases, bridge threshold/radius open |
+| Trees, stumps, seeds and regrowth | At most one harvestable tree per tile, with regrowth and planting | **Decided direction**; ecology rates/art open |
 | Iron, gold, diamond, more materials/tools | Wood tools → stone → stone tools → iron → iron tools → rarer materials | **Decided starting ladder**; higher tiers and uses open |
-| Livestock and mounts | Care, production or transport | Finished-game scope, detailed design deferred |
+| Livestock and mounts | Chickens/eggs, sheep/wool, cows/milk, horses/mounts | Accepted finished-game roster; husbandry and animal-product mechanics staged for late development |
 
-## Full-game content roster — interview scaffold
+## Full-game content roster — accepted base index
 
 Computment wants a complete, concrete catalogue of final-game tools, items,
 foods, objects and visual assets rather than a vague list of building roles.
-The [finished-game asset roster](finished-game-asset-roster.md) now proposes a
-base set for review; it is **not selected or approved yet**. This sheet retains
-the current-versus-vision comparison. Do not infer that an example below is a
-locked recipe, quantity or sprite.
+The [finished-game asset roster](finished-game-asset-roster.md) now records the
+**accepted base entries**, with explicit open details and late-development
+mechanics. This sheet retains the current-versus-vision comparison. Do not
+infer that an entry locks its recipe, quantity or final sprite.
 For every eventual entry, record its source or recipe, tool gate, purpose,
 storage/ownership, trade use, visual asset/variants, and whether it is a
 starting item, later production, agent invention or late-game content.
@@ -157,7 +161,6 @@ starting item, later production, agent invention or late-game content.
 | Trade and knowledge goods | Tools, food, maps, records and books | What can be sold, copied, learned, carried and displayed |
 | Animals and transport | Livestock, mounts, boats | Detailed roster deferred until later development |
 
-**Next pass:** review the proposed roster with computment, then select exact
-starter supplies and first-tier tools and fill the accepted entries in
-dependency order. No invented costs, occupant limits or recipe stats are
-approved here.
+**Next pass:** select exact starter supplies and first-tier recipes; then fill
+the accepted entries in dependency order. No invented costs, occupant limits
+or recipe stats are approved here.
