@@ -88,6 +88,8 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(256, runtime.ExportState().Map.Width);
                 Assert.Equal(preview.ManifestDigest, runtime.ExportState().Map.ManifestDigest);
                 Assert.Equal(preview.ResourceSites, runtime.ExportState().Map.Resources.Count);
+                Assert.Equal(preview.Camp.X, runtime.ExportState().Map.GetObject("bedroll").Position.X);
+                Assert.Equal(preview.Camp.Y, runtime.ExportState().Map.GetObject("bedroll").Position.Y);
                 Assert.Equal(ClimateMode.Uniform, runtime.ExportState().Geography?.ClimateMode);
                 Assert.Equal(ResourceAbundance.Abundant, runtime.ExportState().Geography?.ResourceAbundance);
                 Assert.Equal(ClimateZone.Dry, runtime.ExportState().Map.ClimateAt(
@@ -100,6 +102,7 @@ public sealed partial class ViewerHttpTests
                 var view = (await observed.Content.ReadFromJsonAsync<ViewerOwnerReconnect>())!;
                 Assert.Equal(entry.WorldId, view.Baseline.Snapshot.WorldId);
                 Assert.Equal(256, view.Baseline.Snapshot.PackedTerrain?.Width);
+                Assert.Equal(preview.Terrain.Data, view.Baseline.Snapshot.PackedTerrain?.Data);
                 Assert.Equal(create.WrapEastWest, view.Baseline.Snapshot.WrapsEastWest);
                 Assert.Empty(view.Baseline.Snapshot.Tiles);
                 Assert.Empty(providers.CaptureRuntimeConfiguration().Assignments ?? []);

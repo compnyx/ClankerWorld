@@ -8,6 +8,9 @@ release yet.
 
 ### Fixed
 
+- New World now refreshes the exact seed/settings preview after edits without
+  requiring another button press. Stale previews cannot enable Create World;
+  preview failures leave the active world unchanged.
 - The Pause Menu now shows Save World, Settings, Mod Library, and Quit to Menu
   in a compact vertical order, with Quit to Menu last. Game and World are
   categories inside Settings; Quit Game remains on the Main Menu. The old

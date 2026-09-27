@@ -37,6 +37,7 @@ public partial class Main
     private CatalogWorld[] listedWorlds = [];
     private OwnerWorldCreationAction? previewedWorldOptions;
     private bool worldMenuBusy;
+    private int worldPreviewRevision;
     private readonly ConfirmationDialog quitToMenuConfirmation = new();
     private bool isInWorld;
     private bool returnToMainMenu;
@@ -419,12 +420,26 @@ public partial class Main
         first.LatitudeCooling == second.LatitudeCooling &&
         first.ResourceAbundance == second.ResourceAbundance;
 
-    private void InvalidateWorldPreview()
+    private void InvalidateWorldPreview(bool refresh = true)
     {
+        var revision = ++worldPreviewRevision;
         previewedWorldOptions = null;
         worldCreateButton.Disabled = true;
         worldPreview.Hide();
-        worldPreviewStatus.Text = "Preview this seed and its options before creating the world.";
+        worldPreviewStatus.Text = "Updating map preview for this seed and its options…";
+        if (refresh && worldMenuOverlay.Visible)
+            _ = RefreshWorldPreviewAfterChangeAsync(revision);
+    }
+
+    private async Task RefreshWorldPreviewAfterChangeAsync(int revision)
+    {
+        await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
+        while (worldMenuBusy && IsInsideTree() && worldMenuOverlay.Visible && revision == worldPreviewRevision)
+            await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
+        if (!IsInsideTree() || !worldMenuOverlay.Visible || revision != worldPreviewRevision ||
+            SameGeneration(previewedWorldOptions, CurrentWorldOptions()))
+            return;
+        await PreviewWorldAsync();
     }
 
     private async Task PreviewWorldAsync()
@@ -443,13 +458,10 @@ public partial class Main
         worldPreviewStatus.Text = "Generating map preview…";
         try
         {
-            await ownerApi.SetPausedAsync(ResolveWorldUri(), authority, deviceId, true,
-                signer, CancellationToken.None);
             var result = await ownerApi.PreviewWorldAsync(ResolveWorldUri(), authority,
                 deviceId, action, signer, CancellationToken.None);
             if (!SameGeneration(action, CurrentWorldOptions()))
             {
-                InvalidateWorldPreview();
                 return;
             }
             worldPreview.MarkerTile = new Vector2(result.Camp.X, result.Camp.Y);
@@ -462,8 +474,11 @@ public partial class Main
         }
         catch (Exception exception)
         {
-            InvalidateWorldPreview();
-            worldPreviewStatus.Text = "Could not preview map: " + FriendlyFailure(exception);
+            if (SameGeneration(action, CurrentWorldOptions()))
+            {
+                InvalidateWorldPreview(refresh: false);
+                worldPreviewStatus.Text = "Could not preview map: " + FriendlyFailure(exception);
+            }
         }
         finally
         {
