@@ -261,7 +261,7 @@ public sealed class GeographyGeneratorTests
         var state = initial with
         {
             Inhabitants = initial.Inhabitants.Select(person => person.InhabitantId == actor
-                ? person with { Position = treeSite.Stand, HungerBasisPoints = 9_000, EnergyBasisPoints = 9_000 }
+                ? person with { Position = treeSite.Stand, HungerBasisPoints = 9_000 }
                 : person).ToArray(),
             Resources = initial.Resources.Select(resource => resource.ResourceId == treeSite.Site.Id
                 ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
@@ -317,7 +317,7 @@ public sealed class GeographyGeneratorTests
         var state = initial with
         {
             Inhabitants = initial.Inhabitants.Select(person => person.InhabitantId == actor
-                ? person with { Position = orchard.Stand, HungerBasisPoints = 4_000, EnergyBasisPoints = 9_000 }
+                ? person with { Position = orchard.Stand, HungerBasisPoints = 4_000 }
                 : person).ToArray(),
             Resources = initial.Resources.Select(resource => otherFoodIds.Contains(resource.ResourceId)
                 ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
@@ -396,10 +396,10 @@ public sealed class GeographyGeneratorTests
         using var setup = new PrivateWorldRuntime(options.Seed,
             startPace: WorldStartPace.FounderSetup, geographyOptions: options);
         var map = setup.ExportState().Map;
-        var bedroll = map.GetObject("bedroll").Position;
+        var campAnchor = map.GetObject("storage").Position;
         var startingTiles = map.Tiles.Where(tile =>
-                Math.Abs(tile.Position.X - bedroll.X) <= 5 &&
-                Math.Abs(tile.Position.Y - bedroll.Y) <= 5 &&
+                Math.Abs(tile.Position.X - campAnchor.X) <= 5 &&
+                Math.Abs(tile.Position.Y - campAnchor.Y) <= 5 &&
                 map.IsPassable(tile.Position) &&
                 !map.CampObjects.Any(item => item.Position == tile.Position) &&
                 !map.Resources.Any(item => item.Position == tile.Position))

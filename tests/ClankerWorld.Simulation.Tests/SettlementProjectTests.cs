@@ -79,16 +79,16 @@ public sealed class SettlementProjectTests
     [Theory]
     [InlineData(4)]
     [InlineData(11)]
-    public async Task LegacyCheckpointRemainsUntouchedUntilResumedAndThenMigrates(int schema)
+    public async Task LegacyCheckpointMigratesOnLoadWithoutAdvancingWhilePaused(int schema)
     {
         using var seed = new PrivateWorldRuntime("legacy-settlement");
         seed.Pause();
         var legacy = seed.ExportState() with { SchemaVersion = schema };
-        var bytes = PrivateWorldRuntimeCodec.Encode(legacy);
         using var world = PrivateWorldRuntime.Restore(legacy);
-        Assert.Equal(bytes, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        var loaded = PrivateWorldRuntimeCodec.Encode(world.ExportState());
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, world.ExportState().SchemaVersion);
         Assert.False((await world.AdvanceOneTickAsync()).Advanced);
-        Assert.Equal(bytes, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        Assert.Equal(loaded, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
         world.Resume();
         world.StageStarterContent();
         for (var tick = 0; tick < 10; tick++)
