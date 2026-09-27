@@ -1137,3 +1137,21 @@ answers revise it.
    the base camp too.” Whether the placement uses the preview or the opened
    world, its order relative to founder placement, and terrain/survival
    constraints remain to be specified.
+
+### Camp-placement follow-up (2026-09-27)
+
+1. **Question:** Should the player choose the camp location **in the New World
+   preview** or **after opening the generated world**, like founder placement?
+   **Answer:** After opening the generated world.
+2. **Question:** Should the game **block unsuitable sites** (too little room,
+   inaccessible resources), or allow them with a warning?
+   **Answer:** Allow them with a warning. The distinction between poor but
+   physically placeable sites and impossible building footprints remains open.
+3. **Question:** Is placing the camp **one action that lays out its buildings
+   and supplies**, or should the player place its houses and other parts
+   individually?
+   **Answer:** “should probably be the latter. what are all the parts again?”
+   Individual placement is a preference, not yet a final decision. The current
+   planned kit is two houses, shared storehouse, fire/cooking area, workshop,
+   connecting path, nearby fertile land, and starter food/seeds/hand
+   tools/clothing; which of these the player places directly remains open.

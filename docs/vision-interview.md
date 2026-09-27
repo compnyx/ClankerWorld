@@ -118,9 +118,9 @@ reopen the decided player-local distribution goal.
   controls, preview/reroll, wrapping, and an optional early survival grace
   period. The ordinary game has **one supported starter-camp mode**. The
   nothing-start challenge mode was removed from the plan for now. Generating
-  the world creates the map; the player must then place the **empty base camp**
-  and place/configure four founders before starting time. API keys are not a
-  prerequisite for reaching the world view.
+  the world creates the map and opens it paused; the player must then place the
+  **empty base camp** in that world and place/configure four founders before
+  starting time. API keys are not a prerequisite for reaching the world view.
 - Enter a visually coherent generated world. The player can see its whole
   geography from the start; there is no player fog of war. Individual agents
   may know only what they have experienced or learned.
@@ -462,17 +462,20 @@ first-complete-game roadmap.
 ### Decided
 
 - A civilization-oriented new world is generated without agents or a placed
-  camp. The player **chooses where to place its empty base camp** and adds and
-  configures **four biologically unrelated founder agents**, using the per-agent
-  provider/model/credential flow. The simulation cannot begin until the camp
-  is placed and all four founders are added. They are grouped
-  2+2 into two starter households, not forced couples; family lines develop
-  later through relationships and children. The households exist even before
+  camp. After opening the generated world, the player **chooses where to place
+  its empty base camp** and adds and configures **four biologically unrelated
+  founder agents**, using the per-agent provider/model/credential flow. The
+  simulation cannot begin until the camp is placed and all four founders are
+  added. They are grouped 2+2 into two starter households, not forced couples;
+  family lines develop later through relationships and children. The households
+  exist even before
   any formal land claims. The placed camp contains two small houses, a
   shared storehouse, fire/cooking area, basic workshop, nearby fertile land,
   starter food/seeds/hand tools/clothing, and a connecting path. Furniture can
   be abstracted as inspectable building contents/capabilities rather than
-  every chair being drawn.
+  every chair being drawn. A poor camp site is allowed with a warning rather
+  than rejected solely for its survival disadvantages; physically impossible
+  placements still need rules.
 - Once all four founders are configured and placed, the player explicitly
   presses **Start World**; the simulation must not begin automatically on the
   fourth placement. An incomplete founder setup is saved so the player can
@@ -528,6 +531,14 @@ first-complete-game roadmap.
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
 
+### Preferred, pending confirmation
+
+Computment probably prefers placing the camp's buildings and other parts
+individually rather than dropping one prearranged camp footprint. This is a
+leaning, not a locked placement specification. Which parts are movable,
+whether paths and supplies are placed directly or generated around the chosen
+structures, and how the overall camp is completed remain open.
+
 ### Open
 
 Expected/variable lifespan below the six-hour cap, founders' starting ages,
@@ -537,13 +548,12 @@ older childhood needs a separate phase, age display, relationship and
 inheritance mechanics, continuity threshold and exit conditions,
 pregnancy/birth and childcare rules, care/resource eligibility, Jev's
 optional role in childhood, and the identity implications of player renaming.
-Base-camp placement rules and interface remain open: whether placement uses
-the preview or opened world, its order relative to founder placement, valid
-terrain and footprint, proximity to food/water/resources, whether unsuitable
-locations are blocked or warned about, and whether placement can be revised
-before Start World. The optional survival grace period still needs a duration and
-precise effects. Also open: whether unrelated newcomers can arrive without
-player action or are only introduced through Add Agent. A configurable
+Base-camp placement rules and interface remain open: its order relative to
+founder placement, physically valid terrain and footprints, what the warning
+flags, how supplies and fertile land are provided, and whether placement can be
+revised before Start World. The optional survival grace period still needs a
+duration and precise effects. Also open: whether unrelated newcomers can arrive
+without player action or are only introduced through Add Agent. A configurable
 automatic-birth limit was considered, briefly accepted, then explicitly
 reopened: computment will decide **after playtesting actual birth frequency,
 population growth, and model cost** whether a cap belongs in the game. Do not
