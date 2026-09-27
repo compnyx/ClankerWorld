@@ -38,7 +38,10 @@ the resolution evidence below.
 - **Agents rarely pursue non-survival activity — playtest report, partly
   addressed:** stable adults now have a bounded local curiosity outing that
   remembers visited tiles and returns; whether that feels sufficiently useful
-  requires owner playtesting. Exploration does not yet search for distant
+  requires owner playtesting. The bounded prototype is a useful safe starting
+  point, but the recommended next direction is purpose-driven discovery of
+  resources, terrain and Towns after the owner judges its pacing. Exploration
+  does not yet search for distant
   resources or Towns, or create tradable knowledge. Low hunger/energy or urgent
   weather exposure can still pause projects and narrow adult choices to routine
   survival. There is no separate numeric safety need; `safe_idle` is a fallback
