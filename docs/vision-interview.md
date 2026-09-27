@@ -557,15 +557,13 @@ first-complete-game roadmap.
   agents may use the same stored key. Agents choose their own personality,
   aspirations, skills, and initial identity. The player can add adults freely.
 - Agents have no genders. Children have **two parents**. Parents choose the
-  child's name and provider/model; the child's surname must be one of the two
-  parents' surnames. Children inherit tendencies, abilities,
+  child's name and provider/model, and must choose **one of their own surnames**
+  as the child's surname. Children inherit tendencies, abilities,
   culture, and provider/model settings; baby appearance uses baby art. Close
   biological relatives cannot pair.
-- Agents can become a couple and then marry. **Whether marriage is required
-  before they can have a child is reopened:** an earlier answer sounded like
-  yes, but computment now recalls that unmarried parents were allowed. Do not
-  enforce either interpretation until clarified. When agents marry, both
-  partners must share one of their existing surnames, chosen by the partners
+- Agents can become a couple and then marry, but **a couple may have a baby
+  without marrying first**. Marriage is not a birth requirement. When agents
+  marry, both partners must share one of their existing surnames, chosen by them
   in a dedicated conversation. That
   conversation is initiated even if they are far apart in the world: a narrow
   exception to ordinary proximity-bound conversation, not a general remote
@@ -573,11 +571,11 @@ first-complete-game roadmap.
   shared surname. The conversation must be bounded; if the partners do not
   agree within that bound, a disclosed tie-break rule selects one of their two
   surnames so the marriage can finalize. The tie-break method, turn limit, and
-  provider-failure behavior remain open. If birth requires marriage, the
-  earlier rule that parents choose one of their surnames for a baby normally
-  offers only one surname; if unmarried parents are allowed, the choice has
-  two possibilities. Computment accepts that the low-population continuity
-  rule may push agents toward marriage, regardless of the final birth rule.
+  provider-failure behavior remain open. Unmarried parents may have different
+  surnames, so their child's surname choice is meaningful; married parents
+  already share one surname, so either parent's surname is the same choice.
+  The low-population continuity rule may encourage marriage but must not make
+  it a prerequisite for having a child.
 - **A child uses their own selected personal LLM once they leave infancy.**
   Infants do not make calls to their personal model. The parents' provider/model
   choice can be stored at birth, then used when that agent enters the child
@@ -1158,10 +1156,11 @@ These are **open questions**, not changes to the decisions above:
    player-local and Windows-only at first, while development stays VPS-backed.
    Prove the same simulation and save behavior in both; choose the local
    process/installer shape without creating a second, divergent game.
-6. **Marriage, birth and surnames.** Whether unmarried parents can have a
-   child is reopened after contradictory interview wording. The continuity
-   rule may push agents toward marriage. Clarify birth eligibility; that also
-   determines whether choosing between parent surnames is meaningful.
+6. **Marriage-surname procedure.** Unmarried couples may have children, and
+   the parents choose one of their surnames for the child. The continuity rule
+   may encourage marriage but cannot require it for birth. Still decide the
+   bounded marriage-surname conversation's tie-break method, turn limit, and
+   provider-failure behavior.
 7. **Starter economy and tool bootstrap.** A minimum food supply and some
    tools are guaranteed, but no farm, Blacksmith or Workshop is guaranteed.
    Decide exact starter items/quantities and where agents make first-tier
