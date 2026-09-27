@@ -155,12 +155,21 @@ reopen the decided player-local distribution goal.
   includes **Save World**, **Settings**, and **Quit to Menu**. Settings use
   categories on the left and selected controls on the right. Quit to Menu and
   Quit Game ask for confirmation.
+- **Reaffirmed after the September playtest:** the Pause Menu has one compact
+  action row, not three rows of buttons. It has one **Settings** entry; **Game**
+  and **World** remain selectable categories inside Settings for a loaded world.
+  Main Menu Settings still exposes Game only. The current `Create` workbench is
+  a prototype UI, not an approved Pause Menu item; its future home or removal
+  is open.
 - Adding an adult agent opens a flow to select a provider, one of its stored
   API credentials or a newly entered one, and a model, then place the agent in
   the world. Existing credentials can be reused by multiple agents. A player
   may also add another key for the **same provider** and choose which key that
   agent uses; there is no single-key-per-provider restriction. The agent
-  chooses its own name after placement; the player can rename it later.
+  chooses its own name after placement; the player can rename it later. Agents
+  should use full names with a surname and may choose a middle name; exact
+  cultural naming rules and handling of similar or duplicate choices remain
+  open.
 - Selecting an agent opens an **interactive info popup near that agent**. The
   player can change that agent's provider and model there, including choosing
   an appropriate stored/new credential when needed. Agent inspection does not
@@ -182,14 +191,14 @@ reopen the decided player-local distribution goal.
 
 ### Preferred, pending confirmation
 
-Split the Pause Menu's generic **Settings** entry into **Game Settings** and
-**World Settings**. Game Settings apply across worlds/on this installation:
+Game Settings apply across worlds/on this installation:
 UI date and time display formats, graphics/display preferences, and stored
 provider credentials. Event pop-up preferences likely belong here too, but
-their scope is not yet confirmed. The Main Menu's Settings entry would open
+their scope is not yet confirmed. The Main Menu's Settings entry opens
 Game Settings. World Settings belong to the current save: autosave on/off,
 interval and rotation; the optional AI-usage meter/limit; and Jev's per-world
-configuration. Opening either from the Pause Menu keeps the world paused.
+configuration. Selecting either category within Pause Menu Settings keeps the
+world paused.
 World generation choices such as size, climate and wrapping are chosen before
 creation and should be inspectable afterward, not silently mutable settings.
 Jev's on/off switch for an existing world is accepted; the exact settings
@@ -884,6 +893,11 @@ library handles revisions and conflicting imports.
 - Named manual saves are unlimited. Emergency recovery is automatic in the
   background. Saving on Quit to Menu/Game is the accepted direction, while
   quit confirmation remains.
+- The player must be able to **intentionally overwrite an existing named
+  manual save** rather than accumulating a new checkpoint every time. The exact
+  selection, confirmation and recovery behavior is open; this does not
+  authorize silently replacing a save merely because a new name matches an
+  existing one.
 - World-created inventions and active mods travel with that world's save;
   provider credentials and graphical/device settings are global. The global
   library reads the latest save for each world rather than silently merging

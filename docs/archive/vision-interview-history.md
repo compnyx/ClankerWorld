@@ -1257,3 +1257,24 @@ map content shows a tooltip only briefly, likely interrupted by the tick, and
 that the warmth/condition section quickly disappears after opening an agent
 popup. These are observed client defects, not design choices; the bug register
 tracks the repository repair and pending laptop verification.
+
+### Additional playtest triage and renewed interview (2026-09-27)
+
+Computment reported that manual saves should be overwriteable; agent-chosen
+names seem too similar; the Pause Menu is ugly as three rows and should be one
+row; resolution selection changes window size rather than apparent game
+resolution; the Pause Menu should have one `Settings` entry with Game and World
+choices inside; the purpose of `Create` is unclear and they questioned whether
+it was ever in their vision; agent hitboxes bleed outside their tiles; forests
+and foliage are not visible as generated objects; and mountains/peaks were not
+seen. They asked for bug/issue triage and another design interview, not
+immediate implementation of every item.
+
+The current ledger treats overwrite capability and the one-row/single-Settings
+menu as decided direction, with overwrite interaction and the `Create`
+workbench's future still open. Code inspection finds a building-design owner
+workbench behind `Create`, fixed 1280×720 viewport plus window-size-only
+resolution choices, large actor buttons that can overflow zoomed-out tiles,
+forest as a ground kind/color rather than tree art, and threshold-based
+mountain/peak terrain. The particular playtest world's mountain distribution
+and the exact reason for similar model-generated names remain unverified.

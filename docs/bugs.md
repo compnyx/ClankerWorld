@@ -19,6 +19,43 @@ Windows client build has not been tested on computment's laptop and the world
 is intentionally paused. Its live model-wait playtest remains pending; see
 the resolution evidence below.
 
+## September playtest reports and confirmed product gaps
+
+- **Manual-save overwrite unavailable — confirmed gap:** Save World only
+  creates a new opaque-ID checkpoint. Reusing a visible name creates another
+  checkpoint with that name; the client has no select-and-overwrite action.
+  Computment wants intentional replacement of an existing manual save. Exact
+  confirmation and recovery behavior remains an interview question.
+- **Pause Menu layout and labels — confirmed mismatch:** the client lays out
+  eight actions in a three-column grid across three rows. It exposes separate
+  Game Settings and World Settings buttons, plus `Create`. The intended menu
+  has one compact row and one Settings entry, with Game and World inside it.
+  `Create` is a prototype building-design review workbench; whether to move or
+  remove that workbench remains open.
+- **Resolution control is misleading — confirmed:** choosing 1280×720,
+  1600×900 or 1920×1080 only calls Godot's window-size setter; the game
+  viewport remains configured at 1280×720 with canvas-item stretching. The
+  control should reflect the intended display/render behavior and its label.
+- **Agent marker hitboxes overflow tiles — confirmed:** marker buttons are
+  clamped to 52–78 px even when a zoomed-out tile is smaller, and offsets for
+  multiple occupants add 22 px. Their clickable areas can extend into adjacent
+  tiles. Keep selection reliable while making the interactive footprint clear.
+- **Generated vegetation is not represented as forest objects/art — confirmed
+  gap:** forest currently means a ground-kind/color and sparse resource sites;
+  the Godot terrain renderer draws colored rectangles, not foliage sprites or
+  coherent tree stands. The full vegetation/object/art pass remains unbuilt.
+- **Mountains/peaks not seen in playtest — unverified occurrence, confirmed
+  visibility gap:** generation does classify dry-land elevation ≥215 as
+  mountain and ≥245 as peak, so the terrain kinds exist. Their distribution
+  depends on seed and water classification, and the current overview has no
+  elevation inspection. Check the reported world's seed/map before calling
+  this an absence or changing thresholds.
+- **Agent-chosen names feel too similar — playtest report, cause not proven:**
+  the current model prompt gives each unnamed agent the same short naming
+  instruction and no world culture, existing-name context or uniqueness rule.
+  This plausibly narrows variety, but actual outputs and models are needed to
+  distinguish prompt effects from repetition by a particular provider.
+
 ## Original reports and resolution evidence
 
 - **Main Menu World Settings leak — fixed in repository build, laptop check
