@@ -8,6 +8,10 @@ release yet.
 
 ### Fixed
 
+- Private-world saves now store generated terrain in versioned 64×64 byte
+  chunks with per-chunk integrity hashes rather than one JSON object per tile.
+  Existing v1 saves load and migrate atomically to v2/schema 19; damaged or
+  incomplete chunks fail closed without replacing the checkpoint.
 - Regional rain, snow and storm conditions now draw bounded top-down cloud and
   precipitation marks over camera-visible terrain, including wrapped world
   seams. Clear regions stay unobscured; the effects are presentation only.
@@ -15,7 +19,7 @@ release yet.
   bedroll recovery, or energy gates on work, social life and exploration. Food
   and severe-weather effects remain. New worlds omit bedrolls and bedding;
   older private-world saves remain loadable with hidden legacy bedroll markers
-  and migrate to save schema 18 when next saved.
+  and migrate to the current save schema when loaded.
 - New World now refreshes the exact seed/settings preview after edits without
   requiring another button press. Stale previews cannot enable Create World;
   preview failures leave the active world unchanged.

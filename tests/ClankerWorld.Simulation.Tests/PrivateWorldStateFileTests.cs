@@ -41,7 +41,7 @@ public sealed class PrivateWorldStateFileTests
     }
 
     [Fact]
-    public void LoadingSchemaThreePreservesCheckpointBytesUntilCompaction()
+    public void LoadingSchemaThreeAtomicallyMigratesItsCheckpoint()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"clankerworld-history-legacy-{Guid.NewGuid():N}");
         try
@@ -52,8 +52,9 @@ public sealed class PrivateWorldStateFileTests
             var bytes = PrivateWorldRuntimeCodec.Encode(world.ExportState() with { SchemaVersion = 3 });
             File.WriteAllBytes(file.Path, bytes);
             using var restored = file.LoadOrCreate("legacy-history");
-            Assert.Equal(bytes, File.ReadAllBytes(file.Path));
-            Assert.Equal(3, restored.ExportState().SchemaVersion);
+            Assert.NotEqual(bytes, File.ReadAllBytes(file.Path));
+            Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, restored.ExportState().SchemaVersion);
+            Assert.Equal(PrivateWorldRuntimeCodec.Encode(restored.ExportState()), File.ReadAllBytes(file.Path));
             Assert.False(Directory.Exists(file.Path + ".history"));
         }
         finally

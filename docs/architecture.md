@@ -77,15 +77,16 @@ runoff and irrigation are not implemented.
 The physical map now indexes terrain for constant-time passability/build-site
 checks. An internally captured proposed tick reuses its committed map rather
 than regenerating generated geography; external save loads still validate and
-regenerate it before acceptance. The current save still serializes a JSON
-object per terrain tile, and owner observations still send the whole terrain,
-so this alone does not make huge worlds viable.
+regenerate it before acceptance. Private-world checkpoint v2 now stores
+verified 64×64 terrain-byte chunks; v1 per-tile JSON remains readable and
+migrates atomically on load. Owner observations still send the whole terrain,
+so compact saves alone do not make huge worlds viable.
 For generated maps, the owner projection now carries terrain as row-major
 terrain-kind bytes encoded in base64; the matching Godot client decodes those
 into its compact camera/overview index. The existing 6×5 world still emits
 the former tile list for the currently paired Windows build. Generated-world
 snapshots still resend the full packed terrain on each observation; viewport
-chunk requests and compact persistence are not implemented yet.
+chunk requests and cache invalidation are not implemented yet.
 
 The private host keeps one active runtime object so existing signed controls
 remain directed at the selected world. A private catalog archives each world's
