@@ -1,0 +1,152 @@
+using ClankerWorld.Simulation.Cognition;
+using ClankerWorld.Simulation.Harness;
+
+namespace ClankerWorld.Simulation.Playtest;
+
+/// <summary>
+/// A small, per-person record of places actually visited. An outing only picks
+/// its next visible neighbour; it does not give the person the player's map.
+/// </summary>
+public sealed record SettlementExploration(
+    IReadOnlyList<GridPoint> VisitedTiles,
+    IReadOnlyList<GridPoint> OutingPath,
+    long LastOutingTick,
+    bool Returning);
+
+public sealed partial class PrivateWorldRuntime
+{
+    private const int ExplorationStepsPerOuting = 8;
+    private const int ExplorationCooldownTicks = 180;
+    private const int ExplorationMemoryLimit = 256;
+
+    private void AddExplorationCandidate(List<CognitionCandidate> candidates, string actor, PlaytestInhabitantState person)
+    {
+        if (person.HungerBasisPoints < 3_500 || person.EnergyBasisPoints < 2_500 || HasUrgentExposure(person))
+            return;
+
+        var exploration = person.Exploration;
+        if (exploration?.OutingPath.Count > 0)
+        {
+            candidates.Add(new("explore", "Continue a short local scouting trip, then return to its start.", 75));
+            return;
+        }
+
+        if (person.HungerBasisPoints < 6_000 || person.EnergyBasisPoints < 5_000 ||
+            person.Project is { Stage: not ("completed" or "cancelled") } ||
+            exploration is not null && WorldTick - exploration.LastOutingTick < ExplorationCooldownTicks ||
+            !map.FootNeighbors(person.Position).Any(map.IsPassable))
+            return;
+
+        candidates.Add(new("explore", "Scout adjacent terrain and resource sites out of curiosity, then return.", 75));
+    }
+
+    private void Explore(string actor, PlaytestInhabitantState person)
+    {
+        var exploration = person.Exploration ?? new SettlementExploration([], [], WorldTick, false);
+        if (exploration.OutingPath.Count == 0)
+        {
+            exploration = exploration with
+            {
+                VisitedTiles = exploration.VisitedTiles.Contains(person.Position)
+                    ? exploration.VisitedTiles
+                    : exploration.VisitedTiles.Append(person.Position).TakeLast(ExplorationMemoryLimit).ToArray(),
+                OutingPath = [person.Position],
+                LastOutingTick = WorldTick,
+                Returning = false,
+            };
+            AppendEvent("exploration_started", $"{actor}:{person.Position.X},{person.Position.Y}");
+        }
+
+        if (exploration.Returning || exploration.OutingPath.Count > ExplorationStepsPerOuting)
+        {
+            ReturnFromExploration(actor, person, exploration with { Returning = true });
+            return;
+        }
+
+        var occupied = inhabitants.Values.Where(item => item.InhabitantId != actor)
+            .Select(item => item.Position).ToHashSet();
+        var next = map.FootNeighbors(person.Position)
+            .Where(point => map.IsPassable(point) && !occupied.Contains(point) &&
+                !exploration.OutingPath.Contains(point))
+            .OrderBy(point => exploration.VisitedTiles.Contains(point) ? 1 : 0)
+            .ThenByDescending(point => map.FootDistance(point, exploration.OutingPath[0]))
+            .ThenBy(point => point.Y).ThenBy(point => point.X)
+            .Select(point => (GridPoint?)point).FirstOrDefault();
+        if (next is null)
+        {
+            ReturnFromExploration(actor, person, exploration with { Returning = true });
+            return;
+        }
+
+        // Movement still obeys the ordinary travel delay, weather, occupancy,
+        // narrow-river and mountain rules. Only a completed step joins memory.
+        inhabitants[actor] = person with { Exploration = exploration };
+        MoveToward(actor, inhabitants[actor], next.Value, "explore");
+        var moved = inhabitants[actor];
+        if (moved.Position == person.Position)
+            return;
+        var visited = exploration.VisitedTiles.Contains(moved.Position)
+            ? exploration.VisitedTiles
+            : exploration.VisitedTiles.Append(moved.Position).TakeLast(ExplorationMemoryLimit).ToArray();
+        inhabitants[actor] = moved with { Exploration = exploration with
+        {
+            VisitedTiles = visited,
+            OutingPath = exploration.OutingPath.Append(moved.Position).ToArray(),
+        } };
+        if (!exploration.VisitedTiles.Contains(moved.Position))
+        {
+            var terrain = map.Tiles.First(tile => tile.Position == moved.Position).Terrain;
+            var resourcesHere = map.Resources.Where(site => site.Position == moved.Position)
+                .Select(site => site.Kind).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+            AppendEvent("exploration_discovered",
+                $"{actor}:{moved.Position.X},{moved.Position.Y}:{terrain}:{string.Join(',', resourcesHere)}");
+        }
+    }
+
+    private void ReturnFromExploration(string actor, PlaytestInhabitantState person, SettlementExploration exploration)
+    {
+        if (exploration.OutingPath.Count == 1)
+        {
+            inhabitants[actor] = person with { Exploration = exploration with
+            {
+                OutingPath = [],
+                Returning = false,
+                LastOutingTick = WorldTick,
+            } };
+            AppendEvent("exploration_completed", $"{actor}:visited={exploration.VisitedTiles.Count}");
+            return;
+        }
+
+        var destination = exploration.OutingPath[^2];
+        inhabitants[actor] = person with { Exploration = exploration };
+        MoveToward(actor, inhabitants[actor], destination, "explore_return");
+        var moved = inhabitants[actor];
+        if (moved.Position == destination)
+            inhabitants[actor] = moved with { Exploration = exploration with
+            {
+                OutingPath = exploration.OutingPath.Take(exploration.OutingPath.Count - 1).ToArray(),
+            } };
+        else if (moved.MoveWaitTicks >= 30)
+        {
+            inhabitants[actor] = moved with { Exploration = exploration with
+            {
+                OutingPath = [], Returning = false, LastOutingTick = WorldTick,
+            } };
+            AppendEvent("exploration_aborted", $"{actor}:return_blocked");
+        }
+    }
+
+    private static void ValidateExploration(SettlementExploration? exploration, SeededMap map, long worldTick)
+    {
+        if (exploration is null) return;
+        if (exploration.VisitedTiles is null || exploration.OutingPath is null ||
+            exploration.VisitedTiles.Count > ExplorationMemoryLimit ||
+            exploration.OutingPath.Count > ExplorationStepsPerOuting + 1 ||
+            exploration.LastOutingTick < 0 || exploration.LastOutingTick > worldTick ||
+            exploration.VisitedTiles.Any(point => !map.IsPassable(point)) ||
+            exploration.OutingPath.Any(point => !map.IsPassable(point)) ||
+            exploration.OutingPath.Zip(exploration.OutingPath.Skip(1),
+                (first, second) => map.FootDistance(first, second)).Any(distance => distance != 1))
+            throw new InvalidDataException("The saved local exploration record is invalid.");
+    }
+}

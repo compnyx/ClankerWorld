@@ -131,8 +131,16 @@ unrelated agents or world systems.
 
 | Role | Options | Typical current work |
 | --- | --- | --- |
-| Routine survival | Deterministic, Jev | Eat, sleep, gather, move, wear clothing, tend fire, seek warmth or idle |
+| Routine survival and local curiosity | Deterministic, Jev | Eat, sleep, gather, move, wear clothing, tend fire, seek warmth, make a bounded scouting outing or idle |
 | Planning and work | Deterministic, OpenAI, Ollama Cloud | Projects, material help, barter, bounded building proposals, household policy choices and apprenticeship requests/acceptance/refusal |
+
+The local exploration prototype offers stable adults a short optional outing.
+Each step is chosen from adjacent passable ground, and a bounded per-agent
+record remembers actually visited tiles across reloads. The agent returns
+along its route before another outing, with an interval between trips. This
+does not yet produce tradable maps/books, resource search plans, shared Town
+knowledge, or broad agent beliefs; the player's map is not copied into that
+record.
 
 The host stages the built-in starter package through the validated content
 registry on the first client-present, unpaused tick. It activates at the tick

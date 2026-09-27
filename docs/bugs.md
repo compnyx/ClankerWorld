@@ -35,13 +35,15 @@ the resolution evidence below.
   without blocking needed crossings on a separate nearby stream.
   Exact routes, bridge radius and
   materials remain open.
-- **Agents rarely pursue non-survival activity — playtest report with confirmed
-  candidate gap:** there is no ordinary exploration/curiosity candidate in the
-  playable decision list. Low hunger/energy or urgent weather exposure can
-  pause projects and narrow adult choices to routine survival. There is no
-  separate numeric safety need; `safe_idle` is a fallback action, not a safety
-  meter. The finished-game decision now removes energy and sleeping entirely;
-  the current survival code has not yet changed.
+- **Agents rarely pursue non-survival activity — playtest report, partly
+  addressed:** stable adults now have a bounded local curiosity outing that
+  remembers visited tiles and returns; whether that feels sufficiently useful
+  requires owner playtesting. Exploration does not yet search for distant
+  resources or Towns, or create tradable knowledge. Low hunger/energy or urgent
+  weather exposure can still pause projects and narrow adult choices to routine
+  survival. There is no separate numeric safety need; `safe_idle` is a fallback
+  action, not a safety meter. The finished-game decision removes energy and
+  sleeping entirely; the current survival code has not yet changed.
 - **Save compatibility policy remains open:** Load World now preflights saved
   checkpoints and required local model credentials, labels compatible,
   incompatible or unknown, and preserves and blocks only proven-unloadable

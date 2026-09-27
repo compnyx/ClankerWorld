@@ -617,6 +617,94 @@ public sealed partial class PrivateWorldRuntimeTests
     }
 
     [Fact]
+    public async Task StableAdultCanScoutLocalGroundReturnAndRememberVisitedTilesAfterReload()
+    {
+        using var initial = new PrivateWorldRuntime("exploration-prototype");
+        var baseline = initial.ExportState();
+        var target = baseline.Inhabitants[0];
+        var provider = new ExplorationSelectingProvider(target.InhabitantId);
+        using var runtime = PrivateWorldRuntime.Restore(baseline with
+        {
+            Inhabitants = baseline.Inhabitants.Select(person => person with
+            {
+                HungerBasisPoints = 9_500,
+                EnergyBasisPoints = 9_500,
+            }).ToArray(),
+        }, _ => provider);
+
+        for (var tick = 0; tick < 75; tick++)
+            _ = await runtime.AdvanceOneTickAsync();
+
+        var events = runtime.ExportState().Events;
+        Assert.Contains(events, item => item.Kind == "exploration_started" && item.Detail.StartsWith(target.InhabitantId + ":", StringComparison.Ordinal));
+        Assert.Contains(events, item => item.Kind == "exploration_discovered" && item.Detail.StartsWith(target.InhabitantId + ":", StringComparison.Ordinal));
+        Assert.Contains(events, item => item.Kind == "exploration_completed" && item.Detail.StartsWith(target.InhabitantId + ":", StringComparison.Ordinal));
+        var explorer = runtime.Inhabitants.Single(person => person.InhabitantId == target.InhabitantId);
+        Assert.Equal(target.Position, explorer.Position);
+        Assert.NotEmpty(explorer.Exploration!.VisitedTiles);
+        Assert.Empty(explorer.Exploration.OutingPath);
+        Assert.True(provider.CallCount < 30, "Exploration should reuse its intention rather than asking the model each step.");
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(runtime.ExportState())), _ => provider);
+        var restoredExploration = restored.Inhabitants.Single(person => person.InhabitantId == target.InhabitantId).Exploration!;
+        Assert.Equal(explorer.Exploration.VisitedTiles, restoredExploration.VisitedTiles);
+        Assert.Equal(explorer.Exploration.OutingPath, restoredExploration.OutingPath);
+        Assert.Equal(explorer.Exploration.LastOutingTick, restoredExploration.LastOutingTick);
+    }
+
+    [Fact]
+    public async Task UrgentFoodNeedDoesNotOfferCuriosityOuting()
+    {
+        using var initial = new PrivateWorldRuntime("exploration-hungry");
+        var baseline = initial.ExportState();
+        var target = baseline.Inhabitants[0];
+        var provider = new ExplorationSelectingProvider(target.InhabitantId);
+        using var runtime = PrivateWorldRuntime.Restore(baseline with
+        {
+            Inhabitants = baseline.Inhabitants.Select(person => person with
+            {
+                HungerBasisPoints = person.InhabitantId == target.InhabitantId ? 2_000 : 9_500,
+                EnergyBasisPoints = 9_500,
+            }).ToArray(),
+        }, _ => provider);
+
+        _ = await runtime.AdvanceOneTickAsync();
+
+        Assert.DoesNotContain("explore", provider.TargetCandidates);
+        Assert.DoesNotContain(runtime.ExportState().Events, item => item.Kind == "exploration_started");
+    }
+
+    private sealed class ExplorationSelectingProvider(string targetId) : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public int CallCount { get; private set; }
+        public IReadOnlyList<string> TargetCandidates { get; private set; } = [];
+
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            request.Validate();
+            cancellationToken.ThrowIfCancellationRequested();
+            CallCount++;
+            var options = request.Observation.Candidates;
+            if (request.Observation.InhabitantId == targetId)
+                TargetCandidates = options.Select(option => option.Id).ToArray();
+            var selected = request.Observation.InhabitantId == targetId
+                ? options.FirstOrDefault(option => option.Id == "explore")
+                : null;
+            selected ??= options.FirstOrDefault(option => option.Id == "safe_idle") ?? options[0];
+            return ValueTask.FromResult(new CognitionDecisionResponse(
+                request.RequestId, request.Observation.InhabitantId, Kind, ProviderEpoch,
+                request.Observation.RunEpoch, request.Observation.DecisionGeneration,
+                request.Observation.ObservationDigest, selected.Id, 1d,
+                options.ToDictionary(option => option.Id, option => option.Id == selected.Id ? 1d : 0d,
+                    StringComparer.Ordinal)));
+        }
+    }
+
+    [Fact]
     public void LegacyInhabitantsDoNotAcquireNullDecisionCacheFieldsWhenSaved()
     {
         using var runtime = new PrivateWorldRuntime("playtest-alpha");

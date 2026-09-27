@@ -53,6 +53,10 @@ release yet.
 
 ### Added
 
+- Stable adult agents can now choose short curiosity outings. They scout only
+  adjacent passable ground, remember tiles they actually visit, and return to
+  their starting point. Hunger, exhaustion and urgent exposure take precedence;
+  a cooldown prevents continuous wandering.
 - Agents can walk through one-tile-wide river crossings and mountain tiles at
   half the dry-ground travel speed. Wider river sections, peaks, lakes and
   oceans remain impassable, and river/mountain tiles remain non-buildable.

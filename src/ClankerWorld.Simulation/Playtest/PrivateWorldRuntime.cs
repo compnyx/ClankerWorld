@@ -27,7 +27,8 @@ public sealed record PlaytestInhabitantState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SettlementProficiency? Proficiency = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<SettlementSocialStanding>? SocialStanding = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<PlaytestPrivateThought>? RecentThoughts = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int TravelCooldownTicks = 0);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int TravelCooldownTicks = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SettlementExploration? Exploration = null);
 
 public sealed record PlaytestPrivateThought(long WorldTick, string Text);
 
@@ -2495,6 +2496,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         switch (candidateId)
         {
+            case "explore":
+                Explore(inhabitantId, state);
+                break;
             case "wear_clothing":
                 CollectEquipment(inhabitantId, state, "clothing");
                 break;
@@ -2908,6 +2912,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AddLearningCandidates(candidates, inhabitantId);
             AddFamilyCandidates(candidates, inhabitantId);
             AddParenthoodCandidates(candidates, inhabitantId);
+            AddExplorationCandidate(candidates, inhabitantId, state);
         }
 
         candidates.Add(new CognitionCandidate("safe_idle", "Continue safely without starting a new task.", 100));
@@ -3109,6 +3114,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             ValidateSocialStanding(person, state.Society.Society.Inhabitants.Select(item => item.Id),
                 state.SchemaVersion, state.Society.Society.WorldTick);
             ValidatePrivateThoughts(person.RecentThoughts, state.SchemaVersion, state.Society.Society.WorldTick);
+            ValidateExploration(person.Exploration, state.Map, state.Society.Society.WorldTick);
         }
         ValidateParenthood(state);
         ContentPackageRegistry.Restore(state.Content);
