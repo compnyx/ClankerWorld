@@ -126,10 +126,6 @@ public sealed partial class PrivateWorldRuntime
         {
             candidates.Add(new CognitionCandidate("seek_warmth", "Seek a lit hearth or shelter until warm enough to work.", 3));
         }
-        if (condition.IllnessBasisPoints >= 4_000 && !candidates.Any(candidate => candidate.Id == "sleep"))
-        {
-            candidates.Add(new CognitionCandidate("sleep", "Rest, stay warm and eat to recover from exposure illness.", 4));
-        }
     }
 
     private void CollectEquipment(string actor, PlaytestInhabitantState person, string kind)
@@ -187,10 +183,6 @@ public sealed partial class PrivateWorldRuntime
             MoveToward(actor, person, destination.Position, "warmth", ResourceInteractionRange);
         }
     }
-
-    private int RestRecovery(PlaytestInhabitantState person) => person.Survival is null ? 2_500 :
-        1_500 + (NearShelter(person.Position) ? 800 : 0) +
-        (NearShelter(person.Position) && SharedItem("bedding", person.InhabitantId) is not null ? 700 : 0);
 
     private bool NeedsRecipeOutput(RecipeDefinition recipe) => survivalState is null || recipe.Outputs.Any(output =>
     {

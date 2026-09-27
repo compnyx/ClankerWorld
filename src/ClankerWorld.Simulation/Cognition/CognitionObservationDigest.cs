@@ -28,7 +28,6 @@ public static class CognitionObservationDigest
         builder.Append("actor=").Append(world.Actor.Id).Append('|')
             .Append(world.Actor.Position.X).Append(',').Append(world.Actor.Position.Y).Append('|')
             .Append(world.Actor.HungerBasisPoints).Append('|')
-            .Append(world.Actor.EnergyBasisPoints).Append('|')
             .Append(world.Actor.FoodItems).Append('|')
             .Append(world.Actor.WoodItems).Append('\n');
         foreach (var resource in world.Resources.OrderBy(resource => resource.Id, StringComparer.Ordinal))

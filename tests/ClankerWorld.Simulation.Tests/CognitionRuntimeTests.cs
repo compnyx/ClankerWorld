@@ -173,7 +173,6 @@ public sealed class CognitionRuntimeTests
         decisionGeneration,
         "sha256:observation-4",
         HungerBasisPoints: 2_000,
-        EnergyBasisPoints: 7_000,
         [
             new CognitionCandidate("safe_idle", "Continue the current safe routine.", 0),
             new CognitionCandidate("seek_food", "Travel toward available food.", 10, "berry-patch"),

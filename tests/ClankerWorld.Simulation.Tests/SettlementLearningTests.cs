@@ -102,7 +102,7 @@ public sealed class SettlementLearningTests
     }
 
     [Fact]
-    public async Task ExhaustionInterruptsTrainingWithoutLosingProgressOrGrantingTheRole()
+    public async Task HungerInterruptsTrainingWithoutLosingProgressOrGrantingTheRole()
     {
         var state = await PreparedState();
         var learner = state.Society.Society.Inhabitants.Single(person => person.CurrentRole == SocietyWorkRole.Trader).Id;
@@ -116,7 +116,7 @@ public sealed class SettlementLearningTests
         Assert.InRange(progress, 3, 19);
         state = state with
         {
-            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == learner ? person with { EnergyBasisPoints = 1_000 } : person).ToArray(),
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == learner ? person with { HungerBasisPoints = 1_000 } : person).ToArray(),
         };
         using var restored = PrivateWorldRuntime.Restore(state, _ => new LessonProvider("safe_idle"));
         for (var tick = 0; tick < 10; tick++)

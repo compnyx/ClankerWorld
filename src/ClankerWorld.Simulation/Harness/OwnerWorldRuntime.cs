@@ -1501,7 +1501,6 @@ public sealed class OwnerWorldRuntime
             generation,
             CognitionObservationDigest.Create(world, runEpoch, generation, candidates),
             actor.HungerBasisPoints,
-            actor.EnergyBasisPoints,
             candidates);
     }
 
@@ -1509,7 +1508,6 @@ public sealed class OwnerWorldRuntime
     {
         var candidates = new List<CognitionCandidate>();
         var food = current.Map.GetResource("berry-patch");
-        var bedroll = current.Map.GetObject("bedroll");
         var foodAvailable = current.GetResource(food.Id).State == ResourceState.Available;
 
         if (current.Actor.FoodItems > 0 && current.Actor.HungerBasisPoints < 8_500)
@@ -1535,15 +1533,6 @@ public sealed class OwnerWorldRuntime
                 "Travel to the available food source.",
                 5,
                 food.Id));
-        }
-
-        if (current.Actor.EnergyBasisPoints < 3_500)
-        {
-            candidates.Add(new CognitionCandidate(
-                "sleep",
-                "Sleep now to recover energy, even without a bed.",
-                10,
-                bedroll.Id));
         }
 
         candidates.Add(new CognitionCandidate(
@@ -1582,7 +1571,6 @@ public sealed class OwnerWorldRuntime
         {
             "harvest_food" => ScriptedHarness.ApplyHarvest(current, "berry-patch"),
             "consume_food" => ScriptedHarness.ApplyConsume(current),
-            "sleep" => ScriptedHarness.ApplySleep(current),
             "safe_idle" => ScriptedHarness.ApplyIdle(current),
             _ => throw new InvalidDataException($"Cognition candidate '{candidate.Id}' has no executor."),
         };

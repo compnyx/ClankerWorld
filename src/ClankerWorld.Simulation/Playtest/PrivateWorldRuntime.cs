@@ -15,7 +15,6 @@ public sealed record PlaytestInhabitantState(
     string InhabitantId,
     GridPoint Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     int MoveWaitTicks,
     string Personality,
     string Aspiration,
@@ -90,7 +89,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 17;
+    public const int StateSchemaVersion = 18;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -160,7 +159,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         double minimumCognitionConfidence,
         WorldStartPace startPace,
         GeographyOptions? geographyOptions,
-        SeededMap? preparedMap)
+        SeededMap? preparedMap,
+        bool includeLegacyBedroll = false)
     {
         this.worldSeed = NormalizeRequiredText(worldSeed, nameof(worldSeed));
         if (geographyOptions is not null &&
@@ -189,9 +189,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations = new WorldAssetReservationLedger();
         map = preparedMap ?? (startPace == WorldStartPace.FounderSetup
             ? geographyOptions is null
-                ? BaseCampMapGenerator.Generate(this.worldSeed)
-                : GeneratedCampMapGenerator.Generate(geographyOptions)
-            : SeededMapGenerator.Generate(this.worldSeed));
+                ? BaseCampMapGenerator.Generate(this.worldSeed, includeLegacyBedroll)
+                : GeneratedCampMapGenerator.Generate(geographyOptions, includeLegacyBedroll)
+            : SeededMapGenerator.Generate(this.worldSeed, includeLegacyBedroll));
         worldSystems = CreateWorldSystems(this.worldSeed, map, startPace);
         society = CreateSociety(
             this.worldSeed,
@@ -275,7 +275,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             minimumCognitionConfidence,
             state.FounderSetup is null ? WorldStartPace.Legacy : WorldStartPace.FounderSetup,
             state.Geography,
-            trustedPreparedState ? state.Map : null);
+            trustedPreparedState ? state.Map : null,
+            includeLegacyBedroll: state.Map.CampObjects.Any(item => item.Id == "bedroll" && item.Kind == "bedroll"));
         if (!trustedPreparedState && !IsCompatibleSavedMap(runtime.map, state))
         {
             runtime.Dispose();
@@ -289,7 +290,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             state.Map with { WrapsEastWest = state.Geography.WrapEastWest };
         runtime.eventHistoryFloor = state.EventHistoryFloor;
         runtime.historyArchiveHead = state.HistoryArchiveHead;
-        runtime.checkpointSchemaVersion = Math.Max(3, state.SchemaVersion);
+        runtime.checkpointSchemaVersion = StateSchemaVersion;
         runtime.jevEnabled = state.JevEnabled ?? true;
         runtime.jevPolicyRevision = state.JevPolicyRevision;
         runtime.founderSetup = state.FounderSetup;
@@ -1057,6 +1058,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             {
                 return ProductionStartResult.Rejected(normalizedRecipeId, "The recipe is not active.");
             }
+            if (recipe.Outputs.Any(output => output.ResourceId == "bedding"))
+                return ProductionStartResult.Rejected(normalizedRecipeId, "Bedding production was retired with sleep.");
 
             GridPoint workPosition;
             var isFertileLandBuild = recipe.IsCrop && recipe.WorkstationBuildingId is null;
@@ -1281,7 +1284,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var name = $"Founder {ordinal}";
             var founder = SocietyFixture.CreateFounder(founderId, name, config: society.Checkpoint.Config);
             society.Apply(checkpoint => SocietyFixture.PlaceFounder(checkpoint, founder, householdId));
-            inhabitants.Add(founderId, new PlaytestInhabitantState(founderId, position, 6_500, 6_500, 0,
+            inhabitants.Add(founderId, new PlaytestInhabitantState(founderId, position, 6_500, 0,
                 "undecided", "find a purpose"));
             founderSetup = setup with { FounderIds = [.. setup.FounderIds, founderId] };
             AppendEvent("founder_placed", $"{founderId}:{householdId}");
@@ -1325,7 +1328,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             // newly placed adult therefore starts a separate, unrelated household.
             var householdId = "household:" + agentId;
             society.Apply(checkpoint => SocietyFixture.AddAdult(checkpoint, agentId, householdId));
-            inhabitants.Add(agentId, new PlaytestInhabitantState(agentId, position, 6_500, 6_500, 0,
+            inhabitants.Add(agentId, new PlaytestInhabitantState(agentId, position, 6_500, 0,
                 "undecided", "find a purpose"));
             AppendEvent("agent_added", agentId);
             return householdId;
@@ -1452,7 +1455,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
             if (!map.IsPassable(inhabitant.Position) ||
                 inhabitant.HungerBasisPoints is < 0 or > 10_000 ||
-                inhabitant.EnergyBasisPoints is < 0 or > 10_000 ||
                 inhabitant.MoveWaitTicks < 0 || inhabitant.TravelCooldownTicks < 0)
             {
                 throw new InvalidDataException($"Physical state for '{inhabitant.InhabitantId}' is invalid.");
@@ -2221,7 +2223,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     profile.Id,
                     startingPositions[index],
                     6_500,
-                    6_500,
                     0,
                     profile.Personality,
                     profile.Aspiration));
@@ -2235,8 +2236,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             inhabitants[state.InhabitantId] = state with
             {
                 HungerBasisPoints = Math.Max(0, state.HungerBasisPoints - 4),
-                EnergyBasisPoints = Math.Max(0, state.EnergyBasisPoints - 3 - (state.Survival?.IllnessBasisPoints ?? 0) / 2_000 -
-                    (state.Survival is { NutritionBasisPoints: < 2_000 } ? 1 : 0)),
             };
         }
     }
@@ -2273,9 +2272,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
             var physical = inhabitants[inhabitant.Id];
             if (physical.Project is { Stage: not ("completed" or "cancelled") } project &&
-                (physical.HungerBasisPoints < 3_500 || physical.EnergyBasisPoints < 2_500 || HasUrgentExposure(physical) && !IsProtectiveProject(project)))
+                (physical.HungerBasisPoints < 3_500 || HasUrgentExposure(physical) && !IsProtectiveProject(project)))
             {
-                SetProject(inhabitant.Id, project with { Stage = "paused", Blocker = HasUrgentExposure(physical) ? "Seeking warmth or recovering" : "Meeting food or rest needs" });
+                SetProject(inhabitant.Id, project with { Stage = "paused", Blocker = HasUrgentExposure(physical) ? "Seeking warmth or recovering" : "Meeting food needs" });
                 physical = inhabitants[inhabitant.Id];
             }
             var candidates = CreateCandidates(inhabitant.Id, physical);
@@ -2293,7 +2292,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 generation,
                 ObservationDigest(inhabitant.Id, physical, candidates),
                 physical.HungerBasisPoints,
-                physical.EnergyBasisPoints,
                 candidates,
                 NeedsName: inhabitant.NeedsName);
             var accepted = society.EnqueueCognition(new SocietyCognitionScheduleEntry(
@@ -2363,7 +2361,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     }
 
     private static string DecisionContext(PlaytestInhabitantState state, List<CognitionCandidate> candidates) =>
-        $"{state.HungerBasisPoints < 2_500}:{state.EnergyBasisPoints < 1_500}:{HasUrgentExposure(state)}:" +
+        $"{state.HungerBasisPoints < 2_500}:{HasUrgentExposure(state)}:" +
         string.Join('|', candidates.Select(candidate => candidate.Id).Order(StringComparer.Ordinal));
 
     private void ApplyContinuingIntentions(IEnumerable<string> dispatchedInhabitantIds)
@@ -2381,7 +2379,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
             if (inhabitant.AgeBand == SocietyAgeBand.Infant)
             {
-                inhabitants[inhabitant.Id] = state with { EnergyBasisPoints = Math.Min(10_000, state.EnergyBasisPoints + 10) };
                 continue;
             }
             if (CanContinueLesson(inhabitant.Id))
@@ -2408,13 +2405,13 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     {
         var safe = new HashSet<string>(StringComparer.Ordinal)
         {
-            "consume_food", "collect_shared_food", "harvest_food", "seek_food", "sleep",
+            "consume_food", "collect_shared_food", "harvest_food", "seek_food",
             "wear_clothing", "tend_fire", "seek_warmth",
         };
         foreach (var id in waitingIds.OrderBy(item => item, StringComparer.Ordinal))
         {
             if (!inhabitants.TryGetValue(id, out var state)) continue;
-            if (state.HungerBasisPoints >= 3_500 && state.EnergyBasisPoints >= 2_500 && !HasUrgentExposure(state))
+            if (state.HungerBasisPoints >= 3_500 && !HasUrgentExposure(state))
                 continue;
             var candidate = CreateCandidates(id, state)
                 .Where(item => safe.Contains(item.Id))
@@ -2539,9 +2536,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             case "collect_shared_food":
                 CollectSharedFood(inhabitantId, state);
                 break;
-            case "sleep":
-                Sleep(inhabitantId, state);
-                break;
             default:
                 if (reportIdle)
                 {
@@ -2645,18 +2639,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
 
         var next = route[1];
-        var weatherCost = survivalState is null ? 0 : WeatherAt(next) switch
-        {
-            WeatherKind.Storm => 3,
-            WeatherKind.Snow or WeatherKind.Rain => 1,
-            _ => 0,
-        };
         inhabitants[inhabitantId] = state with
         {
             Position = next,
             MoveWaitTicks = 0,
             TravelCooldownTicks = (map.FootStepCost(state.Position, next) + 99) / 100 - 1,
-            EnergyBasisPoints = Math.Max(0, state.EnergyBasisPoints - weatherCost)
         };
         AppendEvent("inhabitant_moved", $"{inhabitantId}:{state.Position.X},{state.Position.Y}->{next.X},{next.Y}:{reason}");
     }
@@ -2793,7 +2780,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
     private void CollectSharedFood(string inhabitantId, PlaytestInhabitantState state)
     {
-        var supplyPoint = map.GetObject("bedroll").Position;
+        var supplyPoint = map.GetObject("storage").Position;
         if (!IsWithinInteractionRange(state.Position, supplyPoint, ResourceInteractionRange))
         {
             MoveToward(inhabitantId, state, supplyPoint, "household_food", ResourceInteractionRange);
@@ -2829,32 +2816,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         AppendEvent("food_consumed", inhabitantId);
     }
 
-    private void Sleep(string inhabitantId, PlaytestInhabitantState state)
-    {
-        var restPosition = BuildingsWithTag("shelter")
-            .Select(building => new { building.Position, Route = FindUnoccupiedRoute(inhabitantId, state.Position, building.Position, ResourceInteractionRange) })
-            .Where(site => site.Route.Count > 0)
-            .OrderBy(site => site.Route.Count)
-            .Select(site => (GridPoint?)site.Position)
-            .FirstOrDefault() ?? map.GetObject("bedroll").Position;
-        if (!IsWithinInteractionRange(state.Position, restPosition, ResourceInteractionRange))
-        {
-            if (FindUnoccupiedRoute(inhabitantId, state.Position, restPosition, ResourceInteractionRange).Count < 2)
-            {
-                // Congestion cannot make rest physically impossible. Outdoor
-                // rest is less effective and does not remove exposure hazards.
-                inhabitants[inhabitantId] = state with { EnergyBasisPoints = Math.Min(10_000, state.EnergyBasisPoints + 500) };
-                AppendEvent("inhabitant_rested_outdoors", inhabitantId);
-                return;
-            }
-            MoveToward(inhabitantId, state, restPosition, "sleep", ResourceInteractionRange);
-            return;
-        }
-
-        inhabitants[inhabitantId] = state with { EnergyBasisPoints = Math.Min(10_000, state.EnergyBasisPoints + RestRecovery(state)) };
-        AppendEvent("inhabitant_slept", inhabitantId);
-    }
-
     private List<CognitionCandidate> CreateCandidates(
         string inhabitantId,
         PlaytestInhabitantState state)
@@ -2862,10 +2823,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         var candidates = new List<CognitionCandidate>();
         var instruction = PendingInstructionFor(inhabitantId);
         var instructionCandidate = instruction is null ? null : InstructionCandidate(instruction.Text);
-        if (instructionCandidate == "sleep")
-        {
-            candidates.Add(new CognitionCandidate("sleep", "Follow the owner's rest instruction.", 0, "bedroll"));
-        }
 
         var hasFood = society.Checkpoint.Inventory.Lots.Any(item =>
             item.OwnerId == inhabitantId && IsEdibleFood(item.ItemKind) && AvailableLotQuantity(item) > 0);
@@ -2885,7 +2842,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         if (shouldGatherFood && contentRegistry.ExportState().Packages.Any(package =>
                 package.Manifest.PackageId == StarterContent.PackageId && package.Lifecycle == ContentPackageLifecycle.Active) &&
             AvailableSharedFood(inhabitantId) is not null &&
-            FindUnoccupiedRoute(inhabitantId, state.Position, map.GetObject("bedroll").Position, ResourceInteractionRange).Count > 0)
+            FindUnoccupiedRoute(inhabitantId, state.Position, map.GetObject("storage").Position, ResourceInteractionRange).Count > 0)
         {
             candidates.Add(new CognitionCandidate("collect_shared_food",
                 "Collect one available household food serving at camp, then eat it.",
@@ -2923,15 +2880,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             candidates.Add(new CognitionCandidate("harvest_food", "Follow the owner's harvest instruction.", 0, foodSource.Id));
         }
 
-        if (state.EnergyBasisPoints < 3_500 && !candidates.Any(item => item.Id == "sleep"))
-        {
-            var sleepPriority = state.EnergyBasisPoints < 1_500 ? 1 : 10;
-            candidates.Add(new CognitionCandidate("sleep", "Rest at reachable shelter or bedding; recover less outdoors if access is blocked.", sleepPriority, "bedroll"));
-        }
-
         AddSurvivalCandidates(candidates, inhabitantId, state);
         AddDependentCareCandidates(candidates, inhabitantId);
-        if (state.HungerBasisPoints >= 2_500 && state.EnergyBasisPoints >= 1_500 && AdultResident(inhabitantId))
+        if (state.HungerBasisPoints >= 2_500 && AdultResident(inhabitantId))
         {
             var inhabitant = society.Checkpoint.GetInhabitant(inhabitantId);
             AddBuildCandidates(candidates, inhabitant, state);
@@ -2985,7 +2936,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             state.Aspiration.Contains("self-sufficient", StringComparison.OrdinalIgnoreCase);
         var canProduce = inhabitant.CurrentRole is SocietyWorkRole.Farmer or
             SocietyWorkRole.Builder or SocietyWorkRole.Trader or SocietyWorkRole.Organizer;
-        foreach (var recipe in worldContent.Recipes.Where(item => item.IsCrop ? canGrow : canProduce))
+        foreach (var recipe in worldContent.Recipes.Where(item =>
+                     !item.Outputs.Any(output => output.ResourceId == "bedding") &&
+                     (item.IsCrop ? canGrow : canProduce)))
         {
             if (HasUrgentExposure(state) && !recipe.Outputs.Any(output => output.ResourceId == "clothing"))
             {
@@ -3005,7 +2958,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     }
 
     private static int PriorityFor(PlaytestInhabitantState state) =>
-        state.HungerBasisPoints < 2_500 || state.EnergyBasisPoints < 1_500 || HasUrgentExposure(state) ? 20 : 0;
+        state.HungerBasisPoints < 2_500 || HasUrgentExposure(state) ? 20 : 0;
 
     private OwnerQueuedInstruction? PendingInstructionFor(string inhabitantId) =>
         instructionsByIdempotency.Values
@@ -3017,11 +2970,6 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private static string? InstructionCandidate(string text)
     {
         var normalized = text.Trim().ToLowerInvariant();
-        if (normalized.Contains("sleep") || normalized.Contains("rest"))
-        {
-            return "sleep";
-        }
-
         if (normalized.Contains("harvest") || normalized.Contains("gather") || normalized.Contains("berry"))
         {
             return normalized.Contains("harvest") || normalized.Contains("gather")
@@ -3072,7 +3020,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             .Append("clankerworld.private-world-observation/v1|")
             .Append(inhabitantId).Append('|')
             .Append(state.Position.X).Append(',').Append(state.Position.Y).Append('|')
-            .Append(state.HungerBasisPoints).Append('|').Append(state.EnergyBasisPoints).Append('|')
+            .Append(state.HungerBasisPoints).Append('|')
             .Append(string.Join(',', candidates.Select(candidate => candidate.Id)))
             .ToString();
         return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))}";
@@ -3236,8 +3184,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 deceased.DeathTick != person.DeathTick || person.DeathTick < 0 || person.DeathTick > society.WorldTick ||
                 person.AgeAtDeath < 0 || person.LastPhysical.InhabitantId != person.InhabitantId ||
                 !map.IsPassable(person.LastPhysical.Position) ||
-                person.LastPhysical.HungerBasisPoints is < 0 or > 10_000 ||
-                person.LastPhysical.EnergyBasisPoints is < 0 or > 10_000)
+                person.LastPhysical.HungerBasisPoints is < 0 or > 10_000)
                 throw new InvalidDataException("The deceased inhabitant archive contains an invalid final state.");
             ValidatePrivateThoughts(person.LastPhysical.RecentThoughts, schemaVersion, person.DeathTick);
             ValidateExploration(person.LastPhysical.Exploration, map, person.DeathTick);

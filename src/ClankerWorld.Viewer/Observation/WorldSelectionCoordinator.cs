@@ -64,7 +64,7 @@ public sealed class WorldSelectionCoordinator(
         {
             RequirePaused();
             var map = GeneratedCampMapGenerator.Generate(geography);
-            var camp = map.GetObject("bedroll").Position;
+            var camp = map.GetObject("storage").Position;
             WorldSelectionTelemetry.Previewed(logger, map.Width, map.Height);
             return new ViewerWorldPreview(OwnerWorldObservationStore.PackTerrain(map),
                 new ViewerPosition(camp.X, camp.Y), map.ManifestDigest, map.Resources.Count);

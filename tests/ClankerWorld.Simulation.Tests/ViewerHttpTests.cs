@@ -406,7 +406,7 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
             "instruction-http-1",
             "actor-scout",
             "must_do",
-            "Return to the bedroll.");
+            "Gather food.");
         using var instruction = await SendSignedAsync(
             client,
             key,

@@ -180,7 +180,7 @@ public sealed partial class SettlementParenthoodTests
         {
             Society = societyState,
             Inhabitants = state.Inhabitants.Where(person => person.InhabitantId != first && person.InhabitantId != second)
-                .Select(person => person with { LastDecisionContext = null, HungerBasisPoints = person.InhabitantId == child && !olderChild ? 2_000 : 9_000, EnergyBasisPoints = 9_000 }).ToArray(),
+                .Select(person => person with { LastDecisionContext = null, HungerBasisPoints = person.InhabitantId == child && !olderChild ? 2_000 : 9_000 }).ToArray(),
         };
     }
 }

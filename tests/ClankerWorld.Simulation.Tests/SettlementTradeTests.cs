@@ -180,7 +180,7 @@ public sealed class SettlementTradeTests
 
     private static PrivateWorldRuntimeState WithTradeGoods(PrivateWorldRuntimeState state, string first, string second) => state with
     {
-        Inhabitants = state.Inhabitants.Select(person => person with { HungerBasisPoints = 7_500, EnergyBasisPoints = 8_000 }).ToArray(),
+        Inhabitants = state.Inhabitants.Select(person => person with { HungerBasisPoints = 7_500 }).ToArray(),
         Society = state.Society with
         {
             Society = state.Society.Society with

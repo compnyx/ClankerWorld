@@ -220,7 +220,7 @@ public sealed class GodotOwnerWorldApiTests
             Tiles: [new OwnerWorldTile(0, 0, "meadow")],
             Objects: [],
             Resources: [],
-            Actor: new OwnerWorldActor("camp-alpha", new OwnerWorldPosition(0, 0), 5000, 8000, 1, 0),
+            Actor: new OwnerWorldActor("camp-alpha", new OwnerWorldPosition(0, 0), 5000, 1, 0),
             LatestEventId: 5);
         var events = new OwnerWorldEventSlice(
             SnapshotTick: 5,
@@ -228,7 +228,7 @@ public sealed class GodotOwnerWorldApiTests
             Events:
             [
                 new OwnerWorldEvent(4, 4, "move", "north"),
-                new OwnerWorldEvent(5, 5, "sleep", "camp"),
+                new OwnerWorldEvent(5, 5, "harvest", "berries"),
             ]);
 
         return new OwnerWorldReconnect(handshake, new OwnerWorldReconnectBaseline(snapshot, events));

@@ -234,7 +234,7 @@ public sealed class SettlementSurvivalTests
         state = state with
         {
             Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == worker.InhabitantId
-                ? person with { Position = site, HungerBasisPoints = 10_000, EnergyBasisPoints = 10_000 }
+                ? person with { Position = site, HungerBasisPoints = 10_000 }
                 : person.Position == site ? person with { Position = worker.Position } : person).ToArray()
         };
         using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());

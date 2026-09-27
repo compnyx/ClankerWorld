@@ -105,7 +105,7 @@ public sealed partial class PrivateWorldRuntimeTests
             "owner-device:test",
             "founder-rowan",
             OwnerInstructionKind.MustDo,
-            "sleep at the bedroll");
+            "gather food");
 
         var first = runtime.SubmitInstruction(request);
         var replay = runtime.SubmitInstruction(request);
@@ -127,7 +127,7 @@ public sealed partial class PrivateWorldRuntimeTests
             id == "founder-rowan" ? new FailingDecisionProvider() : new DeterministicDecisionProvider());
         var instruction = runtime.SubmitInstruction(new OwnerInstructionRequest(
             "outage-instruction", "owner-device:test", "founder-rowan",
-            kind, "sleep at the bedroll"));
+            kind, "gather food"));
 
         var step = await runtime.AdvanceOneTickAsync();
 
@@ -374,7 +374,6 @@ public sealed partial class PrivateWorldRuntimeTests
                 {
                     Position = stuckPositions[inhabitant.InhabitantId],
                     HungerBasisPoints = 0,
-                    EnergyBasisPoints = 0,
                     MoveWaitTicks = 4_500,
                 })
                 .ToArray(),
@@ -400,7 +399,6 @@ public sealed partial class PrivateWorldRuntimeTests
         }
 
         var recovered = runtime.ExportState();
-        Assert.Contains(recovered.Events, item => item.Kind == "inhabitant_slept");
         Assert.Contains(recovered.Events, item => item.Kind == "food_harvested");
         Assert.Contains(recovered.Events, item => item.Kind == "food_consumed");
         Assert.Contains(recovered.Events, item => item.Kind == "inhabitant_moved" && item.WorldTick > 1);
@@ -412,7 +410,6 @@ public sealed partial class PrivateWorldRuntimeTests
                     .Where(item => item.Detail.StartsWith(inhabitant.InhabitantId, StringComparison.Ordinal) &&
                         item.Kind is "food_harvested" or "food_consumed" or "harvest_failed")
                     .Select(item => $"{item.WorldTick}:{item.Kind}:{item.Detail}")));
-            Assert.True(inhabitant.EnergyBasisPoints > 0, inhabitant.InhabitantId);
         });
         Assert.Equal(4, recovered.Inhabitants.Select(item => item.Position).Distinct().Count());
         Assert.True(provider.CallCount < 100, $"Expected fewer than 100 cognition calls, got {provider.CallCount}.");
@@ -628,7 +625,6 @@ public sealed partial class PrivateWorldRuntimeTests
             Inhabitants = baseline.Inhabitants.Select(person => person with
             {
                 HungerBasisPoints = 9_500,
-                EnergyBasisPoints = 9_500,
             }).ToArray(),
         }, _ => provider);
 
@@ -665,7 +661,6 @@ public sealed partial class PrivateWorldRuntimeTests
             Inhabitants = baseline.Inhabitants.Select(person => person with
             {
                 HungerBasisPoints = person.InhabitantId == target.InhabitantId ? 2_000 : 9_500,
-                EnergyBasisPoints = 9_500,
             }).ToArray(),
         }, _ => provider);
 

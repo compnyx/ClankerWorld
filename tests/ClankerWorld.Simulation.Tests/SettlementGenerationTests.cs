@@ -60,7 +60,6 @@ public sealed partial class SettlementParenthoodTests
                     person.Lesson,
                     person.Position,
                     person.HungerBasisPoints,
-                    person.EnergyBasisPoints,
                     person.Survival,
                     person.Project,
                     Choices = observations.GetValueOrDefault(person.InhabitantId),
@@ -90,7 +89,7 @@ public sealed partial class SettlementParenthoodTests
             var candidates = request.Observation.Candidates;
             observations[request.Observation.InhabitantId] = string.Join(',', candidates.Select(item => item.Id));
             CognitionCandidate? chosen = null;
-            if (request.Observation.HungerBasisPoints >= 3_500 && request.Observation.EnergyBasisPoints >= 2_500)
+            if (request.Observation.HungerBasisPoints >= 3_500)
             {
                 chosen = candidates.FirstOrDefault(item => item.Id.StartsWith("care:", StringComparison.Ordinal));
                 if (request.Observation.WorldTick < 1_000)

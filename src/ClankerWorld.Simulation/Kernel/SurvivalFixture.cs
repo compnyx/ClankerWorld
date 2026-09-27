@@ -12,29 +12,22 @@ namespace ClankerWorld.Simulation.Kernel;
 public sealed record SurvivalRules(
     string TransitionFunctionId,
     int HungerDrainPerTick,
-    int EnergyDrainPerTick,
-    int ExhaustionDamagePerTick,
     int StarvationDamagePerTick,
     int FoodRecovery,
-    int SleepRecovery,
     long RenewableRegenerationTicks)
 {
     public static SurvivalRules Fixture { get; } = new(
         "needs-transition/v1",
         HungerDrainPerTick: 100,
-        EnergyDrainPerTick: 100,
-        ExhaustionDamagePerTick: 75,
         StarvationDamagePerTick: 50,
         FoodRecovery: 2_000,
-        SleepRecovery: 2_500,
         RenewableRegenerationTicks: 3);
 
     public void Validate()
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(TransitionFunctionId);
-        if (HungerDrainPerTick < 0 || EnergyDrainPerTick < 0 ||
-            ExhaustionDamagePerTick < 0 || StarvationDamagePerTick < 0 ||
-            FoodRecovery < 0 || SleepRecovery < 0 || RenewableRegenerationTicks <= 0)
+        if (HungerDrainPerTick < 0 || StarvationDamagePerTick < 0 ||
+            FoodRecovery < 0 || RenewableRegenerationTicks <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(SurvivalRules));
         }
@@ -53,7 +46,6 @@ public enum SurvivalActionKind
 {
     Idle,
     Eat,
-    Sleep,
     Harvest,
 }
 
@@ -61,7 +53,6 @@ public sealed record SurvivalAction(SurvivalActionKind Kind, string? ResourceId 
 {
     public static SurvivalAction Idle { get; } = new(SurvivalActionKind.Idle);
     public static SurvivalAction Eat { get; } = new(SurvivalActionKind.Eat);
-    public static SurvivalAction Sleep { get; } = new(SurvivalActionKind.Sleep);
 
     public static SurvivalAction Harvest(string resourceId)
     {
@@ -76,7 +67,6 @@ public sealed record SurvivalAction(SurvivalActionKind Kind, string? ResourceId 
 public sealed record SurvivalActor(
     string Id,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     int HealthBasisPoints,
     int FoodItems);
 
@@ -229,26 +219,15 @@ public static class SurvivalFixture
         List<(string Kind, string Detail)> pendingEvents)
     {
         var hunger = ClampBasisPoints(checked(actor.HungerBasisPoints - rules.HungerDrainPerTick));
-        var energy = ClampBasisPoints(checked(actor.EnergyBasisPoints - rules.EnergyDrainPerTick));
         var healthDamage = 0;
         if (actor.HungerBasisPoints > 0 && hunger == 0)
         {
             pendingEvents.Add(("need_exhausted", "hunger:passive_drain"));
         }
 
-        if (actor.EnergyBasisPoints > 0 && energy == 0)
-        {
-            pendingEvents.Add(("need_exhausted", "energy:passive_drain"));
-        }
-
         if (hunger == 0)
         {
             healthDamage = checked(healthDamage + rules.StarvationDamagePerTick);
-        }
-
-        if (energy == 0)
-        {
-            healthDamage = checked(healthDamage + rules.ExhaustionDamagePerTick);
         }
 
         var health = ClampBasisPoints(checked(actor.HealthBasisPoints - healthDamage));
@@ -260,7 +239,6 @@ public static class SurvivalFixture
         return actor with
         {
             HungerBasisPoints = hunger,
-            EnergyBasisPoints = energy,
             HealthBasisPoints = health,
         };
     }
@@ -277,7 +255,6 @@ public static class SurvivalFixture
         {
             SurvivalActionKind.Idle => (actor, resources),
             SurvivalActionKind.Eat => (RecoverHunger(actor, rules, pendingEvents), resources),
-            SurvivalActionKind.Sleep => (RecoverEnergy(actor, rules, pendingEvents), resources),
             SurvivalActionKind.Harvest => Harvest(actor, resources, action.ResourceId!, rules, nextTick, pendingEvents),
             _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
@@ -300,20 +277,6 @@ public static class SurvivalFixture
         }
 
         return actor with { HungerBasisPoints = hunger, FoodItems = actor.FoodItems - 1 };
-    }
-
-    private static SurvivalActor RecoverEnergy(
-        SurvivalActor actor,
-        SurvivalRules rules,
-        List<(string Kind, string Detail)> pendingEvents)
-    {
-        var energy = ClampBasisPoints(checked(actor.EnergyBasisPoints + rules.SleepRecovery));
-        if (actor.EnergyBasisPoints == 0 && energy > 0)
-        {
-            pendingEvents.Add(("need_recovered", "energy:sleep"));
-        }
-
-        return actor with { EnergyBasisPoints = energy };
     }
 
     private static (SurvivalActor Actor, IReadOnlyList<SurvivalResource> Resources) Harvest(
@@ -390,7 +353,6 @@ public static class SurvivalFixture
         }
 
         _ = RequireBasisPoints(actor.HungerBasisPoints, nameof(actor));
-        _ = RequireBasisPoints(actor.EnergyBasisPoints, nameof(actor));
         _ = RequireBasisPoints(actor.HealthBasisPoints, nameof(actor));
     }
 
@@ -454,7 +416,6 @@ public static class SurvivalFixture
     {
         SurvivalActionKind.Idle => "idle",
         SurvivalActionKind.Eat => "eat",
-        SurvivalActionKind.Sleep => "sleep",
         SurvivalActionKind.Harvest => $"harvest:{action.ResourceId}",
         _ => throw new ArgumentOutOfRangeException(nameof(action)),
     };
@@ -463,7 +424,6 @@ public static class SurvivalFixture
     {
         "idle" => SurvivalAction.Idle,
         "eat" => SurvivalAction.Eat,
-        "sleep" => SurvivalAction.Sleep,
         _ when detail.StartsWith("harvest:", StringComparison.Ordinal) && detail.Length > "harvest:".Length =>
             SurvivalAction.Harvest(detail["harvest:".Length..]),
         _ => throw new InvalidDataException("The survival action record is invalid."),
@@ -476,7 +436,7 @@ public static class SurvivalFixture
 /// </summary>
 public static class SurvivalCheckpointCodec
 {
-    private const string Header = "clankerworld.survival-fixture/v1";
+    private const string Header = "clankerworld.survival-fixture/v2";
 
     public static byte[] Encode(SurvivalCheckpoint checkpoint)
     {
@@ -486,7 +446,6 @@ public static class SurvivalCheckpointCodec
         builder.Append("world_tick=").Append(checkpoint.WorldTick).Append('\n');
         builder.Append("actor=").Append(checkpoint.Actor.Id).Append('|')
             .Append(checkpoint.Actor.HungerBasisPoints).Append('|')
-            .Append(checkpoint.Actor.EnergyBasisPoints).Append('|')
             .Append(checkpoint.Actor.HealthBasisPoints).Append('|')
             .Append(checkpoint.Actor.FoodItems).Append('\n');
         foreach (var resource in checkpoint.Resources)
@@ -519,7 +478,7 @@ public static class SurvivalCheckpointCodec
 
         var worldTick = ParseLong(ValueAfterPrefix(lines[1], "world_tick="));
         var actorParts = ValueAfterPrefix(lines[2], "actor=").Split('|', StringSplitOptions.None);
-        if (actorParts.Length != 5)
+        if (actorParts.Length != 4)
         {
             throw new InvalidDataException("The saved survival actor is invalid.");
         }
@@ -528,8 +487,7 @@ public static class SurvivalCheckpointCodec
             actorParts[0],
             ParseInteger(actorParts[1]),
             ParseInteger(actorParts[2]),
-            ParseInteger(actorParts[3]),
-            ParseInteger(actorParts[4]));
+            ParseInteger(actorParts[3]));
         var resources = lines.Skip(3).Where(line => line.StartsWith("resource=", StringComparison.Ordinal))
             .Select(ParseResource).OrderBy(resource => resource.Id, StringComparer.Ordinal).ToArray();
         var events = lines.Skip(3).Where(line => line.StartsWith("event=", StringComparison.Ordinal))

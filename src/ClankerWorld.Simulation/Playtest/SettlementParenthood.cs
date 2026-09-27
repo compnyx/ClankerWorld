@@ -156,7 +156,7 @@ public sealed partial class PrivateWorldRuntime
             {
                 continue;
             }
-            inhabitants.Add(birth.ChildId, new(birth.ChildId, site.Value, 8_000, 8_000, 0, "curious", "grow with the household",
+            inhabitants.Add(birth.ChildId, new(birth.ChildId, site.Value, 8_000, 0, "curious", "grow with the household",
                 Survival: new SurvivalCondition()));
             SetParenthood(person.InhabitantId, plan with { Stage = "completed", ChildId = birth.ChildId });
             AppendEvent("child_born", birth.ChildId);
@@ -175,7 +175,7 @@ public sealed partial class PrivateWorldRuntime
         {
             if (PreferredFood(HouseholdFor(actor), actor).FirstOrDefault() is { } sharedFood)
             {
-                var camp = map.GetObject("bedroll").Position;
+                var camp = map.GetObject("storage").Position;
                 if (!IsWithinInteractionRange(parent.Position, camp, ResourceInteractionRange))
                 {
                     MoveToward(actor, parent, camp, "care_food", ResourceInteractionRange);
@@ -212,7 +212,6 @@ public sealed partial class PrivateWorldRuntime
             { WarmthBasisPoints = Math.Min(10_000, (child.Survival?.WarmthBasisPoints ?? 10_000) + 1_000) }
         };
         inhabitants[childId] = child;
-        inhabitants[actor] = parent with { EnergyBasisPoints = Math.Max(0, parent.EnergyBasisPoints - 30) };
         AppendEvent("child_cared_for", childId);
     }
 

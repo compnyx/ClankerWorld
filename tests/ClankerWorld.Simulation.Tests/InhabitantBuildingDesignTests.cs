@@ -127,7 +127,6 @@ public sealed class InhabitantBuildingDesignTests
                 ? person with
                 {
                     HungerBasisPoints = 9_000,
-                    EnergyBasisPoints = 9_000,
                     Project = null,
                     Proficiency = new SettlementProficiency(Building: experience),
                 }

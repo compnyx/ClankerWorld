@@ -39,7 +39,6 @@ public sealed class SettlementProficiencyTests
             {
                 Position = site,
                 HungerBasisPoints = 9_000,
-                EnergyBasisPoints = 9_000,
                 Proficiency = new(experience),
                 Project = new("build:building:" + definition.CanonicalId, definition.DisplayName, seed.WorldTick, "working",
                     finish ? 10 : 0, LastTransitionTick: seed.WorldTick),

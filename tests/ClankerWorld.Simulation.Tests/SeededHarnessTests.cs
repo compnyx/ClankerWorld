@@ -20,8 +20,9 @@ public sealed class SeededHarnessTests
         var second = SeededMapGenerator.Generate(seed);
 
         Assert.True(MapAcceptance.Validate(first).IsValid);
-        Assert.Equal(expectedManifestDigest, first.ManifestDigest);
+        Assert.Equal(expectedManifestDigest, SeededMapGenerator.Generate(seed, includeLegacyBedroll: true).ManifestDigest);
         Assert.Equal(first.ManifestDigest, second.ManifestDigest);
+        Assert.DoesNotContain(first.CampObjects, item => item.Kind == "bedroll");
         Assert.True(MapManifestCodec.Encode(first).SequenceEqual(MapManifestCodec.Encode(second)));
     }
 
@@ -184,16 +185,15 @@ public sealed class SeededHarnessTests
             [], [], string.Empty);
 
     [Fact]
-    public void ScriptedActorMovesHarvestsConsumesAndSleepsInOrderedTicks()
+    public void ScriptedActorMovesHarvestsAndConsumesInOrderedTicks()
     {
         var genesis = ScriptedHarness.CreateGenesis("camp-alpha");
         var final = ScriptedHarness.RunEntireSequence("camp-alpha");
 
-        Assert.Equal(final.Map.GetObject("bedroll").Position, final.Actor.Position);
+        Assert.Equal(final.Map.GetResource("berry-patch").Position, final.Actor.Position);
         Assert.Equal(ResourceState.Depleted, final.GetResource("berry-patch").State);
         Assert.Equal(0, final.Actor.FoodItems);
         Assert.True(final.Actor.HungerBasisPoints > genesis.Actor.HungerBasisPoints);
-        Assert.True(final.Actor.EnergyBasisPoints > genesis.Actor.EnergyBasisPoints);
         Assert.Equal(
             Enumerable.Range(1, final.Events.Count).Select(number => (long)number),
             final.Events.Select(worldEvent => worldEvent.EventId));
@@ -202,7 +202,7 @@ public sealed class SeededHarnessTests
             final.Events.Select(worldEvent => worldEvent.WorldTick));
         Assert.Contains(final.Events, worldEvent => worldEvent.Detail == "harvest:berry-patch");
         Assert.Contains(final.Events, worldEvent => worldEvent.Detail == "consume:actor-scout");
-        Assert.Equal("sleep:actor-scout", final.Events[^1].Detail);
+        Assert.Equal("consume:actor-scout", final.Events[^1].Detail);
     }
 
     [Fact]
@@ -219,10 +219,15 @@ public sealed class SeededHarnessTests
     public void SaveReloadAndPhysicalReplayProduceTheSameFinalDigestsAsTheCleanRun()
     {
         var clean = ScriptedHarness.RunEntireSequence("camp-gamma");
-        var beforeSave = ScriptedHarness.RunToFoodConsumed(ScriptedHarness.CreateGenesis("camp-gamma"));
+        var beforeSave = ScriptedHarness.CreateGenesis("camp-gamma");
+        while (beforeSave.Actor.FoodItems == 0)
+        {
+            Assert.True(ScriptedHarness.TryAdvanceOneAction(beforeSave, out var next));
+            beforeSave = next;
+        }
         var save = HarnessPersistence.Save(beforeSave);
         var loaded = HarnessPersistence.Load(save);
-        var resumed = ScriptedHarness.FinishAfterFood(loaded);
+        var resumed = ScriptedHarness.ApplyConsume(loaded);
         var persistedFinal = HarnessPersistence.Save(resumed);
 
         Assert.Equal(HarnessPersistence.StateDigest(clean), HarnessPersistence.StateDigest(resumed));

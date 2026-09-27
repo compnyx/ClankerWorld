@@ -80,7 +80,7 @@ public sealed class SettlementSocialStandingTests
             state = state with
             {
                 Inhabitants = state.Inhabitants.Select(person => person with
-                { HungerBasisPoints = 7_500, EnergyBasisPoints = 8_000 }).ToArray(),
+                { HungerBasisPoints = 7_500 }).ToArray(),
                 Society = state.Society with
                 {
                     Society = state.Society.Society with

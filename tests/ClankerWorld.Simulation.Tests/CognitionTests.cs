@@ -88,7 +88,6 @@ public sealed class CognitionTests
             2,
             "sha256:observation-4",
             2_000,
-            7_000,
             [
                 new CognitionCandidate("safe_idle", "Continue safely.", 0),
                 new CognitionCandidate("seek_food", "Travel to food.", 10, "berry-patch"),
@@ -100,6 +99,7 @@ public sealed class CognitionTests
 
         Assert.Equal(HttpMethod.Post, handler.Method);
         Assert.Equal("Bearer test-secret", handler.Authorization);
+        Assert.DoesNotContain("energy_basis_points", handler.Body, StringComparison.Ordinal);
         Assert.Equal("jev-1.13.0", body.RootElement.GetProperty("model").GetString());
         var question = body.RootElement.GetProperty("questions").GetProperty("selected_candidate");
         Assert.Equal("choice", question.GetProperty("type").GetString());
@@ -127,7 +127,6 @@ public sealed class CognitionTests
             3,
             "sha256:observation-9",
             3_000,
-            6_000,
             [
                 new CognitionCandidate("safe_idle", "Continue safely.", 0),
                 new CognitionCandidate("seek_food", "Travel to food.", 10, "berry-patch"),
@@ -147,6 +146,7 @@ public sealed class CognitionTests
         Assert.Equal("Aster", response.ChosenName);
         Assert.Contains("private_thought", body.RootElement.GetProperty("messages")[0].GetProperty("content").GetString());
         using var question = JsonDocument.Parse(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
+        Assert.False(question.RootElement.TryGetProperty("energy_basis_points", out _));
         Assert.True(question.RootElement.GetProperty("needs_name").GetBoolean());
         Assert.Equal("test-model", response.Usage?.ModelId);
         Assert.Equal(44, response.Usage?.InputTokens);

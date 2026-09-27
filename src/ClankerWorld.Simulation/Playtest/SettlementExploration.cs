@@ -21,7 +21,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void AddExplorationCandidate(List<CognitionCandidate> candidates, string actor, PlaytestInhabitantState person)
     {
-        if (person.HungerBasisPoints < 3_500 || person.EnergyBasisPoints < 2_500 || HasUrgentExposure(person))
+        if (person.HungerBasisPoints < 3_500 || HasUrgentExposure(person))
             return;
 
         var exploration = person.Exploration;
@@ -31,7 +31,7 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
 
-        if (person.HungerBasisPoints < 6_000 || person.EnergyBasisPoints < 5_000 ||
+        if (person.HungerBasisPoints < 6_000 ||
             person.Project is { Stage: not ("completed" or "cancelled") } ||
             exploration is not null && WorldTick - exploration.LastOutingTick < ExplorationCooldownTicks ||
             !map.FootNeighbors(person.Position).Any(map.IsPassable))

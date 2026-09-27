@@ -1,95 +1,114 @@
+using System.Collections.Concurrent;
+using System.Text;
+using System.Text.Json;
 using ClankerWorld.Simulation.Cognition;
 using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.World;
+using ClankerWorld.Viewer.Observation;
 
 namespace ClankerWorld.Simulation.Tests;
 
 public sealed class SettlementRestTests
 {
     [Fact]
-    public async Task SurroundedInhabitantCanRestInPlaceWithoutTeleportingOrBeddingBenefits()
+    public async Task NewPrivateWorldHasNoBedrollBeddingRecipeOrEnergyObservation()
     {
-        using var seed = new PrivateWorldRuntime("crowded-rest", _ => new RestProvider(false));
-        seed.StageStarterContent();
-        for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
-        var state = seed.ExportState();
-        var map = state.Map;
-        var bed = map.GetObject("bedroll").Position;
-        var position = map.Tiles.First(tile => map.IsPassable(tile.Position) && Distance(tile.Position, bed) > 2 &&
-            map.Tiles.Count(other => map.IsPassable(other.Position) && Distance(other.Position, tile.Position) == 1) is > 0 and <= 3).Position;
-        var blockers = map.Tiles.Where(tile => map.IsPassable(tile.Position) && Distance(tile.Position, position) == 1).Select(tile => tile.Position)
-            .Concat(map.Tiles.Where(tile => map.IsPassable(tile.Position) && tile.Position != position).Select(tile => tile.Position))
-            .Distinct().Take(3).ToArray();
-        var sleeper = state.Inhabitants[0].InhabitantId;
-        state = state with
-        {
-            Inhabitants = state.Inhabitants.Select((person, index) => person with
-            {
-                Position = index == 0 ? position : blockers[index - 1],
-                EnergyBasisPoints = index == 0 ? 1_000 : 8_000,
-            }).ToArray(),
-        };
-        using var world = PrivateWorldRuntime.Restore(state, actor => new RestProvider(actor == sleeper));
-        var result = await world.AdvanceOneTickAsync();
-        var rested = world.Inhabitants.Single(person => person.InhabitantId == sleeper);
-        Assert.Equal(position, rested.Position);
-        Assert.InRange(rested.EnergyBasisPoints, 1_001, 1_500);
-        Assert.Contains(result.Events, item => item.Kind == "inhabitant_rested_outdoors" && item.Detail == sleeper);
-        Assert.Equal(world.Inhabitants.Count, world.Inhabitants.Select(person => person.Position).Distinct().Count());
+        using var world = new PrivateWorldRuntime("new-needs-content");
+        world.StageStarterContent();
+        for (var tick = 0; tick < 3; tick++) await world.AdvanceOneTickAsync();
+
+        Assert.DoesNotContain(world.ExportState().Map.CampObjects, item => item.Kind == "bedroll");
+        Assert.DoesNotContain(world.WorldContent.Recipes,
+            recipe => recipe.Outputs.Any(output => output.ResourceId == "bedding"));
+        var observation = new OwnerWorldObservationStore(world).GetSnapshot();
+        Assert.DoesNotContain("EnergyBasisPoints", JsonSerializer.Serialize(observation), StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task OccupiedShelterDoesNotPreventRestAtReachableBedroll()
+    public async Task IllnessAndHungerNeverOfferSleepAndOrdinaryTicksStillAdvance()
     {
-        using var seed = new PrivateWorldRuntime("crowded-rest", _ => new RestProvider(false));
-        seed.StageStarterContent();
-        for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
-        var initial = seed.ExportState();
-        var map = initial.Map;
-        var bed = map.GetObject("bedroll").Position;
-        var definition = seed.WorldContent.Buildings.Single(building => building.LocalId == "shelter");
-        GridPoint[]? occupied = null;
-        foreach (var tile in map.Tiles.Where(tile => map.IsPassable(tile.Position)))
-        {
-            var neighbors = map.Tiles.Where(other => map.IsPassable(other.Position) && Distance(other.Position, tile.Position) <= 1)
-                .Select(other => other.Position).ToArray();
-            if (neighbors.Length > 3 || Distance(bed, tile.Position) <= 2) continue;
-            if (!seed.PlaceBuilding("crowded-shelter", definition.CanonicalId, tile.Position).Applied) continue;
-            occupied = neighbors;
-            break;
-        }
-        Assert.NotNull(occupied);
+        using var seed = new PrivateWorldRuntime("needs-without-sleep");
         var state = seed.ExportState();
-        var sleeper = state.Inhabitants[0].InhabitantId;
-        var otherPositions = occupied.Concat(map.Tiles.Where(tile => map.IsPassable(tile.Position) && tile.Position != bed)
-            .Select(tile => tile.Position)).Distinct().Take(3).ToArray();
-        state = state with
+        var provider = new RecordingProvider();
+        using var world = PrivateWorldRuntime.Restore(state with
         {
-            Inhabitants = state.Inhabitants.Select((person, index) => person with
+            Survival = new SettlementSurvivalState(0, []),
+            Inhabitants = state.Inhabitants.Select(person => person with
             {
-                Position = index == 0 ? bed : otherPositions[index - 1],
-                EnergyBasisPoints = index == 0 ? 1_000 : 8_000,
+                HungerBasisPoints = 2_500,
+                Survival = new SurvivalCondition(WarmthBasisPoints: 2_000, IllnessBasisPoints: 7_000),
             }).ToArray(),
-        };
-        using var world = PrivateWorldRuntime.Restore(state, actor => new RestProvider(actor == sleeper));
-        await world.AdvanceOneTickAsync();
-        Assert.True(world.Inhabitants.Single(person => person.InhabitantId == sleeper).EnergyBasisPoints > 1_000);
-        Assert.Equal(world.Inhabitants.Count, world.Inhabitants.Select(person => person.Position).Distinct().Count());
+        }, _ => provider);
+
+        var result = await world.AdvanceOneTickAsync();
+
+        Assert.True(result.Advanced);
+        Assert.Equal(1, result.WorldTick);
+        Assert.NotEmpty(provider.Candidates);
+        Assert.DoesNotContain(provider.Candidates, id => id == "sleep");
+        Assert.DoesNotContain(result.Events, item => item.Kind is "inhabitant_slept" or "inhabitant_rested_outdoors");
+        Assert.Contains(world.Inhabitants, person => person.HungerBasisPoints != 2_500);
+        Assert.Contains(provider.Candidates, id => id is "consume_food" or "seek_food" or "harvest_food" or "collect_shared_food");
     }
 
-    private static int Distance(GridPoint first, GridPoint second) => Math.Abs(first.X - second.X) + Math.Abs(first.Y - second.Y);
-
-    private sealed class RestProvider(bool sleep) : IDecisionProvider
+    [Fact]
+    public async Task LegacyBedrollWorldLoadsWithoutRestoringEnergyOrShowingBedroll()
     {
+        const string seedText = "legacy-needs-migration";
+        using var seed = new PrivateWorldRuntime(seedText);
+        var state = seed.ExportState() with
+        {
+            SchemaVersion = 17,
+            Map = SeededMapGenerator.Generate(seedText, includeLegacyBedroll: true),
+        };
+        var encoded = Encoding.UTF8.GetString(PrivateWorldRuntimeCodec.Encode(state));
+        var withOldEnergy = encoded.Replace("\"hungerBasisPoints\":6500,",
+            "\"hungerBasisPoints\":6500,\"energyBasisPoints\":0,", StringComparison.Ordinal);
+        Assert.NotEqual(encoded, withOldEnergy);
+        var decoded = PrivateWorldRuntimeCodec.Decode(Encoding.UTF8.GetBytes(withOldEnergy));
+        using var world = PrivateWorldRuntime.Restore(decoded);
+
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, world.ExportState().SchemaVersion);
+        Assert.DoesNotContain("energyBasisPoints", Encoding.UTF8.GetString(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.DoesNotContain(new OwnerWorldObservationStore(world).GetSnapshot().Objects,
+            item => item.Kind == "bedroll");
+        Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        using var reloaded = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Equal(world.WorldTick, reloaded.WorldTick);
+    }
+
+    [Fact]
+    public void LegacyGeneratedMapKeepsItsVerifiedResourceTopologyOnLoad()
+    {
+        var options = new GeographyOptions("legacy-generated-needs", WorldSizePreset.Small, WrapEastWest: true);
+        using var seed = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var legacyMap = GeneratedCampMapGenerator.Generate(options, includeLegacyBedroll: true);
+        var state = seed.ExportState() with { SchemaVersion = 17, Map = legacyMap };
+
+        using var restored = PrivateWorldRuntime.Restore(state);
+
+        Assert.Equal(legacyMap.ManifestDigest, restored.ExportState().Map.ManifestDigest);
+        Assert.Equal(legacyMap.Resources, restored.ExportState().Map.Resources);
+        Assert.DoesNotContain(new OwnerWorldObservationStore(restored).GetSnapshot().Objects,
+            item => item.Kind == "bedroll");
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, restored.ExportState().SchemaVersion);
+    }
+
+    private sealed class RecordingProvider : IDecisionProvider
+    {
+        private readonly ConcurrentBag<string> candidates = [];
+        public IReadOnlyCollection<string> Candidates => candidates.ToArray();
         public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
         public long ProviderEpoch => 0;
-        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request, CancellationToken cancellationToken = default) =>
-            new DeterministicDecisionProvider().DecideAsync(request with
-            {
-                Observation = request.Observation with
-                {
-                    Candidates = request.Observation.Candidates.Where(candidate => candidate.Id == (sleep ? "sleep" : "safe_idle")).ToArray(),
-                },
-            }, cancellationToken);
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            foreach (var candidate in request.Observation.Candidates)
+                candidates.Add(candidate.Id);
+            return new DeterministicDecisionProvider().DecideAsync(request, cancellationToken);
+        }
     }
 }

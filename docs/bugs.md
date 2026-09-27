@@ -42,11 +42,11 @@ the resolution evidence below.
   point, but the recommended next direction is purpose-driven discovery of
   resources, terrain and Towns after the owner judges its pacing. Exploration
   does not yet search for distant
-  resources or Towns, or create tradable knowledge. Low hunger/energy or urgent
+  resources or Towns, or create tradable knowledge. Low hunger or urgent
   weather exposure can still pause projects and narrow adult choices to routine
   survival. There is no separate numeric safety need; `safe_idle` is a fallback
-  action, not a safety meter. The finished-game decision removes energy and
-  sleeping entirely; the current survival code has not yet changed.
+  action, not a safety meter. The current runtime now removes energy and sleeping; food and urgent
+  weather exposure still constrain some actions.
 - **Save compatibility policy remains open:** Load World now preflights saved
   checkpoints and required local model credentials, labels compatible,
   incompatible or unknown, and preserves and blocks only proven-unloadable
@@ -182,11 +182,9 @@ keeps the existing world manually paused.
 - **AW-B012 — fixed:** continuing project work
   could suppress a mentor's decision to answer a teaching request until expiry.
   Pending requests now interrupt project continuation for an independent response.
-- **AW-B013 — fixed:** sleeping always targeted
-  the first shelter, even if all access was occupied; unreachable shared food
-  could outrank nearby berries. Rest now chooses a reachable shelter or bedding,
-  with slower outdoor recovery if neither is accessible. Shared-food candidates
-  require a reachable pickup point.
+- **AW-B013 — fixed:** unreachable shared food could outrank nearby berries.
+  Shared-food candidates now require a reachable pickup point. The former
+  shelter/bedding rest defect became obsolete when sleep was removed.
 - **AW-B014 — fixed:** construction rescanned
   sites during work and could abandon a legal current site when another person
   vacated an earlier tile. The current legal site now takes precedence.
@@ -197,7 +195,7 @@ keeps the existing world manually paused.
   split descendant IDs at the first colon. Known complete IDs now resolve event
   ownership; private prose remains excluded.
 
-Focused regressions cover mentor interruption, occupied shelters, outdoor rest,
+Focused regressions cover mentor interruption, legacy bedroll-save migration, no-sleep survival,
 current-site completion, additive forestry activation/rollback and descendant
 condition logs. A controlled parenthood scenario with opt-in fast biological
 aging verifies birth, real feeding, two save/reloads, adulthood, earned training

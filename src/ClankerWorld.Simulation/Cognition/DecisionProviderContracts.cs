@@ -52,7 +52,6 @@ public sealed record InhabitantObservation(
     long DecisionGeneration,
     string ObservationDigest,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     IReadOnlyList<CognitionCandidate> Candidates,
     bool NeedsName = false)
 {
@@ -65,7 +64,7 @@ public sealed record InhabitantObservation(
             throw new ArgumentOutOfRangeException(nameof(WorldTick));
         }
 
-        if (HungerBasisPoints is < 0 or > 10_000 || EnergyBasisPoints is < 0 or > 10_000)
+        if (HungerBasisPoints is < 0 or > 10_000)
         {
             throw new ArgumentOutOfRangeException(nameof(HungerBasisPoints));
         }
@@ -340,7 +339,6 @@ public sealed class JevDecisionProvider : IDecisionProvider
                 run_epoch = request.Observation.RunEpoch,
                 decision_generation = request.Observation.DecisionGeneration,
                 hunger_basis_points = request.Observation.HungerBasisPoints,
-                energy_basis_points = request.Observation.EnergyBasisPoints,
                 candidates = request.Observation.Candidates.Select(candidate => new
                 {
                     id = candidate.Id,
@@ -547,8 +545,7 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         run_epoch = request.Observation.RunEpoch,
                         decision_generation = request.Observation.DecisionGeneration,
                         hunger_basis_points = request.Observation.HungerBasisPoints,
-                        energy_basis_points = request.Observation.EnergyBasisPoints,
-                        needs_name = request.Observation.NeedsName,
+                                needs_name = request.Observation.NeedsName,
                         candidates = request.Observation.Candidates.Select(candidate => new
                         {
                             id = candidate.Id,

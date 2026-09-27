@@ -148,7 +148,6 @@ public sealed class SettlementCouncilTests
             Inhabitants = state.Inhabitants.Select(person => person with
             {
                 HungerBasisPoints = 7_000,
-                EnergyBasisPoints = 8_000,
                 Survival = new(),
             }).ToArray(),
             Society = state.Society with

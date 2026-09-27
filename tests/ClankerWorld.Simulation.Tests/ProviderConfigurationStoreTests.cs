@@ -587,7 +587,6 @@ public sealed class ProviderConfigurationStoreTests
             3,
             "sha256:provider-test",
             5_000,
-            5_000,
             candidates);
     }
 

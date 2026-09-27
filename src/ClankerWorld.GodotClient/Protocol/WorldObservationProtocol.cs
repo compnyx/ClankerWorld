@@ -32,7 +32,6 @@ public sealed record WorldActor(
     string Id,
     WorldPosition Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     int FoodItems,
     int WoodItems);
 

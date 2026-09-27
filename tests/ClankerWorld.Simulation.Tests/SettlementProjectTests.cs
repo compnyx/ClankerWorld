@@ -34,7 +34,6 @@ public sealed class SettlementProjectTests
             {
                 Position = position,
                 HungerBasisPoints = 9_000,
-                EnergyBasisPoints = 9_000,
                 Project = new("build:building:" + definition.CanonicalId, definition.DisplayName, seed.WorldTick, "working", 10,
                     LastTransitionTick: seed.WorldTick),
             } : person).ToArray(),

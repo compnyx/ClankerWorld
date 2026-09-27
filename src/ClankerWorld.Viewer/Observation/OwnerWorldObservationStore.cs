@@ -126,6 +126,7 @@ public sealed class OwnerWorldObservationStore
                 .Select(tile => new ViewerTile(tile.Position.X, tile.Position.Y, ToWireValue(tile.Terrain)))
                 .ToArray(),
             map.CampObjects
+                .Where(mapObject => mapObject.Kind != "bedroll")
                 .OrderBy(mapObject => mapObject.Id, StringComparer.Ordinal)
                 .Select(mapObject => new ViewerMapObject(mapObject.Id, mapObject.Kind, ToPosition(mapObject.Position)))
                 .ToArray(),
@@ -208,7 +209,7 @@ public sealed class OwnerWorldObservationStore
             var physical = physicalById[first.Id];
             var inventory = InventoryFor(state, first.Id);
             actor = new ViewerActor(first.Id, ToPosition(physical.Position), physical.HungerBasisPoints,
-                physical.EnergyBasisPoints, inventory.Where(item => item.Kind == "food").Sum(item => item.Quantity),
+                inventory.Where(item => item.Kind == "food").Sum(item => item.Quantity),
                 inventory.Where(item => item.Kind == "wood").Sum(item => item.Quantity));
         }
         var jobs = state.WorldSimulation?.ProductionJobs.Concat(state.WorldSimulation.CropBuilds ?? []).ToArray() ?? [];
@@ -228,6 +229,7 @@ public sealed class OwnerWorldObservationStore
                 .Select(tile => new ViewerTile(tile.Position.X, tile.Position.Y, ToWireValue(tile.Terrain)))
                 .ToArray(),
             map.CampObjects
+                .Where(mapObject => mapObject.Kind != "bedroll")
                 .OrderBy(mapObject => mapObject.Id, StringComparer.Ordinal)
                 .Select(mapObject => new ViewerMapObject(mapObject.Id, mapObject.Kind, ToPosition(mapObject.Position)))
                 .ToArray(),
@@ -447,7 +449,6 @@ public sealed class OwnerWorldObservationStore
                     ? "deterministic fixture"
                     : $"{cognition.ProviderKind.ToString().ToLowerInvariant()} provider"),
             new("hunger", $"{actor.HungerBasisPoints} basis points"),
-            new("energy", $"{actor.EnergyBasisPoints} basis points"),
             new("fixture-topology", world.Map.ManifestDigest),
         };
         if (cognition?.CurrentIntention is { } intention)
@@ -462,7 +463,6 @@ public sealed class OwnerWorldObservationStore
             "active_fixture",
             ToPosition(actor.Position),
             actor.HungerBasisPoints,
-            actor.EnergyBasisPoints,
             [
                 new ViewerInventoryEntry("food", actor.FoodItems),
                 new ViewerInventoryEntry("wood", actor.WoodItems),
@@ -483,7 +483,6 @@ public sealed class OwnerWorldObservationStore
         draft.DisplayName,
         "authoring_draft",
         ToPosition(draft.Position),
-        0,
         0,
         [],
         [
@@ -515,7 +514,6 @@ public sealed class OwnerWorldObservationStore
             new("role", inhabitant.CurrentRole.ToString().ToLowerInvariant()),
             new("household", household?.Name ?? "unhoused"),
             new("hunger", $"{physical.HungerBasisPoints} basis points"),
-            new("energy", $"{physical.EnergyBasisPoints} basis points"),
         };
         var runtime = state.Society.Cognition.Runtimes
             .FirstOrDefault(item => item.InhabitantId == inhabitant.Id);
@@ -533,7 +531,6 @@ public sealed class OwnerWorldObservationStore
             inhabitant.Status.ToString().ToLowerInvariant(),
             ToPosition(physical.Position),
             physical.HungerBasisPoints,
-            physical.EnergyBasisPoints,
             inventory,
             decisionFactors,
             route,
@@ -592,7 +589,6 @@ public sealed class OwnerWorldObservationStore
             "dead",
             position,
             lastPhysical.HungerBasisPoints,
-            lastPhysical.EnergyBasisPoints,
             [],
             [
                 new("personality", lastPhysical.Personality),
@@ -686,7 +682,6 @@ public sealed class OwnerWorldObservationStore
         "seek_food" => "looking for food",
         "harvest_food" => "gathering food",
         "consume_food" => "eating carried food",
-        "sleep" => "looking for rest",
         "safe_idle" => "keeping a safe routine",
         _ => candidateId.Replace('_', ' '),
     };
@@ -732,14 +727,6 @@ public sealed class OwnerWorldObservationStore
             return new ViewerRoute("consume", null, null, [], state.Map.ManifestDigest);
         }
 
-        var bedroll = state.Map.GetObject("bedroll");
-        if (physical.EnergyBasisPoints < 1_500)
-        {
-            return IsWithinInteractionRange(physical.Position, bedroll.Position)
-                ? new ViewerRoute("sleep", bedroll.Id, ToPosition(bedroll.Position), [], state.Map.ManifestDigest)
-                : RouteTo(state.Map, physical.Position, bedroll.Position, "sleep", bedroll.Id);
-        }
-
         var berry = state.Map.GetResource("berry-patch");
         var berryState = state.Resources.FirstOrDefault(item => item.ResourceId == berry.Id)?.State;
         if (berryState == ResourceState.Available && IsWithinInteractionRange(physical.Position, berry.Position))
@@ -750,13 +737,6 @@ public sealed class OwnerWorldObservationStore
         if (berryState == ResourceState.Available && physical.HungerBasisPoints < 7_000)
         {
             return RouteTo(state.Map, physical.Position, berry.Position, "seek_food", berry.Id);
-        }
-
-        if (physical.EnergyBasisPoints < 3_500)
-        {
-            return IsWithinInteractionRange(physical.Position, bedroll.Position)
-                ? new ViewerRoute("sleep", bedroll.Id, ToPosition(bedroll.Position), [], state.Map.ManifestDigest)
-                : RouteTo(state.Map, physical.Position, bedroll.Position, "sleep", bedroll.Id);
         }
 
         return new ViewerRoute("idle", null, null, [], state.Map.ManifestDigest);
@@ -777,12 +757,6 @@ public sealed class OwnerWorldObservationStore
         if (world.GetResource(berry.Id).State == ResourceState.Available)
         {
             return RouteTo(world.Map, actor.Position, berry.Position, "harvest", berry.Id);
-        }
-
-        var bedroll = world.Map.GetObject("bedroll");
-        if (actor.Position != bedroll.Position)
-        {
-            return RouteTo(world.Map, actor.Position, bedroll.Position, "sleep", bedroll.Id);
         }
 
         return new ViewerRoute("fixture_complete", null, null, [], world.Map.ManifestDigest);
@@ -839,7 +813,6 @@ public sealed class OwnerWorldObservationStore
         actor.Id,
         ToPosition(actor.Position),
         actor.HungerBasisPoints,
-        actor.EnergyBasisPoints,
         actor.FoodItems,
         actor.WoodItems);
 

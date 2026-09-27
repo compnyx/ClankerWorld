@@ -28,6 +28,8 @@ public sealed partial class PrivateWorldRuntime
         {
             return false;
         }
+        if (generated.ManifestDigest == state.Map.ManifestDigest)
+            return true;
         var previousTrees = generated with
         {
             Resources = generated.Resources.Where(resource =>
@@ -111,9 +113,9 @@ public sealed partial class PrivateWorldRuntime
                 worldContent.Buildings.Single(definition => definition.CanonicalId == building.DefinitionId), building.Position)))
             .ToHashSet();
         var additions = new List<MapResource>();
-        var bedroll = map.GetObject("bedroll").Position;
+        var townStorage = map.GetObject("storage").Position;
         var campChunk = worldSystems.Chunks.Single(chunk => chunk.Coordinate ==
-            ChunkRules.ToChunkCoordinate(bedroll, chunk.ChunkSize));
+            ChunkRules.ToChunkCoordinate(townStorage, chunk.ChunkSize));
         var campOrigin = campChunk.Coordinate.Origin(campChunk.ChunkSize);
         foreach (var kind in new[] { "stone", "fiber", "seed" })
         {
@@ -123,10 +125,10 @@ public sealed partial class PrivateWorldRuntime
                 continue;
             }
             var tile = map.Tiles.FirstOrDefault(tile =>
-                tile.Position.X >= Math.Max(campOrigin.X, bedroll.X - 1) &&
-                tile.Position.X < Math.Min(campOrigin.X + campChunk.Width, bedroll.X + 6) &&
-                tile.Position.Y >= Math.Max(campOrigin.Y, bedroll.Y - 1) &&
-                tile.Position.Y < Math.Min(campOrigin.Y + campChunk.Height, bedroll.Y + 5) &&
+                tile.Position.X >= Math.Max(campOrigin.X, townStorage.X - 1) &&
+                tile.Position.X < Math.Min(campOrigin.X + campChunk.Width, townStorage.X + 6) &&
+                tile.Position.Y >= Math.Max(campOrigin.Y, townStorage.Y - 1) &&
+                tile.Position.Y < Math.Min(campOrigin.Y + campChunk.Height, townStorage.Y + 5) &&
                 map.IsBuildable(tile.Position) && !occupied.Contains(tile.Position));
             if (tile is null)
             {
@@ -190,7 +192,7 @@ public sealed partial class PrivateWorldRuntime
         AdultResident(state.InhabitantId) &&
         state.Project is { Stage: not ("completed" or "cancelled") } project &&
         (project.Stage != "blocked" || WorldTick - project.LastTransitionTick < 60) &&
-        state.HungerBasisPoints >= 3_500 && state.EnergyBasisPoints >= 2_500 &&
+        state.HungerBasisPoints >= 3_500 &&
         !HasTradeResponse(state.InhabitantId) &&
         !HasCouncilDecision(state.InhabitantId) &&
         !HasFamilyDecision(state.InhabitantId) &&

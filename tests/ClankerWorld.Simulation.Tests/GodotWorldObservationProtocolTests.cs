@@ -123,7 +123,7 @@ public sealed class GodotWorldObservationProtocolTests
             Tiles: [new WorldTile(0, 0, "meadow")],
             Objects: [],
             Resources: [],
-            Actor: new WorldActor("camp-alpha", new WorldPosition(0, 0), 5000, 8000, 1, 0),
+            Actor: new WorldActor("camp-alpha", new WorldPosition(0, 0), 5000, 1, 0),
             LatestEventId: 5);
         var events = new WorldEventSlice(
             SnapshotTick: 5,
@@ -131,7 +131,7 @@ public sealed class GodotWorldObservationProtocolTests
             Events:
             [
                 new WorldEvent(4, 4, "move", "north"),
-                new WorldEvent(5, 5, "sleep", "camp"),
+                new WorldEvent(5, 5, "harvest", "berries"),
             ]);
 
         return new WorldObservation(handshake, new WorldReconnectBaseline(snapshot, events));

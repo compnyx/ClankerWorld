@@ -164,7 +164,6 @@ public static class GameUiText
         {
             "safe_idle" => "take it easy",
             "seek_food" => "find food",
-            "seek_rest" => "rest",
             "eat_food" => "eat",
             "consume_food" => "eat",
             "collect_shared_food" => "collect food from camp",

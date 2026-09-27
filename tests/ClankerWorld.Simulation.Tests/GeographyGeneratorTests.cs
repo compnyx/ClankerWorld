@@ -437,10 +437,10 @@ public sealed class GeographyGeneratorTests
         var terrainBytes = Convert.FromBase64String(projection.PackedTerrain.Data);
         Assert.Equal(initial.Map.Tiles.Count, terrainBytes.Length);
         Assert.Equal((byte)initial.Map.Tiles[0].Terrain, terrainBytes[0]);
-        var bedroll = initial.Map.GetObject("bedroll").Position;
+        var townStorage = initial.Map.GetObject("storage").Position;
         var positions = initial.Map.Tiles.Where(tile =>
-                tile.Position.X >= bedroll.X - 1 && tile.Position.X < bedroll.X + 5 &&
-                tile.Position.Y >= bedroll.Y && tile.Position.Y < bedroll.Y + 5 &&
+                tile.Position.X >= townStorage.X - 1 && tile.Position.X < townStorage.X + 5 &&
+                tile.Position.Y >= townStorage.Y - 1 && tile.Position.Y < townStorage.Y + 4 &&
                 initial.Map.IsPassable(tile.Position) &&
                 !initial.Map.CampObjects.Any(item => item.Position == tile.Position) &&
                 !initial.Map.Resources.Any(item => item.Position == tile.Position))

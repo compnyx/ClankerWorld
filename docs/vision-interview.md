@@ -775,7 +775,8 @@ direction, not proof that it will feel right in the finished game.
 - **Remove energy and sleeping as mechanics entirely.** No energy meter,
   routine energy drain, sleep action, bed-based recovery loop, or energy gate
   on projects and social/exploration actions. This is a change to the intended
-  game, not a claim that the current runtime has been modified.
+  game; the repository runtime now implements this removal, though the live
+  installed host is unchanged until a separate deployment.
 - **Food still matters; severe weather still matters.** Survival should not
   consume nearly every decision. Agents choose priorities based on needs rather
   than a universal rigid hierarchy. Better meals, farming, trade, and food
@@ -799,14 +800,14 @@ direction, not proof that it will feel right in the finished game.
 ### Current prototype evidence (not finished-game intent)
 
 There is no separate numeric **safety** need in the playable runtime. Agents
-do have hunger and energy meters, warmth/exposure and illness, shelter/rest
-benefits, weather responses, and a `safe_idle` fallback. Hunger, low energy,
-and urgent exposure can pause projects or restrict available adult actions.
+now have hunger, warmth/exposure and illness, weather-protective shelter,
+weather responses, and a `safe_idle` fallback. Energy and sleep are removed.
+Hunger and urgent exposure can pause projects or restrict available adult actions.
 Generated-world weather is currently chosen per **32×32-tile region per world
 day**, so a severe result can occupy a whole nominal six-real-minute day in a
 new world; successive severe days can extend the interruption.
-The current candidate list has no ordinary curiosity/exploration action, so
-removing the word “safe” would not itself make agents roam or discover things.
+The current candidate list includes a bounded local curiosity outing, but
+not yet purposeful discovery of distant resources, terrain and Towns.
 
 ### Open after the September playtest
 

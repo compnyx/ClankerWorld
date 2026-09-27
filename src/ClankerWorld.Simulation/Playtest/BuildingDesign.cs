@@ -27,7 +27,7 @@ public static class BuildingDesign
 
     public static string Describe(string purpose) => purpose switch
     {
-        "shelter" => "Shelter improves nearby rest and protects against weather exposure.",
+        "shelter" => "Shelter protects against weather exposure.",
         "storage" => "Storage slows spoilage in shared household stores.",
         "hearth" => "A hearth provides nearby heat while fuelled; it consumes wood and can go out.",
         _ => throw new ArgumentException("Unknown building purpose.", nameof(purpose)),

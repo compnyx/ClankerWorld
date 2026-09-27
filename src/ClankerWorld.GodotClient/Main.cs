@@ -469,7 +469,7 @@ public partial class Main : Control
                 throw new InvalidOperationException("Built structures must render their name and multi-tile footprint.");
             var founderPosition = new OwnerWorldPosition(2, 0);
             var founder = new OwnerWorldInhabitant("founder-ui-test", "Rowan", "active", founderPosition,
-                8_000, 7_000, [], [], new OwnerWorldRoute("idle", null, null, [], string.Empty),
+                8_000, [], [], new OwnerWorldRoute("idle", null, null, [], string.Empty),
                 new OwnerWorldSpatialKnowledge(founderPosition, [founderPosition], [founderPosition]), false)
             {
                 Survival = new OwnerWorldSurvival(8_200, 300, true, false, 7_400, null),
@@ -704,7 +704,7 @@ public partial class Main : Control
             RenderMap(largeMap);
             var formerPosition = new OwnerWorldPosition(2, 2);
             var deceased = new OwnerWorldInhabitant("archived-mira", "Mira", "dead", formerPosition,
-                5_000, 5_000, [], [new("age-band", "elder"), new("death-tick", "1")],
+                5_000, [], [new("age-band", "elder"), new("death-tick", "1")],
                 new OwnerWorldRoute("deceased", null, null, [], string.Empty),
                 new OwnerWorldSpatialKnowledge(formerPosition, [formerPosition], [formerPosition]), false)
             {
@@ -758,7 +758,7 @@ public partial class Main : Control
                 throw new InvalidOperationException("A death in the Event Log must jump to its location.");
             var parentPosition = new OwnerWorldPosition(1, 1);
             var parent = new OwnerWorldInhabitant("living-parent", "Rowan", "active", parentPosition,
-                7_000, 8_000, [], [new("age-band", "adult")],
+                7_000, [], [new("age-band", "adult")],
                 new OwnerWorldRoute("idle", null, null, [], string.Empty),
                 new OwnerWorldSpatialKnowledge(parentPosition, [parentPosition], [parentPosition]), false)
             {
@@ -771,7 +771,7 @@ public partial class Main : Control
                 ],
             };
             var partner = new OwnerWorldInhabitant("living-partner", "Ilya", "active", parentPosition,
-                7_000, 8_000, [], [new("age-band", "adult")],
+                7_000, [], [new("age-band", "adult")],
                 new OwnerWorldRoute("idle", null, null, [], string.Empty),
                 new OwnerWorldSpatialKnowledge(parentPosition, [parentPosition], [parentPosition]), false)
             {
@@ -3520,7 +3520,7 @@ public partial class Main : Control
             : string.Empty;
         inhabitantDetails.AppendText(
             $"{currentActivity}{destination}\n" +
-            $"Hunger {NeedPercent(inhabitant.HungerBasisPoints)}%  ·  Energy {NeedPercent(inhabitant.EnergyBasisPoints)}%\n" +
+            $"Hunger {NeedPercent(inhabitant.HungerBasisPoints)}%\n" +
             $"Carrying {inventory}");
     }
 
@@ -4452,7 +4452,6 @@ public partial class Main : Control
         "seek_food" => "→",
         "harvest_food" => "✦",
         "consume_food" => "♥",
-        "sleep" => "z",
         not null when candidateId.StartsWith("build:", StringComparison.Ordinal) => "◆",
         "safe_idle" => "·",
         _ => "○",
@@ -4480,7 +4479,6 @@ public partial class Main : Control
 
     private static string ObjectMarker(string kind) => kind switch
     {
-        "bedroll" => "REST",
         "campfire" => "FIRE",
         "shelter" => "HOME",
         "tree" => "TREE",
@@ -4489,7 +4487,6 @@ public partial class Main : Control
 
     private static string ObjectGlyph(string kind) => kind switch
     {
-        "bedroll" => "▰",
         "campfire" => "✦",
         "shelter" => "⌂",
         "tree" => "♣",

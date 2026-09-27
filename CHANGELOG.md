@@ -8,6 +8,11 @@ release yet.
 
 ### Fixed
 
+- Agents no longer have an energy meter, passive energy drain, sleep action,
+  bedroll recovery, or energy gates on work, social life and exploration. Food
+  and severe-weather effects remain. New worlds omit bedrolls and bedding;
+  older private-world saves remain loadable with hidden legacy bedroll markers
+  and migrate to save schema 18 when next saved.
 - New World now refreshes the exact seed/settings preview after edits without
   requiring another button press. Stale previews cannot enable Create World;
   preview failures leave the active world unchanged.
@@ -62,7 +67,7 @@ release yet.
   east/west seams, and cannot squeeze past blocked or occupied corners.
 - Stable adult agents can now choose short curiosity outings. They scout only
   adjacent passable ground, remember tiles they actually visit, and return to
-  their starting point. Hunger, exhaustion and urgent exposure take precedence;
+  their starting point. Hunger and urgent exposure take precedence;
   a cooldown prevents continuous wandering.
 - Generated forests and scattered meadow sites now have individual broadleaf
   and conifer trees, with no more than one tree per tile. Cutting a tree for

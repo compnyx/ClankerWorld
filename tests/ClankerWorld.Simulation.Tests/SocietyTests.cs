@@ -537,8 +537,7 @@ public sealed class SocietyTests
                 0,
                 0,
                 $"digest:{scheduleId}",
-            5_000,
-            5_000,
+                5_000,
             [new CognitionCandidate("safe_idle", "Continue safely.", 0)]));
 
     private sealed class CancellingDecisionProvider(CancellationTokenSource cancellation) : IDecisionProvider

@@ -13,7 +13,7 @@ public sealed partial class PrivateWorldRuntime
     private static bool ActiveLesson(SettlementLesson? lesson) => lesson?.Stage is "requested" or "accepted" or "training";
 
     private bool ReadyForLesson(string actor) => inhabitants.TryGetValue(actor, out var person) &&
-        person.HungerBasisPoints >= 3_500 && person.EnergyBasisPoints >= 2_500 && !HasUrgentExposure(person);
+        person.HungerBasisPoints >= 3_500 && !HasUrgentExposure(person);
 
     private bool CanMentor(string teacher, SocietyWorkRole role) =>
         inhabitants.ContainsKey(teacher) && !ActiveLesson(inhabitants[teacher].Lesson) &&
@@ -163,7 +163,7 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
         var person = inhabitants[actor];
-        var camp = map.GetObject("bedroll").Position;
+        var camp = map.GetObject("storage").Position;
         if (!IsWithinInteractionRange(person.Position, camp, ResourceInteractionRange))
         {
             MoveToward(actor, person, camp, "lesson", ResourceInteractionRange);
@@ -175,7 +175,6 @@ public sealed partial class PrivateWorldRuntime
         }
         var previousLesson = student.Lesson!;
         var lesson = previousLesson with { Progress = previousLesson.Progress + 1, Stage = "training" };
-        inhabitants[actor] = person with { EnergyBasisPoints = Math.Max(0, person.EnergyBasisPoints - 3) };
         if (lesson.Progress >= LessonWorkRequired)
         {
             lesson = lesson with { Stage = "completed" };

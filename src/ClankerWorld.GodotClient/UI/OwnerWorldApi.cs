@@ -79,7 +79,6 @@ public sealed record OwnerWorldInhabitant(
     string Lifecycle,
     OwnerWorldPosition Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     IReadOnlyList<OwnerWorldInventoryEntry> Inventory,
     IReadOnlyList<OwnerWorldDecisionFactor> DecisionFactors,
     OwnerWorldRoute Route,
@@ -212,7 +211,6 @@ public sealed record OwnerWorldActor(
     string Id,
     OwnerWorldPosition Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     int FoodItems,
     int WoodItems);
 

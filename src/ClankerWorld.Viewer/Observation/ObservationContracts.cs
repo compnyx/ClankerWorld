@@ -30,7 +30,6 @@ public sealed record ViewerActor(
     string Id,
     ViewerPosition Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     int FoodItems,
     int WoodItems);
 
@@ -83,7 +82,6 @@ public sealed record ViewerInhabitant(
     string Lifecycle,
     ViewerPosition Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     IReadOnlyList<ViewerInventoryEntry> Inventory,
     IReadOnlyList<ViewerDecisionFactor> DecisionFactors,
     ViewerRoute Route,
@@ -388,7 +386,6 @@ public sealed class SeededWorldObservationStore
             world.Actor.Id,
             ToPosition(world.Actor.Position),
             world.Actor.HungerBasisPoints,
-            world.Actor.EnergyBasisPoints,
             world.Actor.FoodItems,
             world.Actor.WoodItems),
         world.Events.Count == 0 ? 0 : world.Events.Max(worldEvent => worldEvent.EventId));

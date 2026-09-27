@@ -723,7 +723,6 @@ public sealed partial class ConfigurableDecisionProvider(
         "collect_shared_food",
         "harvest_food",
         "seek_food",
-        "sleep",
         "wear_clothing",
         "tend_fire",
         "seek_warmth",

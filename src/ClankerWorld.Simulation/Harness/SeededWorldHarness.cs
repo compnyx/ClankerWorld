@@ -156,7 +156,7 @@ public sealed record SeededMap(
 
     public bool IsReachableFromCampOnFoot(GridPoint point) => Contains(point) &&
         CampReachability.GetValue(this, static map =>
-            MapAcceptance.ReachableFrom(map, map.GetObject("bedroll").Position)).Contains(point);
+            MapAcceptance.ReachableFrom(map, map.GetObject("storage").Position)).Contains(point);
 
     private static bool IsOpenGround(byte kind) => kind is
         (byte)TerrainKind.Meadow or (byte)TerrainKind.Sand or
@@ -212,14 +212,14 @@ public static class SeededMapGenerator
     public const string GeneratorConfigDigest = "sha256:temperate-fixture-config-v2";
     public const string FertileLandResourceId = "fertile-land";
 
-    public static SeededMap Generate(string worldSeed)
+    public static SeededMap Generate(string worldSeed, bool includeLegacyBedroll = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(worldSeed);
 
         var diagnostics = new List<string>();
         for (var attempt = 0; attempt < MaximumAttempts; attempt++)
         {
-            var candidate = CreateCandidate(worldSeed, attempt);
+            var candidate = CreateCandidate(worldSeed, attempt, includeLegacyBedroll);
             var validation = MapAcceptance.Validate(candidate);
             if (validation.IsValid)
             {
@@ -234,7 +234,7 @@ public static class SeededMapGenerator
             string.Join("; ", diagnostics));
     }
 
-    private static SeededMap CreateCandidate(string worldSeed, int attempt)
+    private static SeededMap CreateCandidate(string worldSeed, int attempt, bool includeLegacyBedroll)
     {
         const int width = 6;
         const int height = 5;
@@ -272,12 +272,13 @@ public static class SeededMapGenerator
 
         var campObjects = new[]
         {
-            new CampObject("bedroll", "bedroll", new GridPoint(1, 0)),
             new CampObject("campfire", "cooking", new GridPoint(2, 0)),
             new CampObject("founder-scout", "founder", new GridPoint(0, 0)),
             new CampObject("shelter", "shelter", new GridPoint(0, 1)),
             new CampObject("storage", "storage", new GridPoint(1, 1)),
         };
+        if (includeLegacyBedroll)
+            campObjects = [new CampObject("bedroll", "bedroll", new GridPoint(1, 0)), .. campObjects];
         var resources = new[]
         {
             new MapResource("berry-patch", "food", new GridPoint(4, 1), true),
@@ -292,9 +293,9 @@ public static class SeededMapGenerator
 /// <summary>A starter camp with facilities but no pre-created person.</summary>
 public static class BaseCampMapGenerator
 {
-    public static SeededMap Generate(string worldSeed)
+    public static SeededMap Generate(string worldSeed, bool includeLegacyBedroll = false)
     {
-        var fixture = SeededMapGenerator.Generate(worldSeed);
+        var fixture = SeededMapGenerator.Generate(worldSeed, includeLegacyBedroll);
         var objects = fixture.CampObjects
             .Where(item => item.Kind != "founder")
             .Concat([
@@ -321,7 +322,7 @@ public static class GeneratedCampMapGenerator
     private const int CampWidth = 6;
     private const int CampHeight = 5;
 
-    public static SeededMap Generate(GeographyOptions options)
+    public static SeededMap Generate(GeographyOptions options, bool includeLegacyBedroll = false)
     {
         ArgumentNullException.ThrowIfNull(options);
         // This bridge still allocates one object per tile for the old
@@ -358,7 +359,7 @@ public static class GeneratedCampMapGenerator
             }
 
         var origin = FindCampOrigin(kinds, width, height);
-        var template = BaseCampMapGenerator.Generate(options.Seed);
+        var template = BaseCampMapGenerator.Generate(options.Seed, includeLegacyBedroll);
         var objects = template.CampObjects.Select(item => item with
         {
             Position = new GridPoint(item.Position.X + origin.X, item.Position.Y + origin.Y),
@@ -669,7 +670,7 @@ public static class MapAcceptance
         if (allowEmptyCamp && founder is not null)
             return MapValidationResult.Invalid("An empty base camp cannot contain a founder marker.");
 
-        var requiredKinds = new[] { "shelter", "bedroll", "storage", "cooking" };
+        var requiredKinds = new[] { "shelter", "storage", "cooking" };
         if (requiredKinds.Any(kind => !map.CampObjects.Any(mapObject =>
                 string.Equals(mapObject.Kind, kind, StringComparison.Ordinal))))
         {
@@ -707,7 +708,7 @@ public static class MapAcceptance
             return MapValidationResult.Invalid("Reachable food, construction, or fertile-land resources are missing.");
         }
 
-        var startingPoint = founder?.Position ?? map.GetObject("bedroll").Position;
+        var startingPoint = founder?.Position ?? map.GetObject("storage").Position;
         var reachable = ReachableFrom(map, startingPoint);
         var starterResources = allowEmptyCamp
             ? map.Resources.Where(resource => resource.Id is "berry-patch" or "timber-tree" or "fertile-land")
@@ -879,7 +880,6 @@ public sealed record HarnessActor(
     string Id,
     GridPoint Position,
     int HungerBasisPoints,
-    int EnergyBasisPoints,
     int FoodItems,
     int WoodItems);
 
@@ -908,7 +908,6 @@ public static class ScriptedHarness
 {
     private const int NeedDrainPerTick = 100;
     private const int FoodRecovery = 2_000;
-    private const int SleepRecovery = 2_500;
     private const string ActorId = "actor-scout";
 
     public static HarnessWorld CreateGenesis(string worldSeed)
@@ -929,7 +928,7 @@ public static class ScriptedHarness
         }
 
         var founder = map.GetObject("founder-scout");
-        var actor = new HarnessActor(ActorId, founder.Position, 5_000, 4_000, 0, 0);
+        var actor = new HarnessActor(ActorId, founder.Position, 5_000, 0, 0);
         var resources = map.Resources
             .OrderBy(resource => resource.Id, StringComparer.Ordinal)
             .Select(resource => new RuntimeResource(resource.Id, ResourceState.Available))
@@ -946,15 +945,8 @@ public static class ScriptedHarness
         return Consume(current);
     }
 
-    public static HarnessWorld FinishAfterFood(HarnessWorld world)
-    {
-        ArgumentNullException.ThrowIfNull(world);
-        var bedroll = world.Map.GetObject("bedroll");
-        return Sleep(MoveUntilAt(world, bedroll.Position));
-    }
-
     public static HarnessWorld RunEntireSequence(string worldSeed) =>
-        FinishAfterFood(RunToFoodConsumed(CreateGenesis(worldSeed)));
+        RunToFoodConsumed(CreateGenesis(worldSeed));
 
     /// <summary>
     /// Advances exactly one committed action from the small scripted fixture.
@@ -977,19 +969,6 @@ public static class ScriptedHarness
             advanced = world.Actor.Position == berry.Position
                 ? Harvest(world, berry.Id)
                 : MoveOneStep(world, berry.Position);
-            return true;
-        }
-
-        var bedroll = world.Map.GetObject("bedroll");
-        if (world.Actor.Position != bedroll.Position)
-        {
-            advanced = MoveOneStep(world, bedroll.Position);
-            return true;
-        }
-
-        if (!world.Events.Any(worldEvent => string.Equals(worldEvent.Detail, $"sleep:{ActorId}", StringComparison.Ordinal)))
-        {
-            advanced = Sleep(world);
             return true;
         }
 
@@ -1028,12 +1007,6 @@ public static class ScriptedHarness
     {
         ArgumentNullException.ThrowIfNull(world);
         return Consume(world);
-    }
-
-    public static HarnessWorld ApplySleep(HarnessWorld world)
-    {
-        ArgumentNullException.ThrowIfNull(world);
-        return Sleep(world);
     }
 
     public static HarnessWorld ApplyIdle(HarnessWorld world)
@@ -1085,10 +1058,6 @@ public static class ScriptedHarness
         else if (string.Equals(expected.Detail, $"consume:{ActorId}", StringComparison.Ordinal))
         {
             replayed = Consume(world);
-        }
-        else if (string.Equals(expected.Detail, $"sleep:{ActorId}", StringComparison.Ordinal))
-        {
-            replayed = Sleep(world);
         }
         else
         {
@@ -1176,21 +1145,6 @@ public static class ScriptedHarness
             $"consume:{ActorId}");
     }
 
-    private static HarnessWorld Sleep(HarnessWorld world)
-    {
-        if (world.Actor.Position != world.Map.GetObject("bedroll").Position)
-        {
-            throw new InvalidOperationException("Sleeping requires the actor to be at the bedroll.");
-        }
-
-        return Commit(
-            world,
-            actor => actor with { EnergyBasisPoints = ClampBasisPoints(actor.EnergyBasisPoints + SleepRecovery) },
-            resources => resources,
-            4,
-            $"sleep:{ActorId}");
-    }
-
     private static HarnessWorld Commit(
         HarnessWorld world,
         Func<HarnessActor, HarnessActor> action,
@@ -1202,7 +1156,6 @@ public static class ScriptedHarness
         var needsApplied = world.Actor with
         {
             HungerBasisPoints = ClampBasisPoints(world.Actor.HungerBasisPoints - NeedDrainPerTick),
-            EnergyBasisPoints = ClampBasisPoints(world.Actor.EnergyBasisPoints - NeedDrainPerTick),
         };
         var actor = action(needsApplied);
         var worldEvent = new PersistenceEvent(
@@ -1307,7 +1260,7 @@ public static class HarnessPersistence
 
 public static class HarnessStateCodec
 {
-    private const string Header = "clankerworld.seeded-harness-state/v1";
+    private const string Header = "clankerworld.seeded-harness-state/v2";
 
     public static string Encode(HarnessWorld world)
     {
@@ -1319,7 +1272,7 @@ public static class HarnessStateCodec
         builder.Append("actor=")
             .Append(world.Actor.Id).Append('|')
             .Append(world.Actor.Position.X).Append('|').Append(world.Actor.Position.Y).Append('|')
-            .Append(world.Actor.HungerBasisPoints).Append('|').Append(world.Actor.EnergyBasisPoints).Append('|')
+            .Append(world.Actor.HungerBasisPoints).Append('|')
             .Append(world.Actor.FoodItems).Append('|').Append(world.Actor.WoodItems).Append('\n');
         foreach (var resource in world.Resources.OrderBy(resource => resource.Id, StringComparer.Ordinal))
         {
@@ -1368,7 +1321,7 @@ public static class HarnessStateCodec
         }
 
         var actorParts = ValueAfterPrefix(lines[2], "actor=").Split('|', StringSplitOptions.None);
-        if (actorParts.Length != 7 || !string.Equals(actorParts[0], genesis.Actor.Id, StringComparison.Ordinal))
+        if (actorParts.Length != 6 || !string.Equals(actorParts[0], genesis.Actor.Id, StringComparison.Ordinal))
         {
             throw new InvalidDataException("The saved actor state is invalid.");
         }
@@ -1377,9 +1330,8 @@ public static class HarnessStateCodec
             actorParts[0],
             new GridPoint(ParseInteger(actorParts[1]), ParseInteger(actorParts[2])),
             ParseBasisPoints(actorParts[3]),
-            ParseBasisPoints(actorParts[4]),
-            ParseNonNegativeInteger(actorParts[5]),
-            ParseNonNegativeInteger(actorParts[6]));
+            ParseNonNegativeInteger(actorParts[4]),
+            ParseNonNegativeInteger(actorParts[5]));
         if (!genesis.Map.IsPassable(actor.Position))
         {
             throw new InvalidDataException("The saved actor is not on passable ground.");
