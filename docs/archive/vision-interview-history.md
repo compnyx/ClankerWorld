@@ -1177,3 +1177,13 @@ storehouse is in it then only agents who live in that settlement can use it.”
 This resolves the earlier access question for a storehouse inside an existing
 settlement. It does not decide formal ownership, the definition of residency,
 access outside settlement borders, border changes, or unauthorized taking.
+
+### Nonresident storehouse access is physically blocked (2026-09-27)
+
+Asked whether outsiders should be mechanically blocked from a storehouse
+inside a settlement or able to steal from it and face consequences, computment
+chose **physical blocking**. They noted that implementing stealing correctly
+would be complicated. This resolves unauthorized use of this storehouse; it
+does not cancel the broader possibility of crime or other kinds of theft in
+the finished game. Formal ownership, residency criteria, and the access rule
+outside settlement borders remain open.

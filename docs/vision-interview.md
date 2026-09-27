@@ -474,8 +474,11 @@ first-complete-game roadmap.
   path and stocks starter food, seeds, hand tools, and clothing. The storehouse
   holds **one common pool** for both starter households. If a settlement later
   exists and the storehouse is within its borders, **only agents who live in
-  that settlement may use it**. Nearby fertile land remains part of the desired
-  camp setting. Furniture can be abstracted as inspectable building
+  that settlement may use it**. The simulation physically blocks nonresidents
+  from using that storehouse; they cannot bypass its access rule by stealing
+  from it. This storehouse restriction does not settle whether other kinds of
+  theft may exist later. Nearby fertile land remains part of the desired camp
+  setting. Furniture can be abstracted as inspectable building
   contents/capabilities rather than every chair being drawn. A poor camp site
   is allowed with a warning rather than rejected solely for its survival
   disadvantages; physically impossible placements still need rules.
@@ -548,9 +551,9 @@ founder placement, physically valid terrain and footprints, what the warning
 flags, how fertile land is ensured or assessed, and whether placement can be
 revised before Start World. Storehouse details remain open: formal ownership,
 how settlement residency is determined, access when the building is outside
-all settlement borders or borders change, and whether unauthorized taking is
-possible as a recorded violation rather than ordinary use. The optional
-survival grace period still needs a duration and precise effects. Also open:
+all settlement borders or borders change, and how its hard access gate relates
+to any future, separate crime system. The optional survival grace period still
+needs a duration and precise effects. Also open:
 whether unrelated newcomers can arrive without player action or are only
 introduced through Add Agent. A configurable automatic-birth limit was
 considered, briefly accepted, then explicitly
