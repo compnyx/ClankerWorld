@@ -158,9 +158,11 @@ reopen the decided player-local distribution goal.
 - **Reaffirmed after the September playtest:** the Pause Menu has one compact
   action row, not three rows of buttons. It has one **Settings** entry; **Game**
   and **World** remain selectable categories inside Settings for a loaded world.
-  Main Menu Settings still exposes Game only. The current `Create` workbench is
-  a prototype UI, not an approved Pause Menu item; its future home or removal
-  is open.
+  Main Menu Settings still exposes Game only. **Remove the current player-facing
+  `Create` building-design workbench entirely**; computment considers it a
+  prototype from before the revised agent-driven invention vision. This does
+  not remove agents' ability to invent or settle any future way to inspect
+  their designs.
 - Adding an adult agent opens a flow to select a provider, one of its stored
   API credentials or a newly entered one, and a model, then place the agent in
   the world. Existing credentials can be reused by multiple agents. A player
@@ -716,6 +718,11 @@ direction, not proof that it will feel right in the finished game.
   layout system chooses a legal, suitable site as the settlement grows. This
   would replace the earlier assumption that the agent selects the exact tile;
   do not treat either site-choice owner as final until computment resolves it.
+- **Housing priority for a newly added adult (decided):** when the adult has no
+  home, seek suitable existing housing first; start a new home project only if
+  none is suitable. Suitability, available capacity, ownership/household
+  permission and how an agent arranges a place are still open. This priority
+  does not by itself assign a household or make the player place buildings.
 - Agents formally establish settlements and borders. Village/town/city classes
   are population-based. The player can inspect actual property and settlement
   boundaries through map filters.
@@ -894,10 +901,11 @@ library handles revisions and conflicting imports.
   background. Saving on Quit to Menu/Game is the accepted direction, while
   quit confirmation remains.
 - The player must be able to **intentionally overwrite an existing named
-  manual save** rather than accumulating a new checkpoint every time. The exact
-  selection, confirmation and recovery behavior is open; this does not
-  authorize silently replacing a save merely because a new name matches an
-  existing one.
+  manual save** rather than accumulating a new checkpoint every time. In Save
+  World, select an existing checkpoint and confirm overwriting that specific
+  checkpoint; creating a new save remains a separate action. Typing a matching
+  name alone must not replace an existing save. Recovery/backup behavior after
+  overwrite remains open.
 - World-created inventions and active mods travel with that world's save;
   provider credentials and graphical/device settings are global. The global
   library reads the latest save for each world rather than silently merging

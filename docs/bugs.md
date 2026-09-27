@@ -29,14 +29,14 @@ the resolution evidence below.
 - **Manual-save overwrite unavailable — confirmed gap:** Save World only
   creates a new opaque-ID checkpoint. Reusing a visible name creates another
   checkpoint with that name; the client has no select-and-overwrite action.
-  Computment wants intentional replacement of an existing manual save. Exact
-  confirmation and recovery behavior remains an interview question.
+  Intended behavior: select a specific existing checkpoint and confirm its
+  overwrite, with New Save separate. Recovery/backup behavior remains open.
 - **Pause Menu layout and labels — confirmed mismatch:** the client lays out
   eight actions in a three-column grid across three rows. It exposes separate
   Game Settings and World Settings buttons, plus `Create`. The intended menu
   has one compact row and one Settings entry, with Game and World inside it.
-  `Create` is a prototype building-design review workbench; whether to move or
-  remove that workbench remains open.
+  The player-facing `Create` building-design workbench is a pre-revision
+  prototype and should be removed; agent-driven invention remains in scope.
 - **Resolution control is misleading — confirmed:** choosing 1280×720,
   1600×900 or 1920×1080 only calls Godot's window-size setter; the game
   viewport remains configured at 1280×720 with canvas-item stretching. The
