@@ -35,12 +35,13 @@ public partial class Main : Control
     private readonly Button eventNoticeButton = new();
     private readonly Godot.Timer eventNoticeTimer = new();
     private readonly PanelContainer connectionPanel = new();
-    private readonly Button gameSettingsButton = new();
-    private readonly Button worldSettingsButton = new();
+    private readonly Button settingsButton = new();
+    private readonly Button modLibraryButton = new();
     private readonly Button gameSettingsCategoryButton = new();
     private readonly Button worldSettingsCategoryButton = new();
     private readonly VBoxContainer gameSettingsContent = new();
     private readonly VBoxContainer worldSettingsContent = new();
+    private readonly ScrollContainer settingsScroll = new();
     private readonly LineEdit worldUrlInput = new();
     private readonly Button connectButton = new();
     private readonly Button pairAgainButton = new();
@@ -256,8 +257,8 @@ public partial class Main : Control
             if (!mainMenuOverlay.Visible || mainMenuCard.Visible || !gameMenuPanel.Visible || !gameSettingsContent.Visible ||
                 worldSettingsCategoryButton.Visible || worldSettingsContent.Visible)
                 throw new InvalidOperationException("Main Menu Settings must keep the title background and show only Game Settings.");
-            gameSettingsButton.EmitSignal(BaseButton.SignalName.Pressed);
-            gameSettingsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
             gameSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (!settingsPanel.Visible || !gameSettingsContent.Visible)
                 throw new InvalidOperationException("The selected Settings category must remain open.");
@@ -302,6 +303,32 @@ public partial class Main : Control
             pairingPanel.Hide();
             developerScroll.Hide();
             gameMenuPanel.Show();
+            var pauseActions = menuQuitToMainButton.GetParent<VBoxContainer>().GetChildren()
+                .OfType<Button>().Where(button => button.Visible).Select(button => button.Text).ToArray();
+            if (!pauseActions.SequenceEqual(new[] { "Save World", "Settings", "Mod Library", "Quit to Menu" }) ||
+                gameMenuPanel.FindChildren("*", nameof(Button), recursive: true, owned: false)
+                    .OfType<Button>().Any(button => button.Visible && button.Text == "Create"))
+                throw new InvalidOperationException("Pause Menu must have only the four ordered actions and no player Create workbench.");
+            modLibraryButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (!modLibraryPanel.Visible || settingsPanel.Visible)
+                throw new InvalidOperationException("Mod Library action must open the in-world package view.");
+            settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (modLibraryPanel.Visible || !settingsPanel.Visible || !worldSettingsCategoryButton.Visible)
+                throw new InvalidOperationException("Settings action must open the in-world Game/World category view.");
+            developerToggleButton.EmitSignal(BaseButton.SignalName.Pressed);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!developerScroll.Visible || settingsScroll.Visible || !settingsPanel.Visible)
+                throw new InvalidOperationException("Developer controls must stay inside Settings without adding a Pause Menu action.");
+            if (developerScroll.Size.X < 200 || !settingsPanel.GetGlobalRect().Encloses(developerScroll.GetGlobalRect()))
+                throw new InvalidOperationException("Developer controls must have usable width inside Settings at a narrow window.");
+            gameSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (developerScroll.Visible || !settingsScroll.Visible || !gameSettingsContent.Visible)
+                throw new InvalidOperationException("Game Settings must replace Developer tools in the same panel.");
+            settingsPanel.Hide();
+            menuQuitToMainButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (!quitToMenuConfirmation.Visible)
+                throw new InvalidOperationException("Quit to Menu must request confirmation.");
+            quitToMenuConfirmation.Hide();
             foreach (var size in new[] { new Vector2I(1280, 720), new Vector2I(1920, 1080), new Vector2I(1024, 768) })
             {
                 GetWindow().Size = size;
@@ -351,13 +378,6 @@ public partial class Main : Control
                         }
                     }
                 }
-                creationOverlay.Show();
-                for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-                var creationBounds = creationOverlay.GetGlobalRect();
-                if (!creationBounds.Encloses(creationPanel.GetGlobalRect()) ||
-                    creationBounds.GetCenter().DistanceTo(creationPanel.GetGlobalRect().GetCenter()) > 2)
-                    throw new InvalidOperationException($"Creation workbench escaped its centered bounds at {size}.");
-                creationOverlay.Hide();
             }
             gameMenuPanel.Hide();
             menuShade.Hide();
@@ -393,9 +413,9 @@ public partial class Main : Control
             if (!addAgentButton.Visible || founderSetupButton.Visible || startWorldButton.Visible)
                 throw new InvalidOperationException("Started worlds must offer Add Agent instead of founder setup controls.");
             Render(sample, []);
-            RenderDesignPackages(sample);
-            if (designPackages.ItemCount != 1 || !designPackages.GetItemText(0).Contains("proposed by builder-test", StringComparison.Ordinal))
-                throw new InvalidOperationException("Creation workbench must show inhabitant proposal provenance.");
+            RenderModLibrary(sample);
+            if (!modLibraryContents.Text.Contains("proposed by builder-test", StringComparison.Ordinal))
+                throw new InvalidOperationException("Mod Library must show existing agent proposal provenance.");
             RenderMap(sample);
             for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var marker = mapObjectVisuals["resource:wood"];
@@ -686,7 +706,7 @@ public partial class Main : Control
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
             quitGameConfirmation.Hide();
-            GD.Print("UI checks passed: startup Main Menu and settings, in-world menus/workbench, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, event jumps, event pop-ups, private thoughts, memories, deceased inspection and family tree.");
+            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, event jumps, event pop-ups, private thoughts, memories, deceased inspection and family tree.");
             GetTree().Quit();
         }
         catch (Exception exception)
@@ -1782,7 +1802,6 @@ public partial class Main : Control
         BuildInspectorColumn(mapCanvas);
         BuildOwnerColumn(mapCanvas);
         BuildStatusToast(mapCanvas);
-        BuildCreationWorkbench();
         BuildMainMenu();
         BuildManualSavesPanel();
 
@@ -2007,12 +2026,15 @@ public partial class Main : Control
     {
         if (worldSpecific && (!isInWorld || returnToMainMenu)) return;
         CloseAgentModelEditor();
+        modLibraryPanel.Hide();
         settingsPanel.Show();
         gameSettingsContent.Visible = !worldSpecific;
         worldSettingsContent.Visible = worldSpecific;
         gameSettingsCategoryButton.Disabled = !worldSpecific;
         worldSettingsCategoryButton.Disabled = worldSpecific || registration is null;
+        settingsScroll.Show();
         developerScroll.Hide();
+        developerToggleButton.Disabled = false;
         developerToggleButton.Text = "Developer tools";
         if (worldSpecific && registration is not null)
         {
@@ -2231,7 +2253,7 @@ public partial class Main : Control
 
         var body = new VBoxContainer
         {
-            CustomMinimumSize = new Vector2(520, 0),
+            CustomMinimumSize = new Vector2(360, 0),
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
         body.AddThemeConstantOverride("separation", 8);
@@ -2248,12 +2270,12 @@ public partial class Main : Control
         menuHeading.AddChild(closeButton);
         body.AddChild(menuHeading);
 
-        var menuActions = new GridContainer { Columns = 3 };
-        menuActions.AddThemeConstantOverride("h_separation", 6);
-        menuActions.AddThemeConstantOverride("v_separation", 6);
+        var menuActions = new VBoxContainer();
+        menuActions.AddThemeConstantOverride("separation", 6);
         menuResumeButton.Text = "Resume";
         StyleButton(menuResumeButton, primary: true);
         menuResumeButton.Pressed += () => _ = CloseGameMenuAsync();
+        menuResumeButton.Hide();
         menuActions.AddChild(menuResumeButton);
 
         menuSaveWorldButton.Text = "Save World";
@@ -2261,47 +2283,33 @@ public partial class Main : Control
         menuSaveWorldButton.Pressed += () => _ = OpenManualSavesAsync(loadMode: false);
         menuActions.AddChild(menuSaveWorldButton);
 
-        gameSettingsButton.Text = "Game Settings";
-        StyleButton(gameSettingsButton);
-        gameSettingsButton.Pressed += () => ShowSettingsSection(worldSpecific: false);
-        menuActions.AddChild(gameSettingsButton);
+        settingsButton.Text = "Settings";
+        StyleButton(settingsButton);
+        settingsButton.Pressed += () => ShowSettingsSection(worldSpecific: false);
+        menuActions.AddChild(settingsButton);
 
-        worldSettingsButton.Text = "World Settings";
-        StyleButton(worldSettingsButton);
-        worldSettingsButton.Pressed += () => ShowSettingsSection(worldSpecific: true);
-        menuActions.AddChild(worldSettingsButton);
-
-        menuCreationButton.Text = "Create";
-        StyleButton(menuCreationButton);
-        menuCreationButton.Pressed += () =>
-        {
-            creationOverlay.Show();
-            designStatus.Text = observationSession.Current?.Handshake.ServerCapabilities.Contains("owner-building-design.v1", StringComparer.Ordinal) == true
-                ? "Designs require your review before activation."
-                : "Connect to a paired host that supports the building workbench.";
-            RefreshCreationAvailability();
-        };
-        menuActions.AddChild(menuCreationButton);
+        modLibraryButton.Text = "Mod Library";
+        StyleButton(modLibraryButton);
+        modLibraryButton.Pressed += ShowModLibrary;
+        menuActions.AddChild(modLibraryButton);
 
         developerToggleButton.Text = "Developer tools";
         StyleButton(developerToggleButton);
         developerToggleButton.Pressed += () =>
         {
-            developerScroll.Visible = !developerScroll.Visible;
-            settingsPanel.Hide();
+            settingsScroll.Hide();
+            developerScroll.Show();
+            gameSettingsCategoryButton.Disabled = false;
+            worldSettingsCategoryButton.Disabled = registration is null;
+            developerToggleButton.Disabled = true;
             ApplyResponsiveLayout();
         };
-        menuActions.AddChild(developerToggleButton);
 
         menuQuitToMainButton.Text = "Quit to Menu";
         StyleButton(menuQuitToMainButton);
         menuQuitToMainButton.Pressed += () => quitToMenuConfirmation.PopupCentered(new Vector2I(470, 180));
         menuActions.AddChild(menuQuitToMainButton);
 
-        quitGameButton.Text = "Quit Game";
-        StyleButton(quitGameButton);
-        quitGameButton.Pressed += () => quitGameConfirmation.PopupCentered(new Vector2I(440, 170));
-        menuActions.AddChild(quitGameButton);
         quitGameConfirmation.Title = "Quit ClankerWorld?";
         quitGameConfirmation.DialogText = "Quit the game? Your committed world progress remains saved.";
         quitGameConfirmation.Confirmed += () => GetTree().Quit();
@@ -2409,13 +2417,10 @@ public partial class Main : Control
         settingsPages.AddChild(gameSettingsContent);
         settingsPages.AddChild(worldSettingsContent);
         worldSettingsContent.Hide();
-        var settingsScroll = new ScrollContainer
-        {
-            CustomMinimumSize = new Vector2(0, 340),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
-        };
+        settingsScroll.CustomMinimumSize = new Vector2(0, 340);
+        settingsScroll.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        settingsScroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        settingsScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         settingsScroll.AddChild(settingsPages);
         var settingsCategories = new VBoxContainer { CustomMinimumSize = new Vector2(130, 0) };
         gameSettingsCategoryButton.Text = "Game";
@@ -2426,6 +2431,7 @@ public partial class Main : Control
         StyleButton(worldSettingsCategoryButton);
         worldSettingsCategoryButton.Pressed += () => ShowSettingsSection(worldSpecific: true);
         settingsCategories.AddChild(worldSettingsCategoryButton);
+        settingsCategories.AddChild(developerToggleButton);
         gameSettingsCategoryButton.Disabled = true;
         var settingsLayout = new HBoxContainer();
         settingsLayout.AddThemeConstantOverride("separation", 10);
@@ -2434,8 +2440,10 @@ public partial class Main : Control
         AddPanelContents(settingsPanel, "Settings", settingsLayout);
         settingsPanel.Hide();
         body.AddChild(settingsPanel);
+        BuildModLibrary(body);
 
         developerScroll.CustomMinimumSize = new Vector2(0, 440);
+        developerScroll.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         developerScroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
         developerScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         developerBody.AddThemeConstantOverride("separation", 8);
@@ -2510,7 +2518,7 @@ public partial class Main : Control
         developerBody.AddChild(NewPanel("Paired-device management · signed server requests", deviceManagementBody));
 
         developerScroll.Hide();
-        body.AddChild(developerScroll);
+        settingsLayout.AddChild(developerScroll);
         AddPanelContents(gameMenuPanel, body);
         gameMenuPanel.ZIndex = 100;
         gameMenuPanel.Hide();
@@ -2822,6 +2830,7 @@ public partial class Main : Control
         gameMenuPanel.Hide();
         menuShade.Hide();
         settingsPanel.Hide();
+        modLibraryPanel.Hide();
         developerScroll.Hide();
         menuPausedWorld = false;
     }
@@ -3009,7 +3018,7 @@ public partial class Main : Control
             UpdateFamilyTreeStatus();
         }
         RenderWorldDetails(snapshot);
-        RenderDesignPackages(snapshot);
+        RenderModLibrary(snapshot);
         RenderEventLog();
         ShowImportantEventNotice(snapshot, appendedEvents);
         RefreshControlAvailability();
@@ -3618,7 +3627,6 @@ public partial class Main : Control
     private void RefreshControlAvailability()
     {
         var paired = !registeredEndpointInvalid && registration is not null && deviceKey is not null;
-        worldSettingsButton.Disabled = !paired || !isInWorld || returnToMainMenu;
         worldSettingsCategoryButton.Disabled = !paired || !isInWorld || returnToMainMenu ||
             worldSettingsContent.Visible;
         var snapshot = observationSession.Current?.Baseline.Snapshot;
@@ -3702,7 +3710,6 @@ public partial class Main : Control
         // visible comparison value stable until it expires or activates.
         pairButton.Disabled = isPairingOperation || deviceKey is null || pendingPairing is not null || registration is not null;
         forgetRegistrationButton.Disabled = isPairingOperation || registration is null;
-        RefreshCreationAvailability();
     }
 
     private string SelectedAuthoringKind() => authoringKind.GetItemText(authoringKind.Selected);
@@ -3852,7 +3859,7 @@ public partial class Main : Control
 
     private void HandleMapInput(InputEvent @event)
     {
-        if (gameMenuPanel.Visible || creationOverlay.Visible ||
+        if (gameMenuPanel.Visible ||
             renderedMapSnapshot is not { } snapshot || !HasMap(snapshot))
         {
             return;
@@ -3907,7 +3914,7 @@ public partial class Main : Control
     private void UpdateTileHover(Vector2 canvasPosition)
     {
         if (renderedMapSnapshot is not { } snapshot || !HasMap(snapshot) ||
-            gameMenuPanel.Visible || creationOverlay.Visible ||
+            gameMenuPanel.Visible ||
             canvasPosition.X < 0 || canvasPosition.Y < 0 ||
             canvasPosition.X >= mapCanvas.Size.X || canvasPosition.Y >= mapCanvas.Size.Y)
         {
@@ -3933,7 +3940,7 @@ public partial class Main : Control
     public override void _UnhandledKeyInput(InputEvent @event)
     {
         if (@event is not InputEventKey { Pressed: true } key || mainMenuOverlay.Visible || gameMenuPanel.Visible ||
-            creationOverlay.Visible || GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit)
+            GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit)
         {
             return;
         }
@@ -4170,11 +4177,6 @@ public partial class Main : Control
 
         statusLabel.Text = text;
         statusLabel.Modulate = new Color(good ? "B9E8C5" : "F0B6A6");
-        if (creationOverlay.Visible)
-        {
-            designStatus.Text = text;
-            designStatus.Modulate = statusLabel.Modulate;
-        }
         statusToast.Show();
         ApplyResponsiveLayout();
     }

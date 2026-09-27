@@ -14,7 +14,6 @@ public partial class Main
     private readonly Button mainMenuConnectButton = new();
     private readonly Button mainMenuLoadButton = new();
     private readonly Button menuQuitToMainButton = new();
-    private readonly Button menuCreationButton = new();
     private readonly Button menuSaveWorldButton = new();
     private readonly Control worldMenuOverlay = new();
     private readonly PanelContainer worldMenuCard = new();
@@ -106,10 +105,10 @@ public partial class Main
         mainMenuConnectButton.Pressed += () => _ = OpenMainMenuConnectionAsync();
         body.AddChild(mainMenuConnectButton);
 
-        var quit = new Button { Text = "Quit Game" };
-        StyleButton(quit);
-        quit.Pressed += () => quitGameConfirmation.PopupCentered(new Vector2I(440, 170));
-        body.AddChild(quit);
+        quitGameButton.Text = "Quit Game";
+        StyleButton(quitGameButton);
+        quitGameButton.Pressed += () => quitGameConfirmation.PopupCentered(new Vector2I(440, 170));
+        body.AddChild(quitGameButton);
 
         AddPanelContents(mainMenuCard, body);
         mainMenuCard.CustomMinimumSize = new Vector2(440, 0);
@@ -205,12 +204,14 @@ public partial class Main
 
     private void SetWorldMenuActionsVisible(bool visible)
     {
+        menuResumeButton.Visible = !visible;
         menuSaveWorldButton.Visible = visible;
-        worldSettingsButton.Visible = visible;
+        settingsButton.Visible = visible;
+        modLibraryButton.Visible = visible;
         worldSettingsCategoryButton.Visible = visible;
-        menuCreationButton.Visible = visible;
         developerToggleButton.Visible = visible;
         menuQuitToMainButton.Visible = visible;
+        modLibraryPanel.Hide();
     }
 
     private void BuildWorldMenu()

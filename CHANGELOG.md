@@ -8,6 +8,12 @@ release yet.
 
 ### Fixed
 
+- The Pause Menu now shows Save World, Settings, Mod Library, and Quit to Menu
+  in a compact vertical order, with Quit to Menu last. Game and World are
+  categories inside Settings; Quit Game remains on the Main Menu. The old
+  player-facing Create building workbench has been removed, while existing
+  agent proposals remain recorded and visible in the read-only world package
+  list.
 - Main Menu Settings keeps the title-screen background, and selecting the
   already-active Settings page no longer closes it. Game Settings now separates
   physical Window Size from Render Resolution; both choices are remembered

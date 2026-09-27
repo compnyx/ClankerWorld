@@ -63,14 +63,6 @@ the resolution evidence below.
   checkpoint with that name; the client has no select-and-overwrite action.
   Intended behavior: select a specific existing checkpoint and confirm its
   overwrite, with New Save separate. Recovery/backup behavior remains open.
-- **Pause Menu layout and labels — confirmed mismatch:** the client lays out
-  eight actions in a three-column grid across three rows. It exposes separate
-  Game Settings and World Settings buttons, plus `Create`. The intended menu
-  is compact, with Save World, Settings, Mod Library, then Quit to Menu always
-  at the bottom. It has one Settings entry, with Game and World inside it;
-  Quit Game belongs to the Main Menu, not the Pause Menu.
-  The player-facing `Create` building-design workbench is a pre-revision
-  prototype and should be removed; agent-driven invention remains in scope.
 - **Generated vegetation is not represented as forest objects/art — confirmed
   gap:** forest currently means a ground-kind/color and sparse resource sites;
   the Godot terrain renderer draws colored rectangles, not individual tree
