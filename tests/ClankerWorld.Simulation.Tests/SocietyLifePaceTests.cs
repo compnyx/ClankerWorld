@@ -135,16 +135,24 @@ public sealed class SocietyLifePaceTests
     }
 
     [Fact]
-    public void OldPausedPrivateSaveIsUnchangedUntilOwnerExplicitlySelectsPace()
+    public void OldPausedPrivateSaveMigratesWithoutChangingPaceUntilOwnerSelectsAnotherPace()
     {
         using var seed = new PrivateWorldRuntime("life-migration");
         seed.Pause();
         var old = seed.ExportState() with { SchemaVersion = 9 };
-        var bytes = PrivateWorldRuntimeCodec.Encode(old);
+        var legacyBytes = PrivateWorldRuntimeCodec.Encode(old);
         using var world = PrivateWorldRuntime.Restore(old);
-        Assert.Equal(bytes, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, world.ExportState().SchemaVersion);
+        Assert.Null(world.Society.LifeClock);
+        Assert.True(world.Society.IsPaused);
+        var migratedBytes = PrivateWorldRuntimeCodec.Encode(world.ExportState());
+        Assert.NotEqual(legacyBytes, migratedBytes);
+        Assert.Equal(
+            PrivateWorldRuntimeCodec.Encode(old with { SchemaVersion = PrivateWorldRuntime.StateSchemaVersion }),
+            migratedBytes);
         Assert.False(world.SetLifePace(1));
-        Assert.Equal(bytes, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        Assert.Null(world.Society.LifeClock);
+        Assert.Equal(migratedBytes, PrivateWorldRuntimeCodec.Encode(world.ExportState()));
         Assert.True(world.SetLifePace(365));
         Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, world.ExportState().SchemaVersion);
         Assert.Equal(365, world.Society.LifeClock!.Rate);
