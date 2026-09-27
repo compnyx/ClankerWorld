@@ -8,6 +8,9 @@ release yet.
 
 ### Fixed
 
+- Regional rain, snow and storm conditions now draw bounded top-down cloud and
+  precipitation marks over camera-visible terrain, including wrapped world
+  seams. Clear regions stay unobscured; the effects are presentation only.
 - Agents no longer have an energy meter, passive energy drain, sleep action,
   bedroll recovery, or energy gates on work, social life and exploration. Food
   and severe-weather effects remain. New worlds omit bedrolls and bedding;

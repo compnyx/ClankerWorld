@@ -623,7 +623,8 @@ public partial class Main : Control
                 worldOverview.VisibleTiles.Size.X >= 256)
                 throw new InvalidOperationException($"A regional map must draw only the visible terrain without per-tile nodes: children={terrainLayer.GetChildCount()}, visible={terrainLayer.VisibleTileCount}, overview={worldOverview.VisibleTiles.Size}.");
             if (climateLabel.Text != "Spring · Rain" ||
-                !worldInfoText.Text.Contains("Soil moisture nearby: 78/100", StringComparison.Ordinal))
+                !worldInfoText.Text.Contains("Soil moisture nearby: 78/100", StringComparison.Ordinal) ||
+                terrainLayer.WeatherAt(150, 80) != "rain" || terrainLayer.WeatherAt(20, 20) != "snow")
                 throw new InvalidOperationException("The world HUD and info must show weather and moisture at the camera.");
             var beforeLargePan = worldOverview.VisibleTiles.Position;
             CenterCameraAt(new Vector2(20, 20));
@@ -638,6 +639,7 @@ public partial class Main : Control
             {
                 WorldId = "ui-wrapped-map",
                 WrapsEastWest = true,
+                WeatherRegions = [.. largeMap.WeatherRegions, new OwnerWeatherRegion(7, 2, "storm", 40)],
                 Resources = [new OwnerWorldResource("seam-wood", "construction", new(255, 64),
                     true, "available", 5, 10, 0, 0, "spring")],
             };
@@ -646,6 +648,7 @@ public partial class Main : Control
             if (worldOverview.VisibleTiles.Position.X >= 0 ||
                 terrainLayer.VisibleTileCount >= largeTerrain.Length / 2 ||
                 !worldOverview.WrapsEastWest ||
+                terrainLayer.WeatherAt(-1, 70) != "storm" ||
                 TileAtCanvas(mapCanvas.Size / 2 - new Vector2(2 * currentTileSize, 0), wrappedMap).X != 254)
                 throw new InvalidOperationException("Wrapped camera must render and target the western seam without an empty edge.");
             var seamMarker = mapObjectVisuals["resource:seam-wood"];
@@ -805,7 +808,7 @@ public partial class Main : Control
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
             quitGameConfirmation.Hide();
-            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, private thoughts, memories, deceased inspection and family tree.");
+            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain and regional weather, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, private thoughts, memories, deceased inspection and family tree.");
             GetTree().Quit();
         }
         catch (Exception exception)
@@ -3268,6 +3271,7 @@ public partial class Main : Control
             worldOverview.SetWorld(terrainMap);
         }
         terrainLayer.SetTrees(snapshot.Resources);
+        terrainLayer.SetWeatherRegions(snapshot.WeatherRegionSize, snapshot.WeatherRegions);
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
         worldOverview.WrapsEastWest = snapshot.WrapsEastWest;

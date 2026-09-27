@@ -13,6 +13,8 @@ public partial class WorldTerrainLayer : Control
     private bool wrapsEastWest;
     private Vector2I? hoveredTile;
     private byte[] trees = [];
+    private int weatherRegionSize = 32;
+    private readonly Dictionary<Vector2I, string> weatherRegions = [];
 
     public int VisibleTileCount { get; private set; }
 
@@ -34,7 +36,31 @@ public partial class WorldTerrainLayer : Control
                 image.SetPixel(x, y, WorldTerrainMap.ColorFor(map.At(x, y)));
         paletteTexture = ImageTexture.CreateFromImage(image);
         trees = new byte[checked(map.Width * map.Height)];
+        weatherRegions.Clear();
         QueueRedraw();
+    }
+
+    public void SetWeatherRegions(int regionSize, IReadOnlyList<OwnerWeatherRegion> regions)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(regionSize);
+        ArgumentNullException.ThrowIfNull(regions);
+        var next = regions.ToDictionary(region => new Vector2I(region.X, region.Y),
+            region => region.Weather.ToLowerInvariant());
+        if (regionSize == weatherRegionSize && next.Count == weatherRegions.Count &&
+            next.All(entry => weatherRegions.TryGetValue(entry.Key, out var existing) && existing == entry.Value))
+            return;
+        weatherRegionSize = regionSize;
+        weatherRegions.Clear();
+        foreach (var entry in next) weatherRegions.Add(entry.Key, entry.Value);
+        QueueRedraw();
+    }
+
+    public string WeatherAt(int x, int y)
+    {
+        if (world is null || y < 0 || y >= world.Height || (!wrapsEastWest && (x < 0 || x >= world.Width)))
+            return "unknown";
+        var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
+        return weatherRegions.GetValueOrDefault(new Vector2I(canonicalX / weatherRegionSize, y / weatherRegionSize), "clear");
     }
 
     public void SetTrees(IReadOnlyList<OwnerWorldResource> resources)
@@ -153,6 +179,7 @@ public partial class WorldTerrainLayer : Control
                 }
             }
         }
+        DrawWeatherClouds(bounds, stride);
         // Trees are objects, not baked ground colors: keep them visible both
         // above full-size tiles and above the small-tile palette cache.
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
@@ -161,6 +188,7 @@ public partial class WorldTerrainLayer : Control
             var tree = trees[y * world.Width + (wrapsEastWest ? Mod(x, world.Width) : x)];
             if (tree != 0) DrawTree(new Vector2(x * stride, y * stride), tree);
         }
+        DrawPrecipitation(bounds, stride);
         if (hoveredTile is { } hover && tileSize > 0 &&
             hover.Y >= bounds.Top && hover.Y < bounds.Top + bounds.Height)
         {
@@ -176,6 +204,64 @@ public partial class WorldTerrainLayer : Control
     }
 
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;
+
+    private void DrawWeatherClouds((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || weatherRegions.Count == 0) return;
+        // Region bands are clipped to the visible map, so broad clouds need
+        // neither per-tile nodes nor a full-world weather texture.
+        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y += 6)
+        for (var x = bounds.Left; x < bounds.Left + bounds.Width; x += 6)
+        {
+            var weather = WeatherAt(x, y);
+            if (weather is not ("rain" or "snow" or "storm")) continue;
+            var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
+            var left = canonicalX / weatherRegionSize * weatherRegionSize;
+            var top = y / weatherRegionSize * weatherRegionSize;
+            var radiusTiles = Math.Min(2.2f, Math.Min(
+                Math.Min(canonicalX + 3 - left, left + weatherRegionSize - canonicalX - 3),
+                Math.Min(y + 3 - top, top + weatherRegionSize - y - 3)));
+            if (radiusTiles <= 0) continue;
+            var center = new Vector2((x + 3) * stride, (y + 3) * stride);
+            var radius = radiusTiles * stride;
+            DrawCircle(center, radius, weather == "storm"
+                ? new Color(0.13f, 0.20f, 0.25f, 0.13f)
+                : new Color(0.88f, 0.94f, 0.96f, 0.10f));
+        }
+    }
+
+    private void DrawPrecipitation((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || weatherRegions.Count == 0 || tileSize < 8) return;
+        // One mark per four-by-four tile cell remains legible at overview zoom
+        // and bounds draw work by the camera rather than world size.
+        var firstX = bounds.Left - Mod(bounds.Left, 4);
+        var firstY = bounds.Top - Mod(bounds.Top, 4);
+        for (var y = firstY; y < bounds.Top + bounds.Height; y += 4)
+        for (var x = firstX; x < bounds.Left + bounds.Width; x += 4)
+        {
+            if (x < bounds.Left || y < bounds.Top) continue;
+            var weather = WeatherAt(x, y);
+            if (weather is not ("rain" or "snow" or "storm")) continue;
+            var hash = unchecked((uint)(x * 73856093) ^ (uint)(y * 19349663));
+            var markX = x + 1 + (int)(hash % 3);
+            var markY = y + 1 + (int)((hash >> 8) % 3);
+            if (WeatherAt(markX, markY) != weather) continue;
+            var position = new Vector2(markX * stride, markY * stride);
+            if (weather == "snow")
+            {
+                DrawCircle(position, Math.Max(1.5f, tileSize * 0.08f),
+                    new Color(0.98f, 0.99f, 1f, 0.75f));
+            }
+            else
+            {
+                var length = Math.Max(3f, tileSize * (weather == "storm" ? 0.55f : 0.38f));
+                DrawLine(position, position + new Vector2(-length * 0.34f, length),
+                    new Color(0.70f, 0.86f, 1f, weather == "storm" ? 0.82f : 0.64f),
+                    Math.Max(1f, tileSize * 0.045f));
+            }
+        }
+    }
 
     private void DrawTree(Vector2 position, byte tree)
     {
