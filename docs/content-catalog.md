@@ -138,8 +138,10 @@ occupants, stocks and ownership, not visible room interiors.
 
 Computment wants a complete, concrete catalogue of final-game tools, items,
 foods, objects and visual assets rather than a vague list of building roles.
-That catalogue is **not selected yet**. Use this sheet as its working home;
-do not infer that an example below is a locked recipe, quantity or sprite.
+The [finished-game asset roster](finished-game-asset-roster.md) now proposes a
+base set for review; it is **not selected or approved yet**. This sheet retains
+the current-versus-vision comparison. Do not infer that an example below is a
+locked recipe, quantity or sprite.
 For every eventual entry, record its source or recipe, tool gate, purpose,
 storage/ownership, trade use, visual asset/variants, and whether it is a
 starting item, later production, agent invention or late-game content.
@@ -155,6 +157,7 @@ starting item, later production, agent invention or late-game content.
 | Trade and knowledge goods | Tools, food, maps, records and books | What can be sold, copied, learned, carried and displayed |
 | Animals and transport | Livestock, mounts, boats | Detailed roster deferred until later development |
 
-**Next pass:** select exact starter supplies and first-tier tools; then fill
-the remaining food, resource, tool, building and object rosters in dependency
-order. No invented costs, occupant limits or recipe stats are approved here.
+**Next pass:** review the proposed roster with computment, then select exact
+starter supplies and first-tier tools and fill the accepted entries in
+dependency order. No invented costs, occupant limits or recipe stats are
+approved here.

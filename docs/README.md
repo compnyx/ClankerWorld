@@ -17,6 +17,7 @@ identifier reset intentionally required a fresh save and device pairing.
 | How are the current client, simulation, saves and model calls separated? | [Architecture](architecture.md) |
 | Which confirmed problems or unverified fixes remain? | [Known bugs](bugs.md) |
 | Which content exists now, and where are the intended building/item/food/asset rosters being defined? | [Content catalogue and review sheet](content-catalog.md) |
+| What is the proposed complete-game base asset roster for review? | [Finished-game asset roster](finished-game-asset-roster.md) |
 
 Development references: [build and test](building.md), [current private-host
 pairing](pairing.md), and [release/version policy](releasing.md).
@@ -37,6 +38,9 @@ pairing](pairing.md), and [release/version policy](releasing.md).
   immediate implementation focus without creating another vision document.
 - The **content catalogue** is a review sheet joining current definitions to
   open design questions; it does not approve costs, contents or future roster.
+- The **finished-game asset roster** is a proposal to review, not owner intent
+  or a claim of implemented assets. Accepted choices move into the vision
+  ledger; rejected choices leave the roster.
 - Keep these answers separate. Update the affected current document when
   behavior or policy changes; link to it instead of maintaining another copy.
 

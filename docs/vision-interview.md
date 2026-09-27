@@ -631,9 +631,10 @@ food supply and some tools are guaranteed** so the first Town can begin.
 Exact item names, quantities, suitability scoring, placement controls, what
 a redo preserves, available supply choices, and whether any nonguaranteed
 building can appear at start remain open. The
-[content catalogue](content-catalog.md)
-is the working home for the eventual complete tool/item/food/object/art roster;
-the roster is not yet selected.
+[content catalogue](content-catalog.md) compares current definitions with the
+vision; a [finished-game asset roster](finished-game-asset-roster.md) now
+proposes the complete base tool/item/food/object/art set for review. Its added
+choices are not yet selected or approved.
 
 ### Open
 
