@@ -49,8 +49,9 @@ the resolution evidence below.
   river tiles are impassable, and no Road or bridge system exists yet. Intended
   one-tile river crossings are slower on foot; sufficiently used crossings can
   automatically gain bridges. Town-generated Roads, not walking alone, serve
-  building placement and possible links between Towns. Exact construction,
-  route and material rules remain open.
+  building placement and automatic links between Towns. Bridges need spacing
+  so they do not appear next to one another. Exact routes, bridge radius and
+  materials remain open.
 - **Agents rarely pursue non-survival activity — playtest report with confirmed
   candidate gap:** there is no ordinary exploration/curiosity candidate in the
   playable decision list. Low hunger/energy or urgent weather exposure can

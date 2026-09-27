@@ -7,11 +7,13 @@ updated: 2026-09-27
 
 # Buildings, objects, and terrain — current vs vision
 
-This is a **review sheet**, not an implemented-content list. “Current” describes
+This is a **review sheet**, not a claim that intended content is implemented.
+“Current” describes
 the normal private-world prototype's source as of 2026-09-27. “Vision” points
 to the [current decision ledger](vision-interview.md); the building and starter
-catalogues are being reconciled. Put final choices in that ledger, then update this
-sheet. The [current-state report](current-state.md) owns playable-status claims.
+catalogues are being reconciled. Put final choices in that ledger, then update
+this sheet. The [current-state report](current-state.md) owns playable-status
+claims.
 
 ## Important distinction
 
@@ -32,7 +34,7 @@ already placed in the world.
 
 | Definition | Cost | Capacity field | Current function / recipes | Inside today | Vision review |
 | --- | --- | ---: | --- | --- | --- |
-| Shelter | 8 wood | 4 | Nearby weather protection; currently improves rest | No rooms or assigned household/home | **Replace with House**; household-exclusive food/storage, cooking, storm refuge, childcare; no occupant cap or sleep role |
+| Shelter | 8 wood | 4 | Nearby weather protection; currently improves rest | No rooms or assigned household/home | **Replace with House**; private food/storage, cooking, storm refuge, childcare; unlimited household occupants, invited visitors, no sleep role |
 | Storehouse | 6 wood | 4 | Presence reduces household food spoilage | No per-building inventory or shelves | **Replace with Warehouse**; inspectable resources at location, available to residents of its Town; no food storage |
 | Cooking fire | 4 wood | 1 | Heat when fuelled; meal: 2 food + 1 wood → 4 food, 12 ticks | No interior | **Remove as separate building**; cooking belongs in House |
 | Workshop | 10 wood | 1 | Tools: 3 wood → 1 tool, 20 ticks | No interior | **Keep** for inventions/mods, including access by outsiders; tool-production split with Blacksmith open |
@@ -66,8 +68,8 @@ Sources: [starter](../src/ClankerWorld.Simulation/Playtest/StarterContent.cs),
 | Campfire | 1 | Map object at the camp; not the buildable Cooking fire definition | **Remove**; House cooks |
 | Shelter | 2 | Camp markers/occupied tiles; not assigned agent homes | Replace with **two actual Houses** |
 | Storage | 1 | Camp marker/occupied tile; not a per-building inventory | Replace with **Warehouse** |
-| Workshop | 1 | Camp marker/occupied tile; separate from buildable Workshop | Whether it starts present is open |
-| Path | 1 marker | Does not constitute a Road network | Rename **Road**; Town generation produces Roads with buildings |
+| Workshop | 1 | Camp marker/occupied tile; separate from buildable Workshop | Not guaranteed at start; later invention role stays |
+| Path | 1 marker | Does not constitute a Road network | Rename **Road**; generated Roads immediately connect starter Houses and Warehouse |
 
 These come from [base-camp generation](../src/ClankerWorld.Simulation/Harness/SeededWorldHarness.cs).
 The normal generated world has four founders added during paused setup; the
@@ -96,21 +98,26 @@ change through harvesting. Source:
 | --- | --- | --- |
 | Meadow, sand, forest, snow | Passable and buildable ground | Forest is mostly a **color/ground kind**, not generated trees |
 | Mountain, peak | Impassable and not buildable | Visible regions wanted; travel rules open; no construction remains current vision |
-| River, lake, ocean, fixture water | Impassable and not buildable | Narrow-river foot crossing and later bridge preferred; wider water needs boats/ports |
+| River, lake, ocean, fixture water | Impassable and not buildable | One-tile river crossing slower on foot; traffic may create a spaced bridge; wider water needs boats/ports |
 
 The terrain renderer currently draws colored tiles and a few glyphs, not a
 finished foliage/object art layer. Sources:
 [map rules](../src/ClankerWorld.Simulation/Harness/SeededWorldHarness.cs),
 [renderer](../src/ClankerWorld.GodotClient/UI/WorldTerrainLayer.cs).
 
-## Intended content roles — **not implemented catalogue entries**
+## Intended content roles — **not implemented as described**
+
+The only guaranteed starter buildings are **two Houses and one Warehouse**,
+joined immediately by generated Roads. Other entries may develop later; none
+is guaranteed at New World creation. Building inspection uses a panel for
+occupants, stocks and ownership, not visible room interiors.
 
 | Concept | Intended role | Current interview status |
 | --- | --- | --- |
-| House | Household-only entry, unlimited household occupants, private food/resources, cooking, storm refuge, childcare/property | **Decided role**; footprint, contents UI and cooking recipes open |
+| House | Household members and invited visitors; no occupant limit, private food/resources only accessible to members inside; cooking, storm refuge, childcare/property | **Decided role**; footprint, invitation details and cooking recipes open |
 | Warehouse | Town-resident communal resources, physically inspectable stock | **Decided role**; residency and border changes open |
 | Workshop | Inventions/mods, accessible to outsiders | **Decided role**; other crafting jobs and starter presence open |
-| Farm fields + Farmhouse | Household plants/tends/harvests fertile fields; Farmhouse processes crops | **Decided role**; work/recipe details and farm cap by Town size open |
+| Farm fields + Farmhouse | Household plants/tends/harvests fertile fields; Farmhouse processes crops | **Decided role**; farm cap depends on Town population and yields; exact formula open |
 | Farm Silo or linked store | Private farm work stock | **Preferred**, exact form and access open |
 | Blacksmith | Household-owned tool business with internal work stock | **Decided role**; recipes/tier progression open |
 | Clothing-making building | Makes clothing as a distinct business | **Decided role**, name and chain open; Tailor Shop is Clanker's suggestion |
@@ -119,11 +126,11 @@ finished foliage/object art layer. Sources:
 | Restaurant | Optional agent-founded business that buys ingredients and sells cooked meals | **Decided possible building**; quality/pricing open |
 | Town Hall | Town governance | **Decided role**; timing/mechanics open |
 | Port | Boat access | **Decided role**; timing/mechanics open |
-| Roads and bridges | Roads generated with Town buildings and perhaps between Towns; traffic may trigger bridges | **Decided direction**; layout, permanence, bridge thresholds open |
+| Roads and bridges | Fast Roads appear with Town buildings and connect Towns automatically; traffic may add bridges with minimum spacing | **Decided direction**; layout, permanence, bridge threshold/radius open |
 | Trees, stumps, seeds and regrowth | Physical harvestable forest with regrowth and planting | **Decided direction**; ecology rates/art open |
-| Iron, gold, diamond, more materials/tools | Advancement and crafting | **Decided direction**; tool-resource tier order must be clarified to avoid cycle |
+| Iron, gold, diamond, more materials/tools | Wood tools → stone → stone tools → iron → iron tools → rarer materials | **Decided starting ladder**; higher tiers and uses open |
 | Livestock and mounts | Care, production or transport | Finished-game scope, detailed design deferred |
 
-**Next pass:** settle tool tiers, the starter extras, exact field/Silo model,
-business ownership and building access, and what “inside” means visually.
+**Next pass:** settle higher tool tiers, exact field/Silo model, business
+ownership and access, and the remaining road/border/stock edge cases.
 No invented costs, occupancy limits or recipe stats are approved here.

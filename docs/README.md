@@ -16,7 +16,7 @@ identifier reset intentionally required a fresh save and device pairing.
 | What actually works in the Godot/private-VPS prototype today? | [Current state](current-state.md) |
 | How are the current client, simulation, saves and model calls separated? | [Architecture](architecture.md) |
 | Which confirmed problems or unverified fixes remain? | [Known bugs](bugs.md) |
-| Which buildings, camp objects, resources and terrain exist now versus the reopened vision? | [Content catalogue and review sheet](content-catalog.md) |
+| Which buildings, camp objects, resources and terrain exist now versus the intended roles? | [Content catalogue and review sheet](content-catalog.md) |
 
 Development references: [build and test](building.md), [current private-host
 pairing](pairing.md), and [release/version policy](releasing.md).
