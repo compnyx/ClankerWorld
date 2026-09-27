@@ -1,3 +1,10 @@
+---
+title: Selected-Tile Inspection Prototype Review
+type: prototype-review
+status: proposal
+updated: 2026-09-28
+---
+
 # Selected-tile inspection prototype
 
 Status: **reviewable prototype, not a finished-game decision** ([issue #142](https://github.com/compoodment/ClankerWorld/issues/142)).
