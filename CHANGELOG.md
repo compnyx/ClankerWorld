@@ -16,6 +16,11 @@ release yet.
   decisions; after infancy they make safe local decisions until an explicit
   personal model is assigned in the agent card. Removing that assignment
   returns them to local decisions rather than another paid account.
+- Children now have age-appropriate choices to talk, play, learn by observing
+  an adult, and carry spare food home. These encounters persist as social
+  memories and trust. The world rejects adult-only work, trade, partnerships,
+  parenthood and council actions for children even if a model or owner request
+  tries to select one; infants still make no personal-model decisions.
 - Added a reviewable selected-tile inspection prototype. Clicking ground
   highlights the tile and shows observed terrain, objects, resources,
   buildings, regional weather and moisture. Elevation and fertility are

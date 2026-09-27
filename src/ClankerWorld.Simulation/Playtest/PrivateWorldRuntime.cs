@@ -2458,6 +2458,16 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         string candidateId,
         bool reportIdle)
     {
+        if (!AgePermitsCandidate(inhabitantId, candidateId))
+        {
+            AppendEvent("age_action_rejected", $"{inhabitantId}:{candidateId}");
+            return;
+        }
+        if (candidateId.StartsWith("child_", StringComparison.Ordinal))
+        {
+            ApplyChildCandidate(inhabitantId, state, candidateId);
+            return;
+        }
         if (candidateId.StartsWith("guardian_", StringComparison.Ordinal))
         {
             ApplyDependentCareCandidate(inhabitantId, candidateId);
@@ -2882,6 +2892,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         AddSurvivalCandidates(candidates, inhabitantId, state);
         AddDependentCareCandidates(candidates, inhabitantId);
+        if (state.HungerBasisPoints >= 3_500 && !HasUrgentExposure(state) && ChildResident(inhabitantId))
+        {
+            AddChildCandidates(candidates, inhabitantId, state);
+        }
         if (state.HungerBasisPoints >= 2_500 && AdultResident(inhabitantId))
         {
             var inhabitant = society.Checkpoint.GetInhabitant(inhabitantId);

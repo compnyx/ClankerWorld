@@ -28,15 +28,15 @@ public sealed partial class PrivateWorldRuntime
 
     private bool CanContinueLesson(string actor)
     {
-        if (!ReadyForLesson(actor) || HasCouncilDecision(actor) || HasTradeResponse(actor) || HasFamilyDecision(actor) || HasParenthoodDecision(actor) || HasDependentCareDecision(actor))
+        if (!AdultResident(actor) || !ReadyForLesson(actor) || HasCouncilDecision(actor) || HasTradeResponse(actor) || HasFamilyDecision(actor) || HasParenthoodDecision(actor) || HasDependentCareDecision(actor))
         {
             return false;
         }
         if (inhabitants[actor].Lesson is { Stage: "accepted" or "training" } lesson)
         {
-            return ReadyForLesson(lesson.TeacherId);
+            return ReadyForLesson(lesson.TeacherId) && AdultResident(lesson.TeacherId);
         }
-        return ActiveStudent(actor) is { } student && ReadyForLesson(student.InhabitantId);
+        return ActiveStudent(actor) is { } student && AdultResident(student.InhabitantId) && ReadyForLesson(student.InhabitantId);
     }
 
     private void MaintainLessons()
@@ -47,7 +47,7 @@ public sealed partial class PrivateWorldRuntime
             {
                 continue;
             }
-            if (!CanMentor(lesson.TeacherId, lesson.Role) ||
+            if (!AdultResident(person.InhabitantId) || !CanMentor(lesson.TeacherId, lesson.Role) ||
                 WorldTick - lesson.RequestedTick > (lesson.Stage == "requested" ? 120 : 600))
             {
                 SetLesson(person.InhabitantId, lesson with { Stage = "cancelled" });
@@ -107,6 +107,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void ApplyLearningCandidate(string actor, string candidate)
     {
+        if (!AdultResident(actor)) return;
         var person = inhabitants[actor];
         if (candidate.StartsWith("learn:", StringComparison.Ordinal))
         {
