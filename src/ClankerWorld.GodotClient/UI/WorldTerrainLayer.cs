@@ -9,6 +9,7 @@ public partial class WorldTerrainLayer : Control
     private Rect2 visibleTiles;
     private int tileSize;
     private int tileGap;
+    private Vector2I? hoveredTile;
 
     public int VisibleTileCount { get; private set; }
 
@@ -30,6 +31,15 @@ public partial class WorldTerrainLayer : Control
         tileGap = gap;
         var bounds = VisibleBounds();
         VisibleTileCount = bounds.Width * bounds.Height;
+        QueueRedraw();
+    }
+
+    public Vector2I? HoveredTile => hoveredTile;
+
+    public void SetHoveredTile(Vector2I? tile)
+    {
+        if (hoveredTile == tile) return;
+        hoveredTile = tile;
         QueueRedraw();
     }
 
@@ -62,6 +72,15 @@ public partial class WorldTerrainLayer : Control
                         marker, fontSize: Math.Clamp(tileSize / 5, 12, 28), modulate: new Color("E6F0E8"));
                 }
             }
+        }
+        if (hoveredTile is { } hover && tileSize > 0 &&
+            hover.X >= bounds.Left && hover.X < bounds.Left + bounds.Width &&
+            hover.Y >= bounds.Top && hover.Y < bounds.Top + bounds.Height)
+        {
+            var inset = tileSize >= 8 ? 1f : 0f;
+            DrawRect(new Rect2(new Vector2(hover.X * stride + inset, hover.Y * stride + inset),
+                new Vector2(tileSize - inset * 2, tileSize - inset * 2)),
+                new Color("FFF0B5"), filled: false, width: tileSize >= 8 ? 2 : 1);
         }
     }
 }

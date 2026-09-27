@@ -54,10 +54,12 @@ Pairing and provider credentials remain configured.
 The matching Windows artifact has not been tested on computment's laptop; a
 live model-wait playtest is still outstanding.
 
-In the repository client, agent map markers now persist across observation
-refreshes (so hover is not interrupted), and selected-agent warmth/illness/diet
-and equipment appear in a fixed card area. These client repairs await a new
-Windows artifact and computment's laptop check; the live host was not changed.
+In the repository client, agent map markers persist across observation
+refreshes (so hover is not interrupted), occupy bounded non-overlapping
+regions of their tile at supported zoom, and take priority over the new square
+ground-tile hover outline. Selected-agent warmth/illness/diet and equipment
+appear in a fixed card area. These client repairs await a new Windows artifact
+and computment's laptop check; the live host was not changed.
 
 Save schema 17 preserves the per-world Jev switch and incomplete four-agent setup; bounded private thoughts from accepted personal-model decisions, deceased records, optional bounded directed trust and work practice alongside biological
 life-clock anchors, parenthood preparation, practical lessons and council
@@ -100,7 +102,7 @@ continuing to update. Global events have no map destination.
 | Factions, law, currency and culture | **Integrated but thin** | A household council can change shared-food access by majority vote; persistent faction/currency/culture contracts exist | Broader institutions, currency circulation and contested law remain incomplete |
 | Content governance | **Integrated but thin** | Menu → Create provides named shelter/storage/hearth designs, isolated construction preview, durable player and experienced-builder proposals, separate validation/approval/staging and unused withdrawal; active designs enter inhabitant planning | Bounded 1×1 buildings only; no general recipe/asset invention; committed references require explicit migration before removal |
 | Asset governance | **Verified primitive** | Provenance, rights metadata, quotas, cache/reservation accounting, preview contracts and artifact envelopes | No end-to-end creator/approval experience and no production art pipeline |
-| Client presentation | **Playable** | Startup Main Menu with Continue, New World, Load World, Settings, pairing and Quit Game. New World previews its deterministic terrain and marked camp with balanced/uniform/dominant climate and Sparse/Normal/Abundant resource choices, then creates a paused camp; starting-agent setup and Start World happen in-world. The pause menu owns Save World/Load Save. In-world panels cover shared stores, work, social notes and agent settings. The repository client no longer draws dark gaps between square terrain tiles | Continent controls and the intended player-chosen rough camp site, suitability overlay, and generated starter layout remain missing. Prototype visuals and no dedicated economy/project management screen |
+| Client presentation | **Playable** | Startup Main Menu with Continue, New World, Load World, Settings, pairing and Quit Game. New World previews its deterministic terrain and marked camp with balanced/uniform/dominant climate and Sparse/Normal/Abundant resource choices, then creates a paused camp; starting-agent setup and Start World happen in-world. The pause menu owns Save World/Load Save. In-world panels cover shared stores, work, social notes and agent settings. The repository client draws gapless square terrain, highlights hovered ground tiles, and keeps agent hover/selection targets inside their tiles | Continent controls and the intended player-chosen rough camp site, suitability overlay, and generated starter layout remain missing. Prototype visuals and no dedicated economy/project management screen |
 | Multiplayer/public worlds | **Excluded** | Single-player only by owner decision | Multiple paired owner devices are not multiplayer |
 | Executable generated mods | **Planned/disabled** | Data-only packages are fail-closed | No sandbox has been selected; arbitrary generated code does not run on the host |
 

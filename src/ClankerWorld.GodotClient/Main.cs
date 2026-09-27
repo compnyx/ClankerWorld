@@ -26,9 +26,7 @@ public partial class Main : Control
     private readonly GameDisplayPreferencesStore displayPreferencesStore = new(
         ProjectSettings.GlobalizePath("user://game-display-preferences.json"));
     private readonly Dictionary<long, OwnerWorldEvent> knownEvents = [];
-    private readonly Dictionary<string, OwnerWorldPosition> renderedInhabitantPositions =
-        new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Button> inhabitantVisuals = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, AgentMarker> inhabitantVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Label> mapObjectVisuals = new(StringComparer.Ordinal);
 
     private readonly Label statusLabel = new();
@@ -433,12 +431,60 @@ public partial class Main : Control
                 !selectedActorConditionLabel.IsVisibleInTree() ||
                 !selectedInhabitantCard.GetGlobalRect().Encloses(selectedActorConditionLabel.GetGlobalRect()))
                 throw new InvalidOperationException("Agent hover targets and condition stats must survive observation refreshes.");
+            UpdateTileHover(founderButton.Position + mapStage.Position + founderButton.Size / 2);
+            if (terrainLayer.HoveredTile is not null)
+                throw new InvalidOperationException("An agent marker must take hover priority over its ground tile.");
+            UpdateTileHover(new Vector2(currentTileSize * 1.5f, currentTileSize * 0.5f) + mapStage.Position);
+            if (terrainLayer.HoveredTile != new Vector2I(1, 0))
+                throw new InvalidOperationException("The hovered ground tile must receive a square outline.");
+            selectedInhabitantId = null;
+            selectedInhabitantCard.Hide();
+            var agentClick = founderButton.GetGlobalRect().GetCenter();
+            GetViewport().PushInput(new InputEventMouseButton
+            {
+                Position = agentClick,
+                GlobalPosition = agentClick,
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            }, inLocalCoords: true);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (selectedInhabitantId != founder.Id)
+                throw new InvalidOperationException("Clicking an agent marker must select the agent before the ground tile.");
             selectedInhabitantId = null;
             RenderMap(sample with { Resources = [], PlacedBuildings = [] });
             if (inhabitantVisuals.ContainsKey(founder.Id))
                 throw new InvalidOperationException("Removed agent marker was retained.");
             if (mapObjectVisuals.ContainsKey("resource:wood")) throw new InvalidOperationException("Removed resource marker was retained.");
             if (mapObjectVisuals.ContainsKey("building:test-hall")) throw new InvalidOperationException("Removed building marker was retained.");
+            var crowded = sample with
+            {
+                WorldId = "ui-marker-bounds",
+                Tiles = Enumerable.Range(0, 64 * 64)
+                    .Select(index => new OwnerWorldTile(index % 64, index / 64, "meadow")).ToArray(),
+                Inhabitants = Enumerable.Range(0, 4)
+                    .Select(index => founder with { Id = $"crowded-{index}", Position = new OwnerWorldPosition(2, 2) })
+                    .ToArray(),
+                Resources = [],
+                PlacedBuildings = [],
+            };
+            foreach (var zoom in new[] { 1f, 2f, 4f })
+            {
+                cameraZoom = zoom;
+                RenderMap(crowded);
+                CenterCameraAt(new Vector2(2.5f, 2.5f));
+                var tileRect = new Rect2(new Vector2(2 * currentTileSize, 2 * currentTileSize),
+                    new Vector2(currentTileSize, currentTileSize));
+                var markers = crowded.Inhabitants.Select(person => inhabitantVisuals[person.Id]).ToArray();
+                if (markers.Any(marker => !tileRect.Encloses(new Rect2(marker.Position, marker.Size))) ||
+                    markers.Where((marker, i) => markers.Skip(i + 1)
+                        .Any(other => new Rect2(marker.Position, marker.Size).Intersects(
+                            new Rect2(other.Position, other.Size)))).Any())
+                    throw new InvalidOperationException($"Crowded marker hitboxes overflow or overlap at {currentTileSize}px tiles.");
+                UpdateTileHover(new Vector2(3.5f * currentTileSize, 2.5f * currentTileSize) + mapStage.Position);
+                if (terrainLayer.HoveredTile != new Vector2I(3, 2))
+                    throw new InvalidOperationException("An adjacent tile must not hit a crowded agent marker.");
+            }
+            RenderMap(sample with { Resources = [], PlacedBuildings = [] });
             var smallMapTileSize = currentTileSize;
             HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true });
             if (currentTileSize <= smallMapTileSize)
@@ -639,7 +685,7 @@ public partial class Main : Control
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
             quitGameConfirmation.Hide();
-            GD.Print("UI checks passed: startup Main Menu and settings, in-world menus/workbench, confirmed quit, settlement panel, resource hover, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, event jumps, event pop-ups, private thoughts, memories, deceased inspection and family tree.");
+            GD.Print("UI checks passed: startup Main Menu and settings, in-world menus/workbench, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain, zoom, middle-drag, WASD, overview navigation, event jumps, event pop-ups, private thoughts, memories, deceased inspection and family tree.");
             GetTree().Quit();
         }
         catch (Exception exception)
@@ -2045,6 +2091,7 @@ public partial class Main : Control
         worldOverviewPanel.Hide();
         mapCanvas.AddChild(worldOverviewPanel);
         mapCanvas.GuiInput += HandleMapInput;
+        mapCanvas.MouseExited += () => terrainLayer.SetHoveredTile(null);
         content.AddChild(mapCanvas);
     }
 
@@ -3001,7 +3048,7 @@ public partial class Main : Control
         {
             foreach (var visual in inhabitantVisuals.Values) visual.QueueFree();
             inhabitantVisuals.Clear();
-            renderedInhabitantPositions.Clear();
+            terrainLayer.SetHoveredTile(null);
             return;
         }
 
@@ -3063,53 +3110,44 @@ public partial class Main : Control
             .GroupBy(inhabitant => PositionKey(inhabitant.Position)))
         {
             var occupants = group.ToArray();
+            var columns = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(occupants.Length)));
+            var rows = (int)Math.Ceiling((double)occupants.Length / columns);
+            var cellWidth = (float)currentTileSize / columns;
+            var cellHeight = (float)currentTileSize / rows;
             for (var index = 0; index < occupants.Length; index++)
             {
                 var inhabitant = occupants[index];
                 var stride = currentTileSize + TileGap;
-                var actorSize = Math.Clamp(currentTileSize * 0.5f, 52, 78);
-                var offsetX = ((currentTileSize - actorSize) / 2) + ((index % 2) * 22);
-                var offsetY = ((currentTileSize - actorSize) / 2) + ((index / 2) * 22);
+                var inset = Math.Min(3f, Math.Min(cellWidth, cellHeight) / 8f);
+                var visualLimit = Math.Min(78f, currentTileSize * 0.55f);
+                var markerSize = new Vector2(Math.Min(cellWidth - 2 * inset, visualLimit),
+                    Math.Min(cellHeight - 2 * inset, visualLimit));
+                var offsetX = (index % columns) * cellWidth + (cellWidth - markerSize.X) / 2;
+                var offsetY = (index / columns) * cellHeight + (cellHeight - markerSize.Y) / 2;
                 var targetPosition = new Vector2(
                     inhabitant.Position.X * stride + offsetX,
                     inhabitant.Position.Y * stride + offsetY);
-                var activity = ActivityGlyph(inhabitant.PublicIntention?.CandidateId);
-                if (!inhabitantVisuals.TryGetValue(inhabitant.Id, out var actorButton))
+                if (!inhabitantVisuals.TryGetValue(inhabitant.Id, out var actorMarker))
                 {
-                    actorButton = new Button
+                    actorMarker = new AgentMarker
                     {
-                        Position = renderedInhabitantPositions.TryGetValue(inhabitant.Id, out var previousPosition)
-                        ? new Vector2(
-                            previousPosition.X * stride + offsetX,
-                            previousPosition.Y * stride + offsetY)
-                        : targetPosition,
-                        MouseFilter = Control.MouseFilterEnum.Pass,
+                        Position = targetPosition,
                         ZIndex = 10,
                     };
-                    actorButton.AddThemeColorOverride("font_color", Colors.White);
-                    actorButton.AddThemeFontSizeOverride("font_size", 15);
-                    actorButton.AddThemeStyleboxOverride("hover", ActorStyle(selected: true));
-                    actorButton.Pressed += () => SelectInhabitant(inhabitant.Id);
-                    entityLayer.AddChild(actorButton);
-                    inhabitantVisuals.Add(inhabitant.Id, actorButton);
+                    actorMarker.Activated += () => SelectInhabitant(inhabitant.Id);
+                    actorMarker.MouseEntered += RefreshTileHoverAtMouse;
+                    actorMarker.MouseExited += RefreshTileHoverAtMouse;
+                    entityLayer.AddChild(actorMarker);
+                    inhabitantVisuals.Add(inhabitant.Id, actorMarker);
                 }
-                var actorText = $"● {activity}\n{ActorLabel(inhabitant.DisplayName)}";
-                if (actorButton.Text != actorText) actorButton.Text = actorText;
+                actorMarker.Caption = $"{ActivityGlyph(inhabitant.PublicIntention?.CandidateId)} {ActorLabel(inhabitant.DisplayName)}";
                 var actorTooltip = $"{inhabitant.DisplayName} · {Pretty(inhabitant.Lifecycle)} · " +
                     (inhabitant.PublicIntention?.Summary ?? "taking in the world");
-                if (actorButton.TooltipText != actorTooltip) actorButton.TooltipText = actorTooltip;
-                actorButton.CustomMinimumSize = new Vector2(actorSize, actorSize);
-                actorButton.AddThemeStyleboxOverride("normal",
-                    ActorStyle(string.Equals(inhabitant.Id, selectedInhabitantId, StringComparison.Ordinal)));
-                if (actorButton.Position != targetPosition)
-                {
-                    CreateTween()
-                        .SetTrans(Tween.TransitionType.Sine)
-                        .SetEase(Tween.EaseType.InOut)
-                        .TweenProperty(actorButton, "position", targetPosition, 0.62);
-                }
+                if (actorMarker.TooltipText != actorTooltip) actorMarker.TooltipText = actorTooltip;
+                actorMarker.Selected = string.Equals(inhabitant.Id, selectedInhabitantId, StringComparison.Ordinal);
+                actorMarker.Position = targetPosition;
+                actorMarker.Size = markerSize;
 
-                renderedInhabitantPositions[inhabitant.Id] = inhabitant.Position;
             }
         }
 
@@ -3117,12 +3155,6 @@ public partial class Main : Control
             .Where(inhabitant => !inhabitant.IsDraft && string.Equals(inhabitant.Lifecycle, "active", StringComparison.OrdinalIgnoreCase))
             .Select(inhabitant => inhabitant.Id)
             .ToHashSet(StringComparer.Ordinal);
-        foreach (var removedId in renderedInhabitantPositions.Keys
-                     .Where(id => !visibleInhabitantIds.Contains(id))
-                     .ToArray())
-        {
-            renderedInhabitantPositions.Remove(removedId);
-        }
         foreach (var removedId in inhabitantVisuals.Keys.Where(id => !visibleInhabitantIds.Contains(id)).ToArray())
         {
             inhabitantVisuals[removedId].QueueFree();
@@ -3130,6 +3162,7 @@ public partial class Main : Control
         }
 
         PositionSelectedInhabitantCard(snapshot);
+        RefreshTileHoverAtMouse();
     }
 
     private void AddMapObjectVisual(
@@ -3733,6 +3766,7 @@ public partial class Main : Control
             (mapCanvas.Size.X / 2 - mapStage.Position.X) / stride,
             (mapCanvas.Size.Y / 2 - mapStage.Position.Y) / stride);
         RefreshOverviewViewport(mapWidth, mapHeight, stride);
+        RefreshTileHoverAtMouse();
         RenderWorldHud(snapshot);
         RenderWorldInfo(snapshot);
     }
@@ -3816,11 +3850,43 @@ public partial class Main : Control
                 mapCanvas.AcceptEvent();
             }
         }
-        else if (@event is InputEventMouseMotion motion && draggingMap)
+        else if (@event is InputEventMouseMotion hoverMotion)
         {
-            PanCamera(-motion.Relative / (currentTileSize + TileGap));
-            mapCanvas.AcceptEvent();
+            if (draggingMap)
+            {
+                PanCamera(-hoverMotion.Relative / (currentTileSize + TileGap));
+                mapCanvas.AcceptEvent();
+            }
+            UpdateTileHover(hoverMotion.Position);
         }
+    }
+
+    private void RefreshTileHoverAtMouse() => UpdateTileHover(mapCanvas.GetLocalMousePosition());
+
+    private void UpdateTileHover(Vector2 canvasPosition)
+    {
+        if (renderedMapSnapshot is not { } snapshot || !HasMap(snapshot) ||
+            gameMenuPanel.Visible || creationOverlay.Visible ||
+            canvasPosition.X < 0 || canvasPosition.Y < 0 ||
+            canvasPosition.X >= mapCanvas.Size.X || canvasPosition.Y >= mapCanvas.Size.Y)
+        {
+            terrainLayer.SetHoveredTile(null);
+            return;
+        }
+
+        var stagePosition = canvasPosition - mapStage.Position;
+        var stride = currentTileSize + TileGap;
+        var tile = new Vector2I(Mathf.FloorToInt(stagePosition.X / stride),
+            Mathf.FloorToInt(stagePosition.Y / stride));
+        if (!MapContains(snapshot, tile.X, tile.Y) ||
+            inhabitantVisuals.Values.Any(marker => marker.Visible &&
+                new Rect2(marker.Position, marker.Size).HasPoint(stagePosition)))
+        {
+            terrainLayer.SetHoveredTile(null);
+            return;
+        }
+
+        terrainLayer.SetHoveredTile(tile);
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)
@@ -4208,19 +4274,5 @@ public partial class Main : Control
                 : char.ToUpperInvariant(part[0]) + part[1..].ToLowerInvariant()));
 
     private static int NeedPercent(int basisPoints) => Math.Clamp(basisPoints / 100, 0, 100);
-
-    private static StyleBoxFlat ActorStyle(bool selected) => new()
-    {
-        BgColor = selected ? new Color("D98B53") : new Color("B86F48"),
-        BorderWidthLeft = selected ? 4 : 2,
-        BorderWidthTop = selected ? 4 : 2,
-        BorderWidthRight = selected ? 4 : 2,
-        BorderWidthBottom = selected ? 4 : 2,
-        BorderColor = selected ? new Color("FFF0B5") : new Color("F4C78A"),
-        CornerRadiusTopLeft = 18,
-        CornerRadiusTopRight = 18,
-        CornerRadiusBottomLeft = 18,
-        CornerRadiusBottomRight = 18,
-    };
 
 }

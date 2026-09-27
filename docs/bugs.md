@@ -33,10 +33,6 @@ the resolution evidence below.
   clamped to 1–4 and rendered tiles have a 12 px minimum. Revisit the visible
   area/performance/readability cap instead of treating the current minimum as
   the finished design.
-- **Tile-hover affordance absent — confirmed gap:** ground tiles have no
-  hover outline. Add a square tile highlight and resolve overlapping pointer
-  targets so an agent under the pointer takes priority over the ground tile;
-  this is hover hit-testing/selection priority, not a larger agent hitbox.
 - **Bridges absent — current capability gap:**
   agents can now cross one-tile-wide river tiles on foot at half dry-ground
   speed; wider river sections remain impassable, and no Road or bridge system
@@ -74,10 +70,6 @@ the resolution evidence below.
   Quit Game belongs to the Main Menu, not the Pause Menu.
   The player-facing `Create` building-design workbench is a pre-revision
   prototype and should be removed; agent-driven invention remains in scope.
-- **Agent marker hitboxes overflow tiles — confirmed:** marker buttons are
-  clamped to 52–78 px even when a zoomed-out tile is smaller, and offsets for
-  multiple occupants add 22 px. Their clickable areas can extend into adjacent
-  tiles. Keep selection reliable while making the interactive footprint clear.
 - **Generated vegetation is not represented as forest objects/art — confirmed
   gap:** forest currently means a ground-kind/color and sparse resource sites;
   the Godot terrain renderer draws colored rectangles, not individual tree
@@ -99,6 +91,12 @@ the resolution evidence below.
 
 ## Original reports and resolution evidence
 
+- **Ground hover and marker hitboxes — fixed in repository build, laptop check
+  pending:** bare ground gains a square tile outline; agent markers take hover
+  and selection priority. Four same-tile markers fit into separate bounded
+  cells at 12–48 px test zoom, so neighboring tiles do not hit them. The Godot
+  UI smoke exercises the client map path; the revised Windows build still
+  needs computment's playtest.
 - **Main Menu World Settings leak — fixed in repository build, laptop check
   pending:** during a generated-world playtest, Main Menu → Settings exposed
   World Settings and its click entered the world unexpectedly. Main Menu

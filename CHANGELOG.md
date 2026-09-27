@@ -12,6 +12,10 @@ release yet.
   already-active Settings page no longer closes it. Game Settings now separates
   physical Window Size from Render Resolution; both choices are remembered
   locally, with viewport scaling applied to the game and UI.
+- Hovering bare ground now outlines its square tile, while an agent under the
+  pointer keeps hover and selection priority. Agent markers sharing a tile
+  divide that tile into bounded click targets at supported zoom levels, so
+  adjacent-tile clicks no longer select them.
 - Main Menu Settings now hides and blocks World Settings until a world is
   loaded, so opening settings cannot jump into the world. Removed the dark
   gaps between square terrain tiles that appeared as black grid lines.
