@@ -41,6 +41,14 @@ public sealed record CognitionCandidate(
     }
 }
 
+/// <summary>A bounded excerpt of an existing, actor-owned social memory.</summary>
+public sealed record CognitionMemoryExcerpt(
+    string Id,
+    string OwnerId,
+    string SubjectId,
+    string Summary,
+    long SourceTick);
+
 /// <summary>
 /// Compact, provider-neutral state supplied to a decision provider. It is an
 /// observation, not a mutable world object or an omniscient world dump.
@@ -54,7 +62,8 @@ public sealed record InhabitantObservation(
     int HungerBasisPoints,
     IReadOnlyList<CognitionCandidate> Candidates,
     bool NeedsName = false,
-    bool RequiresPersonalProvider = false)
+    bool RequiresPersonalProvider = false,
+    IReadOnlyList<CognitionMemoryExcerpt>? RetrievedMemories = null)
 {
     public void Validate()
     {
@@ -84,6 +93,19 @@ public sealed record InhabitantObservation(
             {
                 throw new ArgumentException("Cognition candidate IDs must be unique.", nameof(Candidates));
             }
+        }
+
+        if (RetrievedMemories is { Count: > 4 })
+            throw new ArgumentException("Memory context exceeds the four-record budget.", nameof(RetrievedMemories));
+        foreach (var memory in RetrievedMemories ?? [])
+        {
+            ArgumentNullException.ThrowIfNull(memory);
+            if (!string.Equals(memory.OwnerId, InhabitantId, StringComparison.Ordinal) ||
+                string.IsNullOrWhiteSpace(memory.Id) || string.IsNullOrWhiteSpace(memory.SubjectId) ||
+                memory.Id.Length > 128 || memory.SubjectId.Length > 128 ||
+                string.IsNullOrWhiteSpace(memory.Summary) || memory.Summary.Length > 160 ||
+                memory.SourceTick < 0 || memory.SourceTick > WorldTick)
+                throw new ArgumentException("Memory context must be bounded and owned by the actor.", nameof(RetrievedMemories));
         }
     }
 }
@@ -534,6 +556,7 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         "probabilities (object mapping candidate IDs to numbers 0..1), and optional " +
                         "private_thought (one brief, in-character thought of at most 160 characters). " +
                         "When needs_name is true, also include chosen_name (your own name, at most 48 characters). " +
+                        "Retrieved memories, when present, are this actor's past beliefs, not authoritative current facts. " +
                         "This is dialogue-like fiction, not an explanation of your reasoning. Do not include reasoning.",
                 },
                 new
@@ -546,12 +569,18 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         run_epoch = request.Observation.RunEpoch,
                         decision_generation = request.Observation.DecisionGeneration,
                         hunger_basis_points = request.Observation.HungerBasisPoints,
-                                needs_name = request.Observation.NeedsName,
+                        needs_name = request.Observation.NeedsName,
                         candidates = request.Observation.Candidates.Select(candidate => new
                         {
                             id = candidate.Id,
                             description = candidate.Description,
                             destination_id = candidate.DestinationId,
+                        }).ToArray(),
+                        retrieved_memories = request.Observation.RetrievedMemories?.Select(memory => new
+                        {
+                            subject_id = memory.SubjectId,
+                            summary = memory.Summary,
+                            source_tick = memory.SourceTick,
                         }).ToArray(),
                     }, JsonOptions),
                 },

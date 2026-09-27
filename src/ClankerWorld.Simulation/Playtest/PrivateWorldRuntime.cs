@@ -2285,15 +2285,20 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
 
             var generation = checked((int)(WorldTick + 1));
+            var retrievedMemories = jevEnabled
+                ? Array.Empty<CognitionMemoryExcerpt>()
+                : PrivateWorldMemoryRetrieval.Retrieve(
+                    society.Checkpoint.Memories, inhabitant.Id, WorldTick, candidates);
             var observation = new InhabitantObservation(
                 inhabitant.Id,
                 WorldTick,
                 society.Checkpoint.RunEpoch,
                 generation,
-                ObservationDigest(inhabitant.Id, physical, candidates),
+                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories),
                 physical.HungerBasisPoints,
                 candidates,
-                NeedsName: inhabitant.NeedsName);
+                NeedsName: inhabitant.NeedsName,
+                RetrievedMemories: retrievedMemories);
             var accepted = society.EnqueueCognition(new SocietyCognitionScheduleEntry(
                 $"tick:{WorldTick}:{inhabitant.Id}",
                 inhabitant.Id,
@@ -3028,16 +3033,21 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private static string ObservationDigest(
         string inhabitantId,
         PlaytestInhabitantState state,
-        IReadOnlyList<CognitionCandidate> candidates)
+        IReadOnlyList<CognitionCandidate> candidates,
+        IReadOnlyList<CognitionMemoryExcerpt> memories)
     {
         var text = new StringBuilder()
             .Append("clankerworld.private-world-observation/v1|")
             .Append(inhabitantId).Append('|')
             .Append(state.Position.X).Append(',').Append(state.Position.Y).Append('|')
             .Append(state.HungerBasisPoints).Append('|')
-            .Append(string.Join(',', candidates.Select(candidate => candidate.Id)))
-            .ToString();
-        return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)))}";
+            .Append(string.Join(',', candidates.Select(candidate => candidate.Id)));
+        foreach (var memory in memories)
+            text.Append('|').Append(memory.Id.Length).Append(':').Append(memory.Id)
+                .Append('|').Append(memory.SourceTick)
+                .Append('|').Append(memory.SubjectId.Length).Append(':').Append(memory.SubjectId)
+                .Append('|').Append(memory.Summary.Length).Append(':').Append(memory.Summary);
+        return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())))}";
     }
 
     private void AppendEvent(string kind, string detail)

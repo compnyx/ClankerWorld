@@ -8,6 +8,7 @@ release yet.
 
 ### Fixed
 
+- Turning Jev off now keeps agents' saved social memories useful in personal-model decisions. Each agent receives only a small, relevant set of its own non-forgotten memories; provider failures do not add or share memories.
 - Agents can cross narrow river tiles on foot only between opposite dry banks.
   They no longer walk along a channel or cut diagonally through its water;
   wider rivers remain impassable without later transport or bridges.
