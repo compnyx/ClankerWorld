@@ -1111,3 +1111,29 @@ trusted access to provider keys, arbitrary files or the network. Agent-made
 creations may activate after validation without routine human approval;
 external packages require the player's intentional import. Package format,
 dependency/conflict UI and distribution mechanism remain open.
+
+## World-generation interview — continent controls and camp placement (2026-09-27)
+
+The questions and answers below preserve this round's exact scope. The
+[current vision ledger](../vision-interview.md) is authoritative if later
+answers revise it.
+
+1. **Question:** If a player chooses **2 continents**, should the preview
+   guarantee two substantial, ocean-separated landmasses, or treat 2 as a loose
+   target that can produce land bridges and extra islands?
+   **Answer:** “the latter or well chance of both right?” The count is a loose
+   target; both clearly separated and connected layouts may occur. Exact
+   frequencies and what qualifies as an incidental island remain open.
+2. **Question:** Should continent count be adjustable on **every world size**,
+   or only on Large/Huge/Mega? What should Small and Medium usually look like?
+   **Answer:** Only Large, Huge, and Mega offer the count control. Small and
+   Medium should always be one “continent.” Whether they may have incidental
+   islands was not specified.
+3. **Question:** Where should the **starter camp** go: automatically in a
+   survivable spot, chosen by the player from the preview, or automatically
+   placed with an option to move it?
+   **Answer:** The player chooses its location, in the same spirit as placing
+   the four founder agents before starting the simulation: “you have to place
+   the base camp too.” Whether the placement uses the preview or the opened
+   world, its order relative to founder placement, and terrain/survival
+   constraints remain to be specified.

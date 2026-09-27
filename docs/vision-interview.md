@@ -2,12 +2,12 @@
 title: ClankerWorld Vision Interview and Decision Ledger
 type: product-vision
 status: active
-updated: 2026-09-26
+updated: 2026-09-27
 ---
 
 # ClankerWorld Vision Interview — Current Working Picture
 
-> Last reconciled: 2026-09-26. This is the **current** interview notebook, not a
+> Last reconciled: 2026-09-27. This is the **current** interview notebook, not a
 > finished specification, implementation claim, or approval to modify the game.
 > It separates decisions from proposals and unresolved questions. The
 > [historical interview record](archive/vision-interview-history.md)
@@ -118,9 +118,9 @@ reopen the decided player-local distribution goal.
   controls, preview/reroll, wrapping, and an optional early survival grace
   period. The ordinary game has **one supported starter-camp mode**. The
   nothing-start challenge mode was removed from the plan for now. Generating
-  the world creates the map and **empty base camp**, then opens that world so
-  the player can add its four founders there; API keys are not a prerequisite
-  for reaching the world view.
+  the world creates the map; the player must then place the **empty base camp**
+  and place/configure four founders before starting time. API keys are not a
+  prerequisite for reaching the world view.
 - Enter a visually coherent generated world. The player can see its whole
   geography from the start; there is no player fog of war. Individual agents
   may know only what they have experienced or learned.
@@ -328,6 +328,10 @@ accounting details need design and playtesting.
 - Climate choices include **uniform**, **dominant**, and **balanced** modes,
   with advanced controls such as water percentage, continent count, and
   resource abundance. Players need not manage raw rainfall/temperature sliders.
+- **Small and Medium each have one continent**; a continent-count control is
+  available only for **Large, Huge, and Mega**. The selected count is a loose
+  generation target, not a promise of that many ocean-separated landmasses:
+  generated land may form distinct continents or connections between them.
 - **Simple regional weather is accepted.** Weather is not synchronized across
   the planet. Different regions can experience different conditions, with the
   local climate influencing how likely rain, snow, and other conditions are.
@@ -356,7 +360,8 @@ accounting details need design and playtesting.
 
 The complete terrain/vegetation/object catalogue; exact climate-generation
 formulas, map topology at polar edges, biome transitions, water and elevation
-rules, resource distributions, travel times, world-size performance, and limits
+rules, resource distributions, continent-count variation and incidental islands,
+travel times, world-size performance, and limits
 on agent-caused terrain changes. **Regional weather details remain open:**
 how large/coherent weather regions are, how events move or change, how long
 they last, and the exact strength/mechanics of the agreed initial effects.
@@ -456,13 +461,14 @@ first-complete-game roadmap.
 
 ### Decided
 
-- A civilization-oriented new world is generated with an **empty base camp**.
-  Once inside the world, the player adds and configures **four biologically
-  unrelated founder agents**, using the per-agent provider/model/credential
-  flow. The simulation cannot begin until all four are added. They are grouped
+- A civilization-oriented new world is generated without agents or a placed
+  camp. The player **chooses where to place its empty base camp** and adds and
+  configures **four biologically unrelated founder agents**, using the per-agent
+  provider/model/credential flow. The simulation cannot begin until the camp
+  is placed and all four founders are added. They are grouped
   2+2 into two starter households, not forced couples; family lines develop
   later through relationships and children. The households exist even before
-  any formal land claims. The generated camp contains two small houses, a
+  any formal land claims. The placed camp contains two small houses, a
   shared storehouse, fire/cooking area, basic workshop, nearby fertile land,
   starter food/seeds/hand tools/clothing, and a connecting path. Furniture can
   be abstracted as inspectable building contents/capabilities rather than
@@ -531,7 +537,11 @@ older childhood needs a separate phase, age display, relationship and
 inheritance mechanics, continuity threshold and exit conditions,
 pregnancy/birth and childcare rules, care/resource eligibility, Jev's
 optional role in childhood, and the identity implications of player renaming.
-The optional survival grace period still needs a duration and
+Base-camp placement rules and interface remain open: whether placement uses
+the preview or opened world, its order relative to founder placement, valid
+terrain and footprint, proximity to food/water/resources, whether unsuitable
+locations are blocked or warned about, and whether placement can be revised
+before Start World. The optional survival grace period still needs a duration and
 precise effects. Also open: whether unrelated newcomers can arrive without
 player action or are only introduced through Add Agent. A configurable
 automatic-birth limit was considered, briefly accepted, then explicitly
