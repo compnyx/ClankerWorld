@@ -34,7 +34,8 @@ public sealed record OwnerWorldResource(
     int? RegenerationIntervalDays = null,
     string? RegenerationSeason = null,
     string? TreeKind = null,
-    bool IsPlanted = false);
+    bool IsPlanted = false,
+    string? TreeStage = null);
 
 public sealed record OwnerWorldInventoryEntry(string Kind, int Quantity);
 

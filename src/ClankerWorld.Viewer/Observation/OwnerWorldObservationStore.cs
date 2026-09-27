@@ -247,7 +247,8 @@ public sealed class OwnerWorldObservationStore
                     ecology?.GetValueOrDefault(resource.Id)?.RegenerationIntervalDays,
                     ecology?.GetValueOrDefault(resource.Id)?.RegenerationSeason.ToString().ToLowerInvariant(),
                     resource.TreeKind,
-                    ecology?.GetValueOrDefault(resource.Id)?.IsPlanted ?? false))
+                    ecology?.GetValueOrDefault(resource.Id)?.IsPlanted ?? false,
+                    TreeStageFor(resource.TreeKind, ecology?.GetValueOrDefault(resource.Id))))
                 .ToArray(),
             actor,
             latestEventId)
@@ -916,6 +917,14 @@ public sealed class OwnerWorldObservationStore
         ResourceState.Available => "available",
         ResourceState.Depleted => "depleted",
         _ => throw new ArgumentOutOfRangeException(nameof(state)),
+    };
+
+    private static string? TreeStageFor(string? kind, EcologyResource? resource) => kind switch
+    {
+        "orchard" when resource?.Quantity > 0 => "fruiting",
+        "orchard" when resource?.State == EcologyResourceState.Depleted => "picked",
+        "orchard" => "growing",
+        _ => null,
     };
 
     private static string ToWireValue(OwnerInstructionKind kind) => kind switch

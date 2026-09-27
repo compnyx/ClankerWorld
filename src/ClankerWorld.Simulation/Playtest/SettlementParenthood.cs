@@ -30,13 +30,13 @@ public sealed partial class PrivateWorldRuntime
             item.ProposerId == actor && item.TargetId == person.InhabitantId));
 
     private bool FamilyResourcesReady(string actor) => BuildingsWithTag("shelter").Any() &&
-        society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == HouseholdFor(actor) && lot.ItemKind == "food")
+        society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == HouseholdFor(actor) && IsEdibleFood(lot.ItemKind))
             .Sum(AvailableLotQuantity) >= society.Checkpoint.Inhabitants.Count(person => person.HouseholdId == HouseholdFor(actor) &&
                 person.Status == SocietyInhabitantStatus.Active) * 2 + 4 &&
         BirthFood(actor) is not null;
 
     private InventoryLot? BirthFood(string actor) => society.Checkpoint.Inventory.Lots.FirstOrDefault(lot =>
-        lot.OwnerId == HouseholdFor(actor) && lot.ItemKind == "food" && AvailableLotQuantity(lot) >= 4);
+        lot.OwnerId == HouseholdFor(actor) && IsEdibleFood(lot.ItemKind) && AvailableLotQuantity(lot) >= 4);
 
     private void AddParenthoodCandidates(List<CognitionCandidate> candidates, string actor)
     {
@@ -171,9 +171,9 @@ public sealed partial class PrivateWorldRuntime
         }
         var parent = inhabitants[actor];
         var child = inhabitants[childId];
-        if (child.HungerBasisPoints < 7_000 && !HasCarriedItem(actor, "food"))
+        if (child.HungerBasisPoints < 7_000 && PreferredFood(actor, actor).FirstOrDefault() is null)
         {
-            if (SharedItem("food", actor) is not null)
+            if (PreferredFood(HouseholdFor(actor), actor).FirstOrDefault() is { } sharedFood)
             {
                 var camp = map.GetObject("bedroll").Position;
                 if (!IsWithinInteractionRange(parent.Position, camp, ResourceInteractionRange))
@@ -181,9 +181,8 @@ public sealed partial class PrivateWorldRuntime
                     MoveToward(actor, parent, camp, "care_food", ResourceInteractionRange);
                     return;
                 }
-                var food = SharedItem("food", actor)!;
                 ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory, $"care-food:{WorldTick}:{actor}",
-                    HouseholdFor(actor), actor, food.Id, 1, "caregiver_food"));
+                    HouseholdFor(actor), actor, sharedFood.Id, 1, "caregiver_food"));
             }
             else
             {

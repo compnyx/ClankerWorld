@@ -372,8 +372,10 @@ public static class GeneratedCampMapGenerator
         var distributed = GenerateResourceSites(options, geography, kinds, objects, resources);
         var trees = GenerateTrees(options, geography, kinds, width, height, objects,
             resources.Concat(distributed).ToArray());
+        var orchards = GenerateOrchards(options, geography, kinds, width, height, objects,
+            resources.Concat(distributed).Concat(trees).ToArray());
         var withoutDigest = new SeededMap(width, height, 0, tiles, objects,
-            resources.Concat(distributed).Concat(trees).ToArray(), string.Empty)
+            resources.Concat(distributed).Concat(trees).Concat(orchards).ToArray(), string.Empty)
         { ClimateZones = climateZones, WrapsEastWest = options.WrapEastWest };
         var map = withoutDigest with { ManifestDigest = MapManifestCodec.Digest(withoutDigest) };
         var validation = MapAcceptance.Validate(map, allowEmptyCamp: true);
@@ -491,6 +493,44 @@ public static class GeneratedCampMapGenerator
 
     private static string TreeKindFor(ClimateZone climate) =>
         climate == ClimateZone.Cold ? "conifer" : "broadleaf";
+
+    private static List<MapResource> GenerateOrchards(GeographyOptions options, GeneratedGeography geography,
+        TerrainKind[] kinds, int width, int height, IReadOnlyList<CampObject> camp,
+        IReadOnlyList<MapResource> existing)
+    {
+        // One generic fruit tree per suitable chunk, after woodland trees have
+        // been placed. Species, density and seasonality are not final content.
+        var occupied = camp.Select(item => item.Position)
+            .Concat(existing.Select(item => item.Position)).ToHashSet();
+        var perChunk = existing.GroupBy(item =>
+                (item.Position.X / GeographyGenerator.ChunkSize,
+                    item.Position.Y / GeographyGenerator.ChunkSize))
+            .ToDictionary(group => group.Key, group => group.Count());
+        var orchards = new List<MapResource>();
+        for (var top = 0; top < height; top += GeographyGenerator.ChunkSize)
+            for (var left = 0; left < width; left += GeographyGenerator.ChunkSize)
+            {
+                var chunk = (left / GeographyGenerator.ChunkSize, top / GeographyGenerator.ChunkSize);
+                if (perChunk.GetValueOrDefault(chunk) >= WorldSystemsConfig.Default.MaxResourcesPerChunk)
+                    continue;
+                var random = Pcg32XshRrV1.Create(options.Seed, $"orchard:{left},{top}");
+                for (var attempt = 0; attempt < 96; attempt++)
+                {
+                    var x = left + (int)(random.NextUInt() %
+                        (uint)Math.Min(GeographyGenerator.ChunkSize, width - left));
+                    var y = top + (int)(random.NextUInt() %
+                        (uint)Math.Min(GeographyGenerator.ChunkSize, height - top));
+                    var position = new GridPoint(x, y);
+                    if (kinds[y * width + x] != TerrainKind.Meadow || occupied.Contains(position) ||
+                        geography.At(x, y).Climate is not (ClimateZone.Temperate or ClimateZone.Tropical))
+                        continue;
+                    orchards.Add(new MapResource($"orchard-{left}-{top}", "fruit", position, true, "orchard"));
+                    occupied.Add(position);
+                    break;
+                }
+            }
+        return orchards;
+    }
 
     private static GridPoint FindCampOrigin(TerrainKind[] kinds, int width, int height)
     {
@@ -646,7 +686,12 @@ public static class MapAcceptance
         if (map.Resources.Select(resource => resource.Id).Distinct(StringComparer.Ordinal).Count() != map.Resources.Count ||
             map.Resources.Any(resource => !map.IsBuildable(resource.Position) ||
                 (resource.TreeKind is not null &&
-                    (resource.Kind != "construction" || resource.TreeKind is not ("broadleaf" or "conifer")))) ||
+                    resource.TreeKind switch
+                    {
+                        "broadleaf" or "conifer" => resource.Kind != "construction",
+                        "orchard" => resource.Kind != "fruit",
+                        _ => true,
+                    })) ||
             map.Resources.Where(resource => resource.TreeKind is not null)
                 .GroupBy(resource => resource.Position).Any(group => group.Count() > 1))
         {

@@ -50,13 +50,19 @@ public partial class WorldTerrainLayer : Control
             {
                 "broadleaf" => (byte)1,
                 "conifer" => (byte)2,
+                "orchard" => (byte)7,
                 _ => (byte)0,
             };
             if (kind == 0) continue;
             var index = y * world.Width + x;
             if (next[index] != 0)
                 throw new InvalidDataException("Two trees occupy one visible tile.");
-            next[index] = resource.IsPlanted ? (byte)(kind + 4) :
+            next[index] = kind == 7 ? resource.TreeStage switch
+            {
+                "picked" => (byte)8,
+                "growing" => (byte)9,
+                _ => (byte)7,
+            } : resource.IsPlanted ? (byte)(kind + 4) :
                 resource.Quantity == 0 || resource.State != "available"
                     ? (byte)(kind + 2) : kind;
         }
@@ -85,6 +91,9 @@ public partial class WorldTerrainLayer : Control
             1 or 2 => "mature",
             3 or 4 => "stump",
             5 or 6 => "sapling",
+            7 => "fruiting",
+            8 => "picked",
+            9 => "growing",
             _ => null,
         };
     }
@@ -171,6 +180,13 @@ public partial class WorldTerrainLayer : Control
     private void DrawTree(Vector2 position, byte tree)
     {
         var center = position + new Vector2(tileSize * 0.5f, tileSize * 0.5f);
+        if (tree == 9)
+        {
+            DrawCircle(center, Math.Max(2f, tileSize * 0.12f), new Color("795539"));
+            DrawCircle(center - new Vector2(0, tileSize * 0.08f), Math.Max(2f, tileSize * 0.19f),
+                new Color("6F9749"));
+            return;
+        }
         if (tree is 3 or 4)
         {
             DrawCircle(center, Math.Max(2f, tileSize * 0.16f), new Color("735036"));
@@ -191,5 +207,15 @@ public partial class WorldTerrainLayer : Control
         if (tileSize >= 20)
             DrawCircle(center - new Vector2(tileSize * 0.1f, tileSize * 0.12f),
                 tileSize * 0.09f, tree == 2 ? new Color("7BA88B") : new Color("94B465"));
+        if (tree == 7 && tileSize >= 14)
+        {
+            var fruitColor = new Color("DE8B4E");
+            DrawCircle(center + new Vector2(tileSize * 0.13f, tileSize * 0.04f),
+                Math.Max(1f, tileSize * 0.045f), fruitColor);
+            DrawCircle(center + new Vector2(-tileSize * 0.12f, tileSize * 0.11f),
+                Math.Max(1f, tileSize * 0.045f), fruitColor);
+            DrawCircle(center + new Vector2(tileSize * 0.01f, -tileSize * 0.13f),
+                Math.Max(1f, tileSize * 0.045f), fruitColor);
+        }
     }
 }

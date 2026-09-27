@@ -235,13 +235,17 @@ public sealed partial class PrivateWorldRuntime
         {
             return worldContent.Recipes.FirstOrDefault(recipe => recipe.CanonicalId == job.RecipeId)?.IsCrop == true ? "crops" : "cooked";
         }
+        if (lot.ItemKind == "fruit") return "orchard";
         return originId.StartsWith("food:harvest:", StringComparison.Ordinal) ? "foraged" : "camp_rations";
     }
+
+    private static bool IsEdibleFood(string kind) => kind is "food" or "fruit";
 
     private IEnumerable<InventoryLot> PreferredFood(string owner, string? actor = null)
     {
         var previous = actor is not null && inhabitants.TryGetValue(actor, out var person) ? person.Survival?.LastMealKind : null;
-        return society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == owner && lot.ItemKind == "food" && AvailableLotQuantity(lot) > 0)
+        return society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == owner &&
+                IsEdibleFood(lot.ItemKind) && AvailableLotQuantity(lot) > 0)
             .OrderBy(lot => previous is not null && FoodSource(lot) == previous ? 1 : 0)
             .ThenByDescending(lot => lot.FreshnessBasisPoints).ThenBy(lot => lot.Id, StringComparer.Ordinal);
     }

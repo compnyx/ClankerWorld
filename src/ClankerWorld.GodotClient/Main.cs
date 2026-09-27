@@ -435,6 +435,17 @@ public partial class Main : Control
             RenderMap(sample with { Resources = [sampleResource, sampleTree with { Quantity = 0, State = "depleted", IsPlanted = true }] });
             if (terrainLayer.TreeStageAt(3, 1) != "sapling")
                 throw new InvalidOperationException("Replanted trees must become visible saplings.");
+            var sampleOrchard = new OwnerWorldResource("sample-orchard", "fruit", new(2, 1), true,
+                "available", 1, 1, 1, 3, "spring", "orchard", TreeStage: "fruiting");
+            RenderMap(sample with { Resources = [sampleResource, sampleTree, sampleOrchard] });
+            if (terrainLayer.TreeStageAt(2, 1) != "fruiting" || mapObjectVisuals.ContainsKey("resource:sample-orchard"))
+                throw new InvalidOperationException("Orchard fruit must render on one tree tile instead of a resource label.");
+            RenderMap(sample with { Resources = [sampleResource, sampleTree, sampleOrchard with { Quantity = 0, TreeStage = "picked" }] });
+            if (terrainLayer.TreeStageAt(2, 1) != "picked")
+                throw new InvalidOperationException("Picked orchard trees must lose their visible fruit.");
+            RenderMap(sample with { Resources = [sampleResource, sampleTree, sampleOrchard with { Quantity = 0, TreeStage = "growing" }] });
+            if (terrainLayer.TreeStageAt(2, 1) != "growing")
+                throw new InvalidOperationException("Regrowing orchard trees must show their growing stage.");
             var builtMarker = mapObjectVisuals["building:test-hall"];
             if (!builtMarker.Text.Contains("Test hall", StringComparison.Ordinal) || builtMarker.Size.X <= builtMarker.Size.Y)
                 throw new InvalidOperationException("Built structures must render their name and multi-tile footprint.");

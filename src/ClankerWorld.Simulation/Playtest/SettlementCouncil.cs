@@ -24,7 +24,7 @@ public sealed partial class PrivateWorldRuntime
         (inhabitants.GetValueOrDefault(actor)?.Project?.Stage == "completed" ? 1 : 0);
 
     private int SharedFoodQuantity() => society.Checkpoint.Inventory.Lots.Where(lot =>
-            society.Checkpoint.Households.Any(household => household.Id == lot.OwnerId) && lot.ItemKind == "food")
+            society.Checkpoint.Households.Any(household => household.Id == lot.OwnerId) && IsEdibleFood(lot.ItemKind))
         .Sum(AvailableLotQuantity);
 
     private string? ProposedFoodPolicy(string actor)

@@ -37,7 +37,8 @@ public sealed class GeographyGeneratorTests
         var options = new GeographyOptions("object-forest", WorldSizePreset.Small, WrapEastWest: true);
         var first = GeneratedCampMapGenerator.Generate(options);
         var second = GeneratedCampMapGenerator.Generate(options);
-        var trees = first.Resources.Where(site => site.TreeKind is not null).ToArray();
+        var trees = first.Resources.Where(site => site.TreeKind is "broadleaf" or "conifer").ToArray();
+        var orchards = first.Resources.Where(site => site.TreeKind == "orchard").ToArray();
 
         Assert.True(trees.Length > 20, "A generated forest needs visible individual trees, not only a terrain tint.");
         Assert.Contains(trees, tree => first.Tiles.Any(tile => tile.Position == tree.Position &&
@@ -50,6 +51,16 @@ public sealed class GeographyGeneratorTests
             Assert.Single(first.Resources, resource => resource.Position == tree.Position);
         });
         Assert.Equal(trees.Length, trees.Select(tree => tree.Position).Distinct().Count());
+        Assert.NotEmpty(orchards);
+        Assert.All(orchards, orchard =>
+        {
+            Assert.Equal("fruit", orchard.Kind);
+            Assert.True(orchard.IsRenewable);
+            Assert.Single(first.Resources, resource => resource.Position == orchard.Position);
+        });
+        Assert.Equal(trees.Length + orchards.Length,
+            first.Resources.Where(resource => resource.TreeKind is not null)
+                .Select(resource => resource.Position).Distinct().Count());
         Assert.Equal(first.ManifestDigest, second.ManifestDigest);
         Assert.Equal(first.Resources, second.Resources);
 
@@ -116,15 +127,82 @@ public sealed class GeographyGeneratorTests
     }
 
     [Fact]
-    public void GeneratedWorldSavedBeforeTreeObjectsStillLoadsWithItsOriginalResources()
+    public void PickedOrchardTreePersistsAndRegrowsFruitThroughVisibleStages()
+    {
+        var options = new GeographyOptions("saved-orchard-stages", WorldSizePreset.Small);
+        using var world = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var orchard = world.ExportState().Map.Resources.First(resource => resource.TreeKind == "orchard");
+        var fruiting = world.WorldSystems.Ecology.GetResource(orchard.Id);
+        Assert.Equal("fruit", fruiting.Kind);
+        Assert.Equal(1, fruiting.Quantity);
+        Assert.Equal("fruiting", Assert.Single(new OwnerWorldObservationStore(world).GetSnapshot().Resources,
+            resource => resource.Id == orchard.Id).TreeStage);
+
+        var pick = EcologyRules.Harvest(fruiting, 1);
+        Assert.True(pick.IsValid);
+        var picked = pick.Resource! with
+        {
+            NextRegenerationDay = 3,
+            RegenerationSeason = SeasonKind.Winter,
+        };
+        var state = world.ExportState() with
+        {
+            Resources = world.ExportState().Resources.Select(resource => resource.ResourceId == orchard.Id
+                ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
+            WorldSystems = world.WorldSystems with
+            {
+                Ecology = world.WorldSystems.Ecology with
+                {
+                    Resources = world.WorldSystems.Ecology.Resources.Select(resource =>
+                        resource.Id == orchard.Id ? picked : resource).ToArray(),
+                },
+            },
+        };
+        using var pickedWorld = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(
+            PrivateWorldRuntimeCodec.Encode(state)));
+        Assert.Equal("picked", Assert.Single(new OwnerWorldObservationStore(pickedWorld).GetSnapshot().Resources,
+            resource => resource.Id == orchard.Id).TreeStage);
+
+        var config = world.WorldSystems.Config;
+        var growing = EcologyRules.Regenerate(picked,
+            WorldCalendarRules.FromTick(config.TicksPerDay, config), config);
+        Assert.Equal(EcologyResourceState.Regenerating, growing.State);
+        var growingState = pickedWorld.ExportState();
+        growingState = growingState with
+        {
+            WorldSystems = growingState.WorldSystems! with
+            {
+                Ecology = growingState.WorldSystems.Ecology with
+                {
+                    Resources = growingState.WorldSystems.Ecology.Resources.Select(resource =>
+                        resource.Id == orchard.Id ? growing : resource).ToArray(),
+                },
+            },
+        };
+        using var growingWorld = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(
+            PrivateWorldRuntimeCodec.Encode(growingState)));
+        Assert.Equal("growing", Assert.Single(new OwnerWorldObservationStore(growingWorld).GetSnapshot().Resources,
+            resource => resource.Id == orchard.Id).TreeStage);
+        var regrown = EcologyRules.Regenerate(growing,
+            WorldCalendarRules.FromTick(3 * config.TicksPerDay, config), config);
+        Assert.Equal(1, regrown.Quantity);
+        Assert.Equal(EcologyResourceState.Available, regrown.State);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EarlierGeneratedWorldStillLoadsWithItsOriginalResources(bool retainsWoodlandTrees)
     {
         var options = new GeographyOptions("old-forest-save", WorldSizePreset.Small);
         using var world = new PrivateWorldRuntime(options.Seed,
             startPace: WorldStartPace.FounderSetup, geographyOptions: options);
         var current = world.ExportState();
         var originalResources = current.Map.Resources
-            .Where(resource => !resource.Id.StartsWith("tree-", StringComparison.Ordinal))
-            .Select(resource => resource with { TreeKind = null }).ToArray();
+            .Where(resource => !resource.Id.StartsWith("orchard-", StringComparison.Ordinal) &&
+                (retainsWoodlandTrees || !resource.Id.StartsWith("tree-", StringComparison.Ordinal)))
+            .Select(resource => retainsWoodlandTrees ? resource : resource with { TreeKind = null }).ToArray();
         var oldIds = originalResources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
         var oldMap = current.Map with { Resources = originalResources, ManifestDigest = string.Empty };
         oldMap = oldMap with { ManifestDigest = MapManifestCodec.Digest(oldMap) };
@@ -149,33 +227,20 @@ public sealed class GeographyGeneratorTests
         using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(
             PrivateWorldRuntimeCodec.Encode(oldCheckpoint)));
         Assert.Equal(oldMap.ManifestDigest, restored.ExportState().Map.ManifestDigest);
-        Assert.DoesNotContain(restored.ExportState().Map.Resources, resource => resource.TreeKind is not null);
+        Assert.DoesNotContain(restored.ExportState().Map.Resources, resource => resource.TreeKind == "orchard");
+        if (!retainsWoodlandTrees)
+            Assert.DoesNotContain(restored.ExportState().Map.Resources, resource => resource.TreeKind is not null);
     }
 
     [Fact]
     public async Task AgentReplantsHarvestedTreeFromCarriedSeed()
     {
         var options = new GeographyOptions("agent-replanting", WorldSizePreset.Small);
-        using var setup = new PrivateWorldRuntime(options.Seed,
-            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
-        var map = setup.ExportState().Map;
-        var bedroll = map.GetObject("bedroll").Position;
-        var startingTiles = map.Tiles.Where(tile =>
-                Math.Abs(tile.Position.X - bedroll.X) <= 5 &&
-                Math.Abs(tile.Position.Y - bedroll.Y) <= 5 &&
-                map.IsPassable(tile.Position) &&
-                !map.CampObjects.Any(item => item.Position == tile.Position) &&
-                !map.Resources.Any(item => item.Position == tile.Position))
-            .Take(4).Select(tile => tile.Position).ToArray();
-        Assert.Equal(4, startingTiles.Length);
-        for (var index = 0; index < 4; index++)
-            setup.PlaceFounder("founder:" + Guid.NewGuid().ToString("N"), startingTiles[index]);
-        setup.StartWorld();
-
-        var initial = setup.ExportState();
+        var initial = StartedGeneratedWorld(options);
+        var map = initial.Map;
         var actor = initial.Inhabitants[0].InhabitantId;
         var occupied = initial.Inhabitants.Skip(1).Select(person => person.Position).ToHashSet();
-        var treeSite = map.Resources.Where(site => site.TreeKind is not null && site.IsRenewable &&
+        var treeSite = map.Resources.Where(site => site.TreeKind is "broadleaf" or "conifer" && site.IsRenewable &&
                 map.IsReachableFromCampOnFoot(site.Position))
             .Select(site => new
             {
@@ -229,6 +294,85 @@ public sealed class GeographyGeneratorTests
             resource => resource.Id == treeSite.Site.Id).IsPlanted);
     }
 
+    [Fact]
+    public async Task AgentPicksOrchardFruitAndEatsTheDistinctItem()
+    {
+        var options = new GeographyOptions("agent-orchard-fruit", WorldSizePreset.Small);
+        var initial = StartedGeneratedWorld(options);
+        var map = initial.Map;
+        var actor = initial.Inhabitants[0].InhabitantId;
+        var occupied = initial.Inhabitants.Skip(1).Select(person => person.Position).ToHashSet();
+        var orchard = map.Resources.Where(resource => resource.TreeKind == "orchard" &&
+                map.IsReachableFromCampOnFoot(resource.Position))
+            .Select(resource => new
+            {
+                Site = resource,
+                Stand = map.FootNeighbors(resource.Position).FirstOrDefault(position =>
+                    map.IsPassable(position) && !occupied.Contains(position) &&
+                    !map.Resources.Any(other => other.Position == position)),
+            })
+            .First(item => map.Contains(item.Stand) && map.IsPassable(item.Stand));
+        var otherFoodIds = map.Resources.Where(resource => resource.Kind == "food")
+            .Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
+        var state = initial with
+        {
+            Inhabitants = initial.Inhabitants.Select(person => person.InhabitantId == actor
+                ? person with { Position = orchard.Stand, HungerBasisPoints = 4_000, EnergyBasisPoints = 9_000 }
+                : person).ToArray(),
+            Resources = initial.Resources.Select(resource => otherFoodIds.Contains(resource.ResourceId)
+                ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
+            WorldSystems = initial.WorldSystems! with
+            {
+                Ecology = initial.WorldSystems.Ecology with
+                {
+                    Resources = initial.WorldSystems.Ecology.Resources.Select(resource =>
+                        otherFoodIds.Contains(resource.Id)
+                            ? resource with { Quantity = 0, State = EcologyResourceState.Depleted }
+                            : resource).ToArray(),
+                },
+            },
+        };
+        using var world = PrivateWorldRuntime.Restore(state,
+            id => id == actor ? new OrchardProvider() : new DeterministicDecisionProvider());
+        for (var tick = 0; tick < 12 && !world.ExportState().Events.Any(item => item.Kind == "fruit_harvested"); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        Assert.Contains(world.ExportState().Events, item => item.Kind == "fruit_harvested" &&
+            item.Detail.Contains(orchard.Site.Id, StringComparison.Ordinal));
+        Assert.Equal(0, world.WorldSystems.Ecology.GetResource(orchard.Site.Id).Quantity);
+        Assert.Equal("picked", Assert.Single(new OwnerWorldObservationStore(world).GetSnapshot().Resources,
+            resource => resource.Id == orchard.Site.Id).TreeStage);
+        Assert.Contains(world.Society.Inventory.Lots, lot => lot.OwnerId == actor && lot.ItemKind == "fruit" && lot.Quantity == 4);
+        for (var tick = 0; tick < 12 && !world.ExportState().Events.Any(item => item.Kind == "food_consumed" &&
+                 item.Detail == actor); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        Assert.Contains(world.ExportState().Events, item => item.Kind == "food_consumed" && item.Detail == actor);
+        Assert.True(world.Inhabitants.Single(person => person.InhabitantId == actor).HungerBasisPoints > 4_000);
+        using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(
+            PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Contains(restored.Society.Inventory.Lots, lot => lot.OwnerId == actor && lot.ItemKind == "fruit" && lot.Quantity > 0);
+        Assert.Equal("growing", Assert.Single(new OwnerWorldObservationStore(restored).GetSnapshot().Resources,
+            resource => resource.Id == orchard.Site.Id).TreeStage);
+    }
+
+    private sealed class OrchardProvider : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var chosen = request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id is "harvest_food" or "consume_food");
+            return new DeterministicDecisionProvider().DecideAsync(request with
+            {
+                Observation = request.Observation with
+                {
+                    Candidates = chosen is null ? request.Observation.Candidates : [chosen],
+                },
+            }, cancellationToken);
+        }
+    }
+
     private sealed class ReplantProvider : IDecisionProvider
     {
         public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
@@ -245,6 +389,26 @@ public sealed class GeographyGeneratorTests
                 },
             }, cancellationToken);
         }
+    }
+
+    private static PrivateWorldRuntimeState StartedGeneratedWorld(GeographyOptions options)
+    {
+        using var setup = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var map = setup.ExportState().Map;
+        var bedroll = map.GetObject("bedroll").Position;
+        var startingTiles = map.Tiles.Where(tile =>
+                Math.Abs(tile.Position.X - bedroll.X) <= 5 &&
+                Math.Abs(tile.Position.Y - bedroll.Y) <= 5 &&
+                map.IsPassable(tile.Position) &&
+                !map.CampObjects.Any(item => item.Position == tile.Position) &&
+                !map.Resources.Any(item => item.Position == tile.Position))
+            .Take(4).Select(tile => tile.Position).ToArray();
+        Assert.Equal(4, startingTiles.Length);
+        for (var index = 0; index < 4; index++)
+            setup.PlaceFounder("founder:" + Guid.NewGuid().ToString("N"), startingTiles[index]);
+        setup.StartWorld();
+        return setup.ExportState();
     }
 
     [Fact]

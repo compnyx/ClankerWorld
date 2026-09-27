@@ -2029,9 +2029,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     1,
                     1,
                     resource.IsRenewable ? 1 : 0,
-                    resource.IsRenewable ? 6 : 0,
+                    resource.IsRenewable ? resource.TreeKind == "orchard" ? 3 : 6 : 0,
                     SeasonKind.Spring,
-                    6,
+                    resource.TreeKind == "orchard" ? 3 : 6,
                     EcologyResourceState.Available)
                 : resource.IsRenewable
                 ? new EcologyResource(
@@ -2733,7 +2733,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         map.FootDistance(origin, destination) <= interactionRange;
 
     private MapResource? AvailableFoodSource(GridPoint position) => map.Resources
-        .Where(resource => resource.Kind == "food" &&
+        .Where(resource => resource.Kind is "food" or "fruit" &&
             resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
             map.IsReachableFromCampOnFoot(resource.Position))
         .OrderBy(resource => map.FootDistance(resource.Position, position))
@@ -2757,12 +2757,19 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             return;
         }
 
+        var harvested = source.TreeKind == "orchard" && harvest.Resource.Quantity == 0
+            ? harvest.Resource with
+            {
+                NextRegenerationDay = WorldCalendarRules.FromTick(WorldTick, worldSystems.Config).DayIndex +
+                    harvest.Resource.RegenerationIntervalDays,
+            }
+            : harvest.Resource;
         worldSystems = worldSystems with
         {
             Ecology = worldSystems.Ecology with
             {
                 Resources = worldSystems.Ecology.Resources
-                    .Select(resource => resource.Id == source.Id ? harvest.Resource : resource)
+                    .Select(resource => resource.Id == source.Id ? harvested : resource)
                     .ToArray(),
             },
         };
@@ -2770,12 +2777,14 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         ApplyInventoryTransition(inventory => InventoryFixture.AddLot(
             inventory,
             $"food:harvest:{WorldTick:D10}:{inhabitantId}",
-            "food",
+            source.Kind == "fruit" ? "fruit" : "food",
             inhabitantId,
             HarvestFoodYield,
             WorldTick));
 
         AppendEvent("food_harvested", $"{inhabitantId}:{HarvestFoodYield}");
+        if (source.TreeKind == "orchard")
+            AppendEvent("fruit_harvested", $"{inhabitantId}:{source.Id}:{HarvestFoodYield}:picked");
     }
 
     private string HouseholdFor(string actor) => society.Checkpoint.GetInhabitant(actor).HouseholdId ?? HouseholdId;
@@ -2859,7 +2868,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
 
         var hasFood = society.Checkpoint.Inventory.Lots.Any(item =>
-            item.OwnerId == inhabitantId && item.ItemKind == "food" && AvailableLotQuantity(item) > 0);
+            item.OwnerId == inhabitantId && IsEdibleFood(item.ItemKind) && AvailableLotQuantity(item) > 0);
         if (hasFood && state.HungerBasisPoints < 8_500)
         {
             candidates.Add(new CognitionCandidate("consume_food", "Eat one carried food item.", 0));

@@ -53,11 +53,14 @@ the resolution evidence below.
   entries. Unknown entries can still be tried. Longer-term migration and
   cross-release/mod compatibility policy remain undecided.
 - **Generated vegetation art and propagation remain provisional — confirmed
-  gap:** generated broadleaf/conifer tree objects now occupy at most one tree
-  per tile and visibly become stumps or replanted saplings. The Godot client
-  draws simple top-down shapes, not approved final textures. Replanting spends
-  the prototype generic seed on an existing depleted tree site; planting on
-  new tiles, orchard trees and final textures remain unbuilt.
+  gap:** generated broadleaf/conifer and generic orchard-fruit tree objects now
+  occupy at most one tree per tile. Wood trees visibly become stumps or
+  replanted saplings; orchard trees show fruiting, picked and growing stages.
+  The Godot client draws simple top-down shapes, not approved final textures.
+  Orchard species, yield, seasonality and cultivation are not finalized;
+  replanting spends the prototype generic seed on an existing depleted wood
+  tree site, while planting on new tiles and species-specific seed/art remain
+  unbuilt.
 - **Mountains/peaks not seen in playtest — unverified occurrence, confirmed
   visibility gap:** generation does classify dry-land elevation ≥215 as
   mountain and ≥245 as peak, so the terrain kinds exist. Their distribution

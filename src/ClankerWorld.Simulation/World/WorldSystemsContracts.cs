@@ -533,7 +533,7 @@ public static class EcologyRules
         }
 
         if (calendar.DayIndex < resource.NextRegenerationDay ||
-            calendar.Season != resource.RegenerationSeason)
+            resource.Kind != "fruit" && calendar.Season != resource.RegenerationSeason)
         {
             return resource with
             {

@@ -28,9 +28,16 @@ public sealed partial class PrivateWorldRuntime
         {
             return false;
         }
-        var previousVegetation = generated with
+        var previousTrees = generated with
         {
-            Resources = generated.Resources.Where(resource => !resource.Id.StartsWith("tree-", StringComparison.Ordinal))
+            Resources = generated.Resources.Where(resource =>
+                !resource.Id.StartsWith("orchard-", StringComparison.Ordinal)).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        previousTrees = previousTrees with { ManifestDigest = MapManifestCodec.Digest(previousTrees) };
+        var previousVegetation = previousTrees with
+        {
+            Resources = previousTrees.Resources.Where(resource => !resource.Id.StartsWith("tree-", StringComparison.Ordinal))
                 .Select(resource => resource with { TreeKind = null }).ToArray(),
             ManifestDigest = string.Empty,
         };
@@ -38,7 +45,7 @@ public sealed partial class PrivateWorldRuntime
         {
             ManifestDigest = MapManifestCodec.Digest(previousVegetation),
         };
-        foreach (var baseline in new[] { generated, previousVegetation })
+        foreach (var baseline in new[] { generated, previousTrees, previousVegetation })
         {
             if (baseline.ManifestDigest == state.Map.ManifestDigest)
                 return true;

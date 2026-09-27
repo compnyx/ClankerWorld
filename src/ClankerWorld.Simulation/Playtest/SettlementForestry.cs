@@ -24,7 +24,7 @@ public sealed partial class PrivateWorldRuntime
                 ecology.Quantity == 0 && !ecology.IsPlanted)
             .Select(ecology => ecology.Id).ToHashSet(StringComparer.Ordinal);
         return map.Resources
-            .Where(resource => resource.TreeKind is not null && resource.IsRenewable &&
+            .Where(resource => resource.TreeKind is "broadleaf" or "conifer" && resource.IsRenewable &&
                 depleted.Contains(resource.Id) && map.IsReachableFromCampOnFoot(resource.Position))
             .OrderBy(resource => map.FootDistance(origin, resource.Position))
             .ThenBy(resource => resource.Id, StringComparer.Ordinal)

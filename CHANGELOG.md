@@ -66,6 +66,11 @@ release yet.
   household seeds to a depleted site to replant a sapling. Tree stages persist
   through saved worlds, and the top-down client draws only camera-visible trees.
   Existing generated saves retain their original vegetation layout and remain loadable.
+- Suitable newly generated meadows now also contain individual generic orchard
+  fruit trees. Agents can pick a distinct fruit item and eat or share it; the
+  tree visibly changes from fruiting to picked to growing and regrows its fruit.
+  Species, yield and seasonality are provisional, and older generated saves
+  keep their original tree layouts.
 - Agents can walk through one-tile-wide river crossings and mountain tiles at
   half the dry-ground travel speed. Wider river sections, peaks, lakes and
   oceans remain impassable, and river/mountain tiles remain non-buildable.
