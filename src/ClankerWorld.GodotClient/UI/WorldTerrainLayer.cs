@@ -12,6 +12,7 @@ public partial class WorldTerrainLayer : Control
     private int tileGap;
     private bool wrapsEastWest;
     private Vector2I? hoveredTile;
+    private Vector2I? selectedTile;
     private byte[] trees = [];
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
@@ -108,6 +109,14 @@ public partial class WorldTerrainLayer : Control
     }
 
     public Vector2I? HoveredTile => hoveredTile;
+    public Vector2I? SelectedTile => selectedTile;
+
+    public void SetSelectedTile(Vector2I? tile)
+    {
+        if (selectedTile == tile) return;
+        selectedTile = tile;
+        QueueRedraw();
+    }
 
     public string? TreeStageAt(int x, int y)
     {
@@ -199,6 +208,17 @@ public partial class WorldTerrainLayer : Control
                 DrawRect(new Rect2(new Vector2(x * stride + inset, hover.Y * stride + inset),
                     new Vector2(tileSize - inset * 2, tileSize - inset * 2)),
                     new Color("FFF0B5"), filled: false, width: tileSize >= 8 ? 2 : 1);
+            }
+        }
+        if (selectedTile is { } selected && tileSize > 0 &&
+            selected.Y >= bounds.Top && selected.Y < bounds.Top + bounds.Height)
+        {
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            {
+                if ((wrapsEastWest ? Mod(x, world.Width) : x) != selected.X) continue;
+                DrawRect(new Rect2(new Vector2(x * stride + 1, selected.Y * stride + 1),
+                    new Vector2(tileSize - 2, tileSize - 2)),
+                    new Color("FFD166"), filled: false, width: tileSize >= 12 ? 3 : 2);
             }
         }
     }

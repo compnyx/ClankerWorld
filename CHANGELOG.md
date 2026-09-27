@@ -8,6 +8,11 @@ release yet.
 
 ### Fixed
 
+- Added a reviewable selected-tile inspection prototype. Clicking ground
+  highlights the tile and shows observed terrain, objects, resources,
+  buildings, regional weather and moisture. Elevation and fertility are
+  explicitly unavailable until authoritative fields exist; final layout and
+  fields remain subject to owner playtest.
 - Signed owner reconnects now use a versioned terrain-cache claim. After an
   initial generated-map transfer, unchanged terrain bytes are omitted from
   routine observations; clients reuse only a matching world ID and manifest

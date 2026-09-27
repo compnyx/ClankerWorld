@@ -120,6 +120,9 @@ public partial class Main : Control
     private readonly PanelContainer eventsPanel = new();
     private readonly PanelContainer settlementPanel = new();
     private readonly PanelContainer worldInfoPanel = new();
+    private readonly PanelContainer selectedTilePanel = new();
+    private readonly RichTextLabel selectedTileText = new();
+    private Vector2I? selectedTile;
     private readonly PanelContainer gameMenuPanel = new();
     private readonly PanelContainer settingsPanel = new();
     private readonly ColorRect menuShade = new();
@@ -432,6 +435,19 @@ public partial class Main : Control
                 throw new InvalidOperationException("Mod Library must show existing agent proposal provenance.");
             RenderMap(sample);
             for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var inspectClick = mapStage.Position + new Vector2(currentTileSize * 1.5f,
+                currentTileSize * 1.5f);
+            HandleMapInput(new InputEventMouseButton
+            {
+                Position = inspectClick,
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            });
+            if (!selectedTilePanel.Visible || terrainLayer.SelectedTile != new Vector2I(1, 1) ||
+                !selectedTileText.Text.Contains("8 available", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Elevation: unavailable", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Fertility: unavailable", StringComparison.Ordinal))
+                throw new InvalidOperationException("Selected-tile inspection must show observed resources and mark unavailable terrain facts honestly.");
             var marker = mapObjectVisuals["resource:wood"];
             var identity = marker.GetInstanceId();
             var entered = false;
@@ -439,6 +455,9 @@ public partial class Main : Control
             GetViewport().PushInput(new InputEventMouseMotion { Position = marker.GetGlobalRect().GetCenter(), GlobalPosition = marker.GetGlobalRect().GetCenter() }, inLocalCoords: true);
             for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             RenderMap(sample with { Resources = [sampleResource with { Quantity = 7 }] });
+            if (!selectedTileText.Text.Contains("7 available", StringComparison.Ordinal))
+                throw new InvalidOperationException("Selected-tile resource stock must refresh with observations.");
+            ClearTileSelection();
             if (!entered || marker.MouseFilter == MouseFilterEnum.Ignore || marker.GetInstanceId() != identity ||
                 !marker.TooltipText.Contains("7/12", StringComparison.Ordinal) || !marker.Text.Contains("7/12", StringComparison.Ordinal))
                 throw new InvalidOperationException($"Resource hover/update failed: entered={entered}, filter={marker.MouseFilter}, stable={marker.GetInstanceId() == identity}, text={marker.Text}, rect={marker.GetGlobalRect()}, hovered={GetViewport().GuiGetHoveredControl()?.GetPath()}.");
@@ -2464,6 +2483,22 @@ public partial class Main : Control
         worldInfoPanel.ZIndex = 80;
         worldInfoPanel.Hide();
         content.AddChild(worldInfoPanel);
+
+        var tileBody = new VBoxContainer();
+        var tileHeading = new HBoxContainer();
+        tileHeading.AddChild(new Label { Text = "Selected tile", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        var closeTile = new Button { Text = "×", TooltipText = "Close tile inspection" };
+        StyleButton(closeTile);
+        closeTile.Pressed += ClearTileSelection;
+        tileHeading.AddChild(closeTile);
+        tileBody.AddChild(tileHeading);
+        ConfigureTextPanel(selectedTileText, 185);
+        tileBody.AddChild(selectedTileText);
+        AddPanelContents(selectedTilePanel, tileBody);
+        selectedTilePanel.CustomMinimumSize = new Vector2(315, 235);
+        selectedTilePanel.ZIndex = 80;
+        selectedTilePanel.Hide();
+        content.AddChild(selectedTilePanel);
     }
 
     private void BuildOwnerColumn(Control content)
@@ -3197,6 +3232,7 @@ public partial class Main : Control
             knownEvents.Clear();
             familyTreePanel.Hide();
             memoriesPanel.Hide();
+            ClearTileSelection();
         }
         foreach (var worldEvent in appendedEvents)
         {
@@ -3380,6 +3416,7 @@ public partial class Main : Control
             inhabitantCanonicalXs.Remove(removedId);
         }
 
+        RenderTileInspection(snapshot);
         PositionSelectedInhabitantCard(snapshot);
         RefreshTileHoverAtMouse();
     }
@@ -3937,6 +3974,9 @@ public partial class Main : Control
         rosterPanel.Position = new Vector2(14, 14);
         settlementPanel.Position = new Vector2(14, 14);
         worldInfoPanel.Position = new Vector2(14, 14);
+        selectedTilePanel.Position = new Vector2(14,
+            Math.Max(14, viewport.Y - Math.Max(selectedTilePanel.Size.Y,
+                selectedTilePanel.CustomMinimumSize.Y) - 14));
         eventsPanel.Position = new Vector2(
             Math.Max(14, viewport.X - Math.Max(eventsPanel.Size.X, eventsPanel.CustomMinimumSize.X) - 14),
             14);
@@ -4093,6 +4133,18 @@ public partial class Main : Control
                 }
                 mapCanvas.AcceptEvent();
             }
+            else if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left)
+            {
+                var tile = TileAtCanvas(mouse.Position, snapshot);
+                if (MapContains(snapshot, tile.X, tile.Y))
+                {
+                    selectedTile = tile;
+                    terrainLayer.SetSelectedTile(tile);
+                    RenderTileInspection(snapshot);
+                    selectedTilePanel.Show();
+                    mapCanvas.AcceptEvent();
+                }
+            }
         }
         else if (@event is InputEventMouseMotion hoverMotion)
         {
@@ -4114,6 +4166,47 @@ public partial class Main : Control
         if (snapshot.WrapsEastWest)
             x = ((x % terrainMap!.Width) + terrainMap.Width) % terrainMap.Width;
         return new Vector2I(x, Mathf.FloorToInt(tile.Y));
+    }
+
+    private void ClearTileSelection()
+    {
+        selectedTile = null;
+        terrainLayer.SetSelectedTile(null);
+        selectedTilePanel.Hide();
+    }
+
+    private void RenderTileInspection(OwnerWorldSnapshot snapshot)
+    {
+        if (selectedTile is not { } tile || terrainMap is null) return;
+        if (!MapContains(snapshot, tile.X, tile.Y))
+        {
+            ClearTileSelection();
+            return;
+        }
+
+        var regionSize = Math.Max(1, snapshot.WeatherRegionSize);
+        var region = snapshot.WeatherRegions.FirstOrDefault(item =>
+            item.X == tile.X / regionSize && item.Y == tile.Y / regionSize);
+        var objects = snapshot.Objects.Where(item => item.Position.X == tile.X && item.Position.Y == tile.Y)
+            .Select(item => Pretty(item.Kind))
+            .Concat(snapshot.Resources.Where(item => item.Position.X == tile.X && item.Position.Y == tile.Y)
+                .Select(item => item.TreeKind is { } tree
+                    ? $"{Pretty(tree)} tree · {Pretty(item.TreeStage ?? item.State)}"
+                    : $"{Pretty(item.Kind)} site" +
+                        (item.Quantity is { } quantity ? $" · {quantity} available" : string.Empty)))
+            .Concat(snapshot.PlacedBuildings.Where(item =>
+                    tile.X >= item.Position.X && tile.X < item.Position.X + item.Width &&
+                    tile.Y >= item.Position.Y && tile.Y < item.Position.Y + item.Height)
+                .Select(item => item.DisplayName ?? Pretty(item.DefinitionId)))
+            .ToArray();
+        selectedTileText.Text =
+            $"Tile {tile.X}, {tile.Y}\n" +
+            $"Ground: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}\n" +
+            $"Weather: {Pretty(region?.Weather ?? snapshot.Authoring?.Weather ?? "unavailable")}\n" +
+            $"Regional soil moisture: {(region?.SoilMoisture is { } moisture ? moisture + "/100" : "unavailable")}\n" +
+            $"Elevation: unavailable\n" +
+            $"Fertility: unavailable\n" +
+            $"Objects: {(objects.Length == 0 ? "none observed" : string.Join(", ", objects))}";
     }
 
     private void UpdateTileHover(Vector2 canvasPosition)

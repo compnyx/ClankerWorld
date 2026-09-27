@@ -72,6 +72,21 @@ public sealed class WorldTerrainMap
 
     public byte At(int x, int y) => terrain[y * Width + x];
 
+    public static string NameFor(byte kind) => kind switch
+    {
+        1 => "Meadow",
+        2 => "Water",
+        3 => "Mountain",
+        4 => "River",
+        5 => "Lake",
+        6 => "Ocean",
+        7 => "Sand",
+        8 => "Forest",
+        9 => "Snow",
+        10 => "Peak",
+        _ => "Unavailable",
+    };
+
     public static Color ColorFor(byte kind) => kind switch
     {
         1 => WorldMapPalette.TerrainColor("meadow"),
