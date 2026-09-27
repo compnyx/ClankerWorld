@@ -1155,3 +1155,15 @@ answers revise it.
    planned kit is two houses, shared storehouse, fire/cooking area, workshop,
    connecting path, nearby fertile land, and starter food/seeds/hand
    tools/clothing; which of these the player places directly remains open.
+
+### Camp parts confirmed; storehouse ownership questioned (2026-09-27)
+
+Computment answered yes to the follow-up proposal: the player places the two
+houses, storehouse, fire/cooking area, and workshop individually, while the game
+connects a path and stocks starter supplies. This supersedes the preceding
+tentative “probably” on individual placement. They asked whether the shared
+storehouse is only for the settlement. That ownership/access question is not
+yet decided: the accepted camp has two starter households before any formal
+settlement, while the present prototype tracks starter stock by household even
+though there is a common storage site. Neither the old “shared” label nor the
+prototype's inventory model should silently settle the finished-game rule.

@@ -468,14 +468,15 @@ first-complete-game roadmap.
   simulation cannot begin until the camp is placed and all four founders are
   added. They are grouped 2+2 into two starter households, not forced couples;
   family lines develop later through relationships and children. The households
-  exist even before
-  any formal land claims. The placed camp contains two small houses, a
-  shared storehouse, fire/cooking area, basic workshop, nearby fertile land,
-  starter food/seeds/hand tools/clothing, and a connecting path. Furniture can
-  be abstracted as inspectable building contents/capabilities rather than
-  every chair being drawn. A poor camp site is allowed with a warning rather
-  than rejected solely for its survival disadvantages; physically impossible
-  placements still need rules.
+  exist even before any formal land claims or settlement. The player
+  individually places **two small houses**, a **shared storehouse**, a
+  **fire/cooking area**, and a **basic workshop**. The game connects them with a
+  path and stocks starter
+  food, seeds, hand tools, and clothing. Nearby fertile land remains part of
+  the desired camp setting. Furniture can be abstracted as inspectable building
+  contents/capabilities rather than every chair being drawn. A poor camp site
+  is allowed with a warning rather than rejected solely for its survival
+  disadvantages; physically impossible placements still need rules.
 - Once all four founders are configured and placed, the player explicitly
   presses **Start World**; the simulation must not begin automatically on the
   fourth placement. An incomplete founder setup is saved so the player can
@@ -531,14 +532,6 @@ first-complete-game roadmap.
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
 
-### Preferred, pending confirmation
-
-Computment probably prefers placing the camp's buildings and other parts
-individually rather than dropping one prearranged camp footprint. This is a
-leaning, not a locked placement specification. Which parts are movable,
-whether paths and supplies are placed directly or generated around the chosen
-structures, and how the overall camp is completed remain open.
-
 ### Open
 
 Expected/variable lifespan below the six-hour cap, founders' starting ages,
@@ -550,10 +543,14 @@ pregnancy/birth and childcare rules, care/resource eligibility, Jev's
 optional role in childhood, and the identity implications of player renaming.
 Base-camp placement rules and interface remain open: its order relative to
 founder placement, physically valid terrain and footprints, what the warning
-flags, how supplies and fertile land are provided, and whether placement can be
-revised before Start World. The optional survival grace period still needs a
-duration and precise effects. Also open: whether unrelated newcomers can arrive
-without player action or are only introduced through Add Agent. A configurable
+flags, how fertile land is ensured or assessed, and whether placement can be
+revised before Start World. The shared storehouse's ownership and access rules
+are also open: the camp begins before a formal settlement, and the one shared
+structure does not by itself decide whether its contents are common to both
+households or belong to a later settlement. The optional survival grace period
+still needs a duration and precise effects. Also open: whether unrelated
+newcomers can arrive without player action or are only introduced through Add
+Agent. A configurable
 automatic-birth limit was considered, briefly accepted, then explicitly
 reopened: computment will decide **after playtesting actual birth frequency,
 population growth, and model cost** whether a cap belongs in the game. Do not
