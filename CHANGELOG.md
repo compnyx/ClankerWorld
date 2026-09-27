@@ -11,6 +11,11 @@ release yet.
 - Agents can cross narrow river tiles on foot only between opposite dry banks.
   They no longer walk along a channel or cut diagonally through its water;
   wider rivers remain impassable without later transport or bridges.
+- Children born in a world no longer inherit a billable world cognition default
+  when their personal model has not been selected. Infants cannot queue personal
+  decisions; after infancy they make safe local decisions until an explicit
+  personal model is assigned in the agent card. Removing that assignment
+  returns them to local decisions rather than another paid account.
 - Added a reviewable selected-tile inspection prototype. Clicking ground
   highlights the tile and shows observed terrain, objects, resources,
   buildings, regional weather and moisture. Elevation and fertility are

@@ -8,6 +8,45 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class ProviderConfigurationStoreTests
 {
     [Fact]
+    public async Task BornChildNeverUsesPaidWorldDefaultWithoutAnExplicitPersonalAssignment()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-child-provider-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "providers.json");
+            var store = new ProviderConfigurationStore(path, EmptySeed());
+            _ = store.Configure(new("routine", "jev", "jev-test", "world-jev-secret", false));
+            _ = store.Configure(new("planning", "ollama-cloud", "world-model", "world-paid-secret", false));
+            var handler = new ProviderResponseHandler();
+            var router = new ConfigurableDecisionProvider(store, new FixedHttpClientFactory(handler));
+            var routine = Request(router.ProviderEpoch).Observation with { RequiresPersonalProvider = true };
+            var planning = Request(router.ProviderEpoch, strategic: true).Observation with { RequiresPersonalProvider = true };
+            Assert.Equal(DecisionProviderKind.Deterministic, router.KindFor(routine));
+            Assert.Equal(DecisionProviderKind.Deterministic, router.KindFor(planning));
+            Assert.Equal(DecisionProviderKind.Deterministic,
+                (await router.DecideAsync(new("child-routine", router.ProviderEpoch, routine))).Provider);
+            Assert.Equal(DecisionProviderKind.Deterministic,
+                (await router.DecideAsync(new("child-planning", router.ProviderEpoch, planning))).Provider);
+            Assert.Null(handler.LastUri);
+
+            var slot = Guid.NewGuid().ToString("N");
+            _ = store.Configure(new("personal", "openai", "child-model", "child-secret", false,
+                "inhabitant-test", slot, "Child model"));
+            var restoredStore = new ProviderConfigurationStore(path, EmptySeed());
+            var restored = new ConfigurableDecisionProvider(restoredStore, new FixedHttpClientFactory(handler));
+            Assert.Equal(DecisionProviderKind.LargeLanguageModel, restored.KindFor(planning));
+            _ = await restored.DecideAsync(new("child-selected", restored.ProviderEpoch, planning));
+            Assert.Equal("api.openai.com", handler.LastUri!.Host);
+            Assert.Equal("child-model", handler.LastModel);
+            Assert.Equal("Bearer child-secret", handler.LastAuthorization);
+
+            _ = restoredStore.Configure(new("personal", "inherit", null, null, false, "inhabitant-test"));
+            Assert.Equal(DecisionProviderKind.Deterministic, restored.KindFor(planning));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public async Task PaidCallCapBlocksProviderBeforeHttpAndLocalDecisionsRemainFree()
     {
         var directory = Directory.CreateTempSubdirectory("clankerworld-usage-router-");

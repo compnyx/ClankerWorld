@@ -887,7 +887,14 @@ public sealed partial class ConfigurableDecisionProvider(
         var routine = IsRoutine(observation);
         var role = routine ? PlayerDecisionProviders.RoutineRole : PlayerDecisionProviders.PlanningRole;
         var assigned = AssignmentFor(configuration, observation.InhabitantId, role);
+        // Children born in this world never inherit a potentially billable
+        // world default. Their own explicit assignment is the only route to a
+        // personal model after infancy; until then they use local safe choices.
+        if (observation.RequiresPersonalProvider && assigned is null)
+            return (PlayerDecisionProviders.Deterministic, null);
         var provider = assigned?.Provider ?? (routine ? configuration.RoutineProvider : configuration.PlanningProvider);
+        if (observation.RequiresPersonalProvider && provider == PlayerDecisionProviders.Jev)
+            return (PlayerDecisionProviders.Deterministic, null);
         if (routine && provider == PlayerDecisionProviders.Jev && !jevEnabled)
         {
             // Jev is a world-level helper, never a requirement for an agent to

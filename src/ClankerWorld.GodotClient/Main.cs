@@ -1583,6 +1583,10 @@ public partial class Main : Control
     private string? SelectedCognitionTarget() => cognitionTargetChoice.Selected <= 0
         ? null : cognitionTargetChoice.GetItemMetadata(cognitionTargetChoice.Selected).AsString();
 
+    private bool SelectedTargetWasBornHere() => observationSession.Current?.Baseline.Snapshot.Inhabitants
+        .FirstOrDefault(item => item.Id == SelectedCognitionTarget())?.Relationships
+        .Any(item => item.Type == "biological_parentage" && item.Direction == "child") == true;
+
     private void PopulateCognitionTargets()
     {
         var target = SelectedCognitionTarget();
@@ -1617,7 +1621,8 @@ public partial class Main : Control
         cognitionProviderChoice.Clear();
         if (SelectedCognitionTarget() is not null)
         {
-            AddProviderChoice("Use world default", "inherit");
+            AddProviderChoice(SelectedTargetWasBornHere()
+                ? "No personal model (safe local)" : "Use world default", "inherit");
         }
         AddProviderChoice("Deterministic", "deterministic");
         if (SelectedRoleId() == "routine" && SelectedCognitionTarget() is null)
@@ -1721,6 +1726,8 @@ public partial class Main : Control
             : "No saved key";
         cognitionConfigurationStatus.Text = providerConfiguration is null
             ? "Loading…"
+            : SelectedTargetWasBornHere() && SelectedAssignment() is null
+            ? "No personal model selected for this child. After infancy, safe local decisions continue until a model is assigned; world defaults are not used."
             : $"Routine: {ProviderDisplayName(providerConfiguration.RoutineProvider)} · Planning: {ProviderDisplayName(providerConfiguration.PlanningProvider)}";
         RefreshControlAvailability();
     }

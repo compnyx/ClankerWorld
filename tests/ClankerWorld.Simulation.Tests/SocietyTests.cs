@@ -309,7 +309,30 @@ public sealed class SocietyTests
         var childId = "world:inhabitant:birth-runtime";
 
         Assert.Contains(childId, runtime.Capture().Cognition.Runtimes.Select(item => item.InhabitantId));
-        Assert.True(runtime.EnqueueCognition(Entry("child-start", childId, 0, 0)));
+        Assert.False(runtime.EnqueueCognition(Entry("infant-start", childId, 0, 0)));
+        Assert.DoesNotContain(runtime.Capture().Cognition.Queue, item => item.InhabitantId == childId);
+        runtime.AdvanceTo(20); // The fixture's two-year infancy ends here.
+        Assert.Equal(SocietyAgeBand.Child, runtime.Checkpoint.GetInhabitant(childId).AgeBand);
+        Assert.True(runtime.EnqueueCognition(Entry("child-start", childId, 0, 20)));
+        var queued = Assert.Single(runtime.Capture().Cognition.Queue);
+        Assert.True(queued.Observation.RequiresPersonalProvider);
+
+        // A restored queue still marks this born child as needing its own
+        // selection, including saves written before the observation flag.
+        var unmarked = runtime.ExportState();
+        unmarked = unmarked with { Cognition = unmarked.Cognition with
+        {
+            Queue = unmarked.Cognition.Queue.Select(item => item with
+            {
+                Observation = item.Observation with { RequiresPersonalProvider = false },
+            }).ToArray(),
+        } };
+        using (var recovered = SocietyWorldRuntime.Restore(unmarked))
+        {
+            Assert.True(Assert.Single(recovered.Capture().Cognition.Queue).Observation.RequiresPersonalProvider);
+            await recovered.DispatchCognitionAsync();
+        }
+
         await runtime.DispatchCognitionAsync();
 
         runtime.Apply(current => SocietyFixture.Kill(current, "bob", SocietyDeathCause.Hazard));

@@ -83,7 +83,8 @@ public sealed class SocietyWorldRuntime : IDisposable
             state.Cognition,
             providerFactory,
             minimumCognitionConfidence);
-        scheduler.SyncInhabitants(state.Society.Inhabitants);
+        scheduler.SyncInhabitants(state.Society.Inhabitants,
+            state.Society.Births.Select(birth => birth.ChildId).ToHashSet(StringComparer.Ordinal));
         var runtime = new SocietyWorldRuntime(
             state.Society,
             providerFactory,
@@ -106,7 +107,8 @@ public sealed class SocietyWorldRuntime : IDisposable
             var result = operation(society);
             SocietyFixture.Validate(result.Checkpoint);
             society = result.Checkpoint;
-            cognition.SyncInhabitants(society.Inhabitants);
+            cognition.SyncInhabitants(society.Inhabitants,
+                society.Births.Select(birth => birth.ChildId).ToHashSet(StringComparer.Ordinal));
             return result;
         }
         finally
@@ -134,12 +136,20 @@ public sealed class SocietyWorldRuntime : IDisposable
                 throw new InvalidOperationException("Dead inhabitants cannot receive cognition work.");
             }
 
+            if (inhabitant.AgeBand == SocietyAgeBand.Infant)
+            {
+                return false;
+            }
+
             if (entry.Observation.WorldTick > society.WorldTick)
             {
                 throw new InvalidOperationException("Cognition cannot observe beyond the authoritative world tick.");
             }
 
-            return cognition.Enqueue(entry);
+            var child = society.Births.Any(birth => birth.ChildId == inhabitant.Id);
+            return cognition.Enqueue(child
+                ? entry with { Observation = entry.Observation with { RequiresPersonalProvider = true } }
+                : entry);
         }
         finally
         {

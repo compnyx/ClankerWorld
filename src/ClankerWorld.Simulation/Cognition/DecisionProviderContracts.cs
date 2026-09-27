@@ -53,7 +53,8 @@ public sealed record InhabitantObservation(
     string ObservationDigest,
     int HungerBasisPoints,
     IReadOnlyList<CognitionCandidate> Candidates,
-    bool NeedsName = false)
+    bool NeedsName = false,
+    bool RequiresPersonalProvider = false)
 {
     public void Validate()
     {

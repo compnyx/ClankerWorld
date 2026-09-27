@@ -124,10 +124,11 @@ public sealed class SocietyCognitionScheduler
     /// Dead inhabitants cannot receive new work, and newborns get a fresh
     /// provider binding without disturbing surviving runtimes or queued work.
     /// </summary>
-    public void SyncInhabitants(IEnumerable<SocietyInhabitant> inhabitants)
+    public void SyncInhabitants(IEnumerable<SocietyInhabitant> inhabitants, IReadOnlySet<string>? bornChildIds = null)
     {
         ArgumentNullException.ThrowIfNull(inhabitants);
-        var activeIds = inhabitants
+        var current = inhabitants.ToArray();
+        var activeIds = current
             .Where(item => item.Status == SocietyInhabitantStatus.Active)
             .Select(item => item.Id)
             .ToHashSet(StringComparer.Ordinal);
@@ -139,7 +140,7 @@ public sealed class SocietyCognitionScheduler
             AppendEvent(0, "cognition_runtime_removed", removedId);
         }
 
-        foreach (var inhabitant in inhabitants
+        foreach (var inhabitant in current
                      .Where(item => item.Status == SocietyInhabitantStatus.Active)
                      .OrderBy(item => item.Id, StringComparer.Ordinal))
         {
@@ -152,6 +153,21 @@ public sealed class SocietyCognitionScheduler
                 inhabitant.Id,
                 new CognitionRuntime(inhabitant.Id, providerFactory(inhabitant.Id), minimumConfidence));
             AppendEvent(0, "cognition_runtime_added", inhabitant.Id);
+        }
+
+        // A save from before child-provider routing can contain an already
+        // queued observation. Reconcile it before hosted preview or dispatch.
+        var infants = current.Where(item => item.AgeBand == SocietyAgeBand.Infant)
+            .Select(item => item.Id).ToHashSet(StringComparer.Ordinal);
+        queue.RemoveAll(entry => infants.Contains(entry.InhabitantId));
+        if (bornChildIds is not null)
+        {
+            for (var index = 0; index < queue.Count; index++)
+                if (bornChildIds.Contains(queue[index].InhabitantId))
+                    queue[index] = queue[index] with
+                    {
+                        Observation = queue[index].Observation with { RequiresPersonalProvider = true },
+                    };
         }
     }
 
