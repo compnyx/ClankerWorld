@@ -25,15 +25,10 @@ the resolution evidence below.
   the current temporary notices/settings flow should be removed. Important
   events remain accessible in the Event Log; this does not remove agent info
   panels or other purposeful inspection UI.
-- **Wrapped-world camera stops at the east/west edges — confirmed:** the
-  client clamps the horizontal camera axis and terrain renderer to one copy of
-  the map. World generation can request east/west wrapping, but camera panning
-  does not cross the seam continuously; agent routes now honor the saved
-  east/west wrapping choice.
-- **Zoom-out cap feels too close — playtest preference:** client zoom is
-  clamped to 1–4 and rendered tiles have a 12 px minimum. Revisit the visible
-  area/performance/readability cap instead of treating the current minimum as
-  the finished design.
+- **Final zoom-out cap needs playtest selection:** the client can now zoom to
+  8 px terrain tiles (roughly 50% wider coverage than the old 12 px minimum on
+  a 256-tile-wide map). Confirm that tile readability and frame cost are right
+  on the player's target hardware before treating this as the final cap.
 - **Bridges absent — current capability gap:**
   agents can now cross one-tile-wide river tiles on foot at half dry-ground
   speed; wider river sections remain impassable, and no Road or bridge system

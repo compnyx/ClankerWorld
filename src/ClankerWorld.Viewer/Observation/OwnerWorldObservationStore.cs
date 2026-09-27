@@ -251,6 +251,7 @@ public sealed class OwnerWorldObservationStore
             latestEventId)
         {
             PackedTerrain = packedTerrain,
+            WrapsEastWest = state.Geography?.WrapEastWest == true,
             Inhabitants = activeInhabitants
                 .Select(inhabitant => ToPlaytestInhabitant(state, inhabitant, physicalById[inhabitant.Id]))
                 .Concat(state.Society.Society.Inhabitants

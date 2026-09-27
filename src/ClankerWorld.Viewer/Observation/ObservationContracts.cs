@@ -226,6 +226,7 @@ public sealed record ViewerWorldSnapshot(
     long LatestEventId)
 {
     public ViewerPackedTerrain? PackedTerrain { get; init; }
+    public bool WrapsEastWest { get; init; }
     public IReadOnlyList<ViewerStockpile> Stockpiles { get; init; } = [];
     public ViewerCouncil? Council { get; init; }
     public int? LifePaceRate { get; init; }

@@ -18,6 +18,7 @@ public partial class WorldOverview : Control
     public event Action<Vector2>? CenterRequested;
 
     public Rect2 VisibleTiles => visibleTiles;
+    public bool WrapsEastWest { get; set; }
     public bool ShowCameraBounds { get; set; } = true;
     public Vector2? MarkerTile { get; set; }
 
@@ -93,13 +94,35 @@ public partial class WorldOverview : Control
                 new Color("FFF0B5"));
         }
         if (!ShowCameraBounds) return;
-        var view = new Rect2(
-            atlas.Position + new Vector2(visibleTiles.Position.X * atlas.Size.X / mapWidth,
-                visibleTiles.Position.Y * atlas.Size.Y / mapHeight),
-            new Vector2(Math.Max(2, visibleTiles.Size.X * atlas.Size.X / mapWidth),
-                Math.Max(2, visibleTiles.Size.Y * atlas.Size.Y / mapHeight)));
-        DrawRect(view, new Color("FFF0B5", 0.15f));
-        DrawRect(view, new Color("FFF0B5"), filled: false, width: 2);
+        var top = atlas.Position.Y + visibleTiles.Position.Y * atlas.Size.Y / mapHeight;
+        var height = Math.Max(2, visibleTiles.Size.Y * atlas.Size.Y / mapHeight);
+        if (!WrapsEastWest || visibleTiles.Size.X >= mapWidth)
+        {
+            var left = WrapsEastWest ? atlas.Position.X :
+                atlas.Position.X + visibleTiles.Position.X * atlas.Size.X / mapWidth;
+            var width = WrapsEastWest ? atlas.Size.X :
+                Math.Max(2, visibleTiles.Size.X * atlas.Size.X / mapWidth);
+            DrawCameraBounds(new Rect2(left, top, width, height));
+            return;
+        }
+
+        // The camera may straddle either side of the cylindrical seam. Draw
+        // both visible pieces on the atlas rather than a rectangle outside it.
+        for (var copy = -1; copy <= 1; copy++)
+        {
+            var start = Math.Max(0, visibleTiles.Position.X - copy * mapWidth);
+            var end = Math.Min(mapWidth, visibleTiles.End.X - copy * mapWidth);
+            if (end <= start) continue;
+            DrawCameraBounds(new Rect2(
+                atlas.Position.X + start * atlas.Size.X / mapWidth, top,
+                Math.Max(2, (end - start) * atlas.Size.X / mapWidth), height));
+        }
+    }
+
+    private void DrawCameraBounds(Rect2 bounds)
+    {
+        DrawRect(bounds, new Color("FFF0B5", 0.15f));
+        DrawRect(bounds, new Color("FFF0B5"), filled: false, width: 2);
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -114,7 +137,7 @@ public partial class WorldOverview : Control
             dragging = button.Pressed && AtlasRect().HasPoint(button.Position);
             if (dragging)
             {
-                var point = ToTilePoint(button.Position);
+                var point = ToCameraTilePoint(button.Position);
                 dragOffset = visibleTiles.HasPoint(point) ? point - visibleTiles.GetCenter() : Vector2.Zero;
                 CenterRequested?.Invoke(point - dragOffset);
                 AcceptEvent();
@@ -122,7 +145,7 @@ public partial class WorldOverview : Control
         }
         else if (@event is InputEventMouseMotion motion && dragging)
         {
-            CenterRequested?.Invoke(ToTilePoint(motion.Position) - dragOffset);
+            CenterRequested?.Invoke(ToCameraTilePoint(motion.Position) - dragOffset);
             AcceptEvent();
         }
     }
@@ -133,6 +156,14 @@ public partial class WorldOverview : Control
         return new Vector2(
             Math.Clamp((position.X - atlas.Position.X) * mapWidth / atlas.Size.X, 0, mapWidth),
             Math.Clamp((position.Y - atlas.Position.Y) * mapHeight / atlas.Size.Y, 0, mapHeight));
+    }
+
+    private Vector2 ToCameraTilePoint(Vector2 position)
+    {
+        var point = ToTilePoint(position);
+        if (WrapsEastWest)
+            point.X += MathF.Round((visibleTiles.GetCenter().X - point.X) / mapWidth) * mapWidth;
+        return point;
     }
 
     private Rect2 AtlasRect()

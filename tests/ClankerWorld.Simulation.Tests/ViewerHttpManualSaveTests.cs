@@ -100,6 +100,7 @@ public sealed partial class ViewerHttpTests
                 var view = (await observed.Content.ReadFromJsonAsync<ViewerOwnerReconnect>())!;
                 Assert.Equal(entry.WorldId, view.Baseline.Snapshot.WorldId);
                 Assert.Equal(256, view.Baseline.Snapshot.PackedTerrain?.Width);
+                Assert.Equal(create.WrapEastWest, view.Baseline.Snapshot.WrapsEastWest);
                 Assert.Empty(view.Baseline.Snapshot.Tiles);
                 Assert.Empty(providers.CaptureRuntimeConfiguration().Assignments ?? []);
                 Assert.Equal(5, host.Services.GetRequiredService<WorldAutosaveStore>().Capture().IntervalMinutes);

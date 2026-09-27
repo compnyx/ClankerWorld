@@ -28,6 +28,8 @@ public partial class Main : Control
     private readonly Dictionary<long, OwnerWorldEvent> knownEvents = [];
     private readonly Dictionary<string, AgentMarker> inhabitantVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Label> mapObjectVisuals = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, float> inhabitantCanonicalXs = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, float> mapObjectCanonicalXs = new(StringComparer.Ordinal);
 
     private readonly Label statusLabel = new();
     private readonly PanelContainer statusToast = new();
@@ -565,7 +567,7 @@ public partial class Main : Control
                 throw new InvalidOperationException("Clicking a located event did not move the world camera.");
             var largeTerrain = Enumerable.Range(0, 256 * 128)
                 .Select(index => (byte)(index % 37 == 0 ? 3 : 0)).ToArray();
-            RenderMap(sample with
+            var largeMap = sample with
             {
                 WorldId = "ui-large-map",
                 MapManifestDigest = "ui-large-map-v1",
@@ -580,7 +582,8 @@ public partial class Main : Control
                     .Append(new OwnerWeatherRegion(4, 2, "rain", 78)).ToArray(),
                 Resources = [],
                 PlacedBuildings = [],
-            });
+            };
+            RenderMap(largeMap);
             for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (terrainLayer.GetChildCount() != 0 || terrainLayer.VisibleTileCount >= largeTerrain.Length / 2 ||
                 worldOverview.VisibleTiles.Size.X >= 256)
@@ -597,6 +600,74 @@ public partial class Main : Control
                 !worldInfoText.Text.Contains("camera: Spring · Snow", StringComparison.Ordinal) ||
                 !worldInfoText.Text.Contains("Soil moisture nearby: 12/100", StringComparison.Ordinal))
                 throw new InvalidOperationException($"Panning must update HUD and World Info to local weather: camera={cameraCenterTiles}, HUD={climateLabel.Text}, info={worldInfoText.Text}.");
+            var wrappedMap = largeMap with
+            {
+                WorldId = "ui-wrapped-map",
+                WrapsEastWest = true,
+                Resources = [new OwnerWorldResource("seam-wood", "construction", new(255, 64),
+                    true, "available", 5, 10, 0, 0, "spring")],
+            };
+            RenderMap(wrappedMap);
+            CenterCameraAt(new Vector2(0.5f, 64));
+            if (worldOverview.VisibleTiles.Position.X >= 0 ||
+                terrainLayer.VisibleTileCount >= largeTerrain.Length / 2 ||
+                !worldOverview.WrapsEastWest ||
+                TileAtCanvas(mapCanvas.Size / 2 - new Vector2(2 * currentTileSize, 0), wrappedMap).X != 254)
+                throw new InvalidOperationException("Wrapped camera must render and target the western seam without an empty edge.");
+            var seamMarker = mapObjectVisuals["resource:seam-wood"];
+            if (!mapCanvas.GetGlobalRect().HasPoint(seamMarker.GetGlobalRect().GetCenter()))
+                throw new InvalidOperationException("Resources across the wrapped seam must remain visible at the camera.");
+            var seamEntered = false;
+            seamMarker.MouseEntered += () => seamEntered = true;
+            GetViewport().PushInput(new InputEventMouseMotion
+            {
+                Position = seamMarker.GetGlobalRect().GetCenter(),
+                GlobalPosition = seamMarker.GetGlobalRect().GetCenter(),
+            }, inLocalCoords: true);
+            for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!seamEntered)
+                throw new InvalidOperationException("A resource across the wrapped seam must remain hoverable.");
+            PanCamera(new Vector2(-5, 0));
+            if (cameraCenterTiles.X < 250 || worldOverview.VisibleTiles.End.X <= 256 ||
+                !mapCanvas.GetGlobalRect().HasPoint(seamMarker.GetGlobalRect().GetCenter()))
+                throw new InvalidOperationException("Panning west across a wrapped seam must not clamp the camera.");
+            PanCamera(new Vector2(10, 0));
+            if (cameraCenterTiles.X > 10 || worldOverview.VisibleTiles.Position.X >= 0 ||
+                !mapCanvas.GetGlobalRect().HasPoint(seamMarker.GetGlobalRect().GetCenter()))
+                throw new InvalidOperationException("Panning east across a wrapped seam must remain continuous.");
+            RenderMap(largeMap);
+            CenterCameraAt(new Vector2(-5, 64));
+            if (worldOverview.VisibleTiles.Position.X < 0 || worldOverview.WrapsEastWest)
+                throw new InvalidOperationException("Non-wrapped worlds must retain bounded horizontal camera edges.");
+
+            cameraZoom = 1;
+            RenderMap(largeMap);
+            var oldVisibleWidth = worldOverview.VisibleTiles.Size.X;
+            var oldTileCount = terrainLayer.VisibleTileCount;
+            var baselinePan = System.Diagnostics.Stopwatch.StartNew();
+            for (var step = 0; step < 8; step++)
+            {
+                CenterCameraAt(new Vector2(80 + step, 64));
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+            baselinePan.Stop();
+            cameraZoom = 0.65f;
+            RenderMap(largeMap);
+            if (currentTileSize != 8 || worldOverview.VisibleTiles.Size.X < oldVisibleWidth * 1.4f ||
+                terrainLayer.VisibleTileCount > 40_000)
+                throw new InvalidOperationException($"Overview zoom must widen bounded terrain coverage: tile={currentTileSize}, width={oldVisibleWidth}->{worldOverview.VisibleTiles.Size.X}, tiles={terrainLayer.VisibleTileCount}.");
+            var wideVisibleWidth = worldOverview.VisibleTiles.Size.X;
+            var wideTileCount = terrainLayer.VisibleTileCount;
+            var widePan = System.Diagnostics.Stopwatch.StartNew();
+            for (var step = 0; step < 8; step++)
+            {
+                CenterCameraAt(new Vector2(80 + step, 64));
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+            widePan.Stop();
+            GD.Print($"Zoom comparison at {mapCanvas.Size}: 12 px={oldVisibleWidth:0} columns/{oldTileCount} tiles, {baselinePan.Elapsed.TotalMilliseconds:0} ms/8 pan frames; 8 px={wideVisibleWidth:0} columns/{wideTileCount} tiles, {widePan.Elapsed.TotalMilliseconds:0} ms/8 pan frames (headless sample).");
+            cameraZoom = 1;
+            RenderMap(largeMap);
             var formerPosition = new OwnerWorldPosition(2, 2);
             var deceased = new OwnerWorldInhabitant("archived-mira", "Mira", "dead", formerPosition,
                 5_000, 5_000, [], [new("age-band", "elder"), new("death-tick", "1")],
@@ -3090,12 +3161,14 @@ public partial class Main : Control
         {
             mapObjectVisuals[id].QueueFree();
             mapObjectVisuals.Remove(id);
+            mapObjectCanonicalXs.Remove(id);
         }
 
         if (!HasMap(snapshot))
         {
             foreach (var visual in inhabitantVisuals.Values) visual.QueueFree();
             inhabitantVisuals.Clear();
+            inhabitantCanonicalXs.Clear();
             terrainLayer.SetHoveredTile(null);
             return;
         }
@@ -3115,6 +3188,7 @@ public partial class Main : Control
         }
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
+        worldOverview.WrapsEastWest = snapshot.WrapsEastWest;
         if (!string.Equals(cameraWorldId, snapshot.WorldId, StringComparison.Ordinal))
         {
             cameraWorldId = snapshot.WorldId;
@@ -3193,7 +3267,10 @@ public partial class Main : Control
                     (inhabitant.PublicIntention?.Summary ?? "taking in the world");
                 if (actorMarker.TooltipText != actorTooltip) actorMarker.TooltipText = actorTooltip;
                 actorMarker.Selected = string.Equals(inhabitant.Id, selectedInhabitantId, StringComparison.Ordinal);
-                actorMarker.Position = targetPosition;
+                inhabitantCanonicalXs[inhabitant.Id] = targetPosition.X;
+                actorMarker.Position = new Vector2(
+                    WrappedMarkerX(targetPosition.X, mapWidth, stride, snapshot.WrapsEastWest),
+                    targetPosition.Y);
                 actorMarker.Size = markerSize;
 
             }
@@ -3207,6 +3284,7 @@ public partial class Main : Control
         {
             inhabitantVisuals[removedId].QueueFree();
             inhabitantVisuals.Remove(removedId);
+            inhabitantCanonicalXs.Remove(removedId);
         }
 
         PositionSelectedInhabitantCard(snapshot);
@@ -3242,7 +3320,10 @@ public partial class Main : Control
             mapObjectVisuals.Add(id, visual);
         }
         visual.Text = $"{glyph}\n{label}";
-        visual.Position = new Vector2(position.X * stride + 4, position.Y * stride + 4);
+        var canonicalX = position.X * stride + 4;
+        mapObjectCanonicalXs[id] = canonicalX;
+        visual.Position = new Vector2(WrappedMarkerX(canonicalX, terrainMap!.Width, stride,
+            renderedMapSnapshot?.WrapsEastWest == true), position.Y * stride + 4);
         visual.Size = new Vector2(stride * Math.Clamp(width, 1, 32) - TileGap - 8,
             stride * Math.Clamp(height, 1, 32) - TileGap - 8);
         visual.TooltipText = tooltip;
@@ -3799,7 +3880,7 @@ public partial class Main : Control
         var availableHeight = Math.Max(1, mapCanvas.Size.Y - 36 - ((mapHeight - 1) * TileGap));
         var fittedTileSize = (int)Math.Floor(Math.Min(availableWidth / mapWidth, availableHeight / mapHeight));
         var baseTileSize = Math.Clamp(fittedTileSize, 12, 220);
-        currentTileSize = Math.Clamp((int)MathF.Round(baseTileSize * cameraZoom), 12, 880);
+        currentTileSize = Math.Clamp((int)MathF.Round(baseTileSize * cameraZoom), 8, 880);
 
         var stageSize = new Vector2(
             (mapWidth * currentTileSize) + ((mapWidth - 1) * TileGap),
@@ -3807,13 +3888,18 @@ public partial class Main : Control
         mapStage.Size = stageSize;
         terrainLayer.Size = stageSize;
         var stride = currentTileSize + TileGap;
+        if (snapshot.WrapsEastWest)
+            cameraCenterTiles.X = PositiveMod(cameraCenterTiles.X, mapWidth);
         mapStage.Position = new Vector2(
-            CameraAxis(cameraCenterTiles.X, stageSize.X, mapCanvas.Size.X, stride),
+            snapshot.WrapsEastWest
+                ? mapCanvas.Size.X / 2 - cameraCenterTiles.X * stride
+                : CameraAxis(cameraCenterTiles.X, stageSize.X, mapCanvas.Size.X, stride),
             CameraAxis(cameraCenterTiles.Y, stageSize.Y, mapCanvas.Size.Y, stride));
         cameraCenterTiles = new Vector2(
-            (mapCanvas.Size.X / 2 - mapStage.Position.X) / stride,
+            snapshot.WrapsEastWest ? cameraCenterTiles.X : (mapCanvas.Size.X / 2 - mapStage.Position.X) / stride,
             (mapCanvas.Size.Y / 2 - mapStage.Position.Y) / stride);
-        RefreshOverviewViewport(mapWidth, mapHeight, stride);
+        RepositionWrappedMapMarkers(mapWidth, stride, snapshot.WrapsEastWest);
+        RefreshOverviewViewport(mapWidth, mapHeight, stride, snapshot.WrapsEastWest);
         RefreshTileHoverAtMouse();
         RenderWorldHud(snapshot);
         RenderWorldInfo(snapshot);
@@ -3824,15 +3910,33 @@ public partial class Main : Control
             ? (viewportPixels - stagePixels) / 2
             : Math.Clamp((viewportPixels / 2) - (centerTile * stride), viewportPixels - stagePixels, 0);
 
-    private void RefreshOverviewViewport(int mapWidth, int mapHeight, float stride)
+    private static float PositiveMod(float value, int modulus) => (value % modulus + modulus) % modulus;
+
+    private float WrappedMarkerX(float canonicalX, int mapWidth, float stride, bool wrapsEastWest) =>
+        !wrapsEastWest ? canonicalX :
+        canonicalX + MathF.Round((cameraCenterTiles.X - canonicalX / stride) / mapWidth) * mapWidth * stride;
+
+    private void RepositionWrappedMapMarkers(int mapWidth, float stride, bool wrapsEastWest)
     {
-        var left = Math.Clamp(-mapStage.Position.X / stride, 0, mapWidth);
+        foreach (var (id, visual) in mapObjectVisuals)
+            if (mapObjectCanonicalXs.TryGetValue(id, out var x))
+                visual.Position = new Vector2(WrappedMarkerX(x, mapWidth, stride, wrapsEastWest), visual.Position.Y);
+        foreach (var (id, visual) in inhabitantVisuals)
+            if (inhabitantCanonicalXs.TryGetValue(id, out var x))
+                visual.Position = new Vector2(WrappedMarkerX(x, mapWidth, stride, wrapsEastWest), visual.Position.Y);
+    }
+
+    private void RefreshOverviewViewport(int mapWidth, int mapHeight, float stride, bool wrapsEastWest)
+    {
+        var left = wrapsEastWest ? -mapStage.Position.X / stride :
+            Math.Clamp(-mapStage.Position.X / stride, 0, mapWidth);
         var top = Math.Clamp(-mapStage.Position.Y / stride, 0, mapHeight);
-        var right = Math.Clamp((mapCanvas.Size.X - mapStage.Position.X) / stride, 0, mapWidth);
+        var right = wrapsEastWest ? (mapCanvas.Size.X - mapStage.Position.X) / stride :
+            Math.Clamp((mapCanvas.Size.X - mapStage.Position.X) / stride, 0, mapWidth);
         var bottom = Math.Clamp((mapCanvas.Size.Y - mapStage.Position.Y) / stride, 0, mapHeight);
         var visible = new Rect2(left, top, right - left, bottom - top);
         worldOverview.SetVisibleTiles(visible);
-        terrainLayer.SetCamera(visible, currentTileSize, TileGap);
+        terrainLayer.SetCamera(visible, currentTileSize, TileGap, wrapsEastWest);
     }
 
     private void CenterCameraAt(Vector2 tileCenter)
@@ -3870,15 +3974,13 @@ public partial class Main : Control
             if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && founderSetupPanel.Visible &&
                 snapshot.FounderSetup is { Started: false })
             {
-                var tile = (mouse.Position - mapStage.Position) / (currentTileSize + TileGap);
-                _ = PlaceFounderAtAsync(new Vector2I(Mathf.FloorToInt(tile.X), Mathf.FloorToInt(tile.Y)));
+                _ = PlaceFounderAtAsync(TileAtCanvas(mouse.Position, snapshot));
                 mapCanvas.AcceptEvent();
             }
             else if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && founderSetupPanel.Visible &&
                 placingAddedAgent && snapshot.FounderSetup is { Started: true })
             {
-                var tile = (mouse.Position - mapStage.Position) / (currentTileSize + TileGap);
-                _ = PlaceAgentAtAsync(new Vector2I(Mathf.FloorToInt(tile.X), Mathf.FloorToInt(tile.Y)));
+                _ = PlaceAgentAtAsync(TileAtCanvas(mouse.Position, snapshot));
                 mapCanvas.AcceptEvent();
             }
             else if (mouse.ButtonIndex == MouseButton.Middle)
@@ -3888,7 +3990,7 @@ public partial class Main : Control
             }
             else if (mouse.Pressed && mouse.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
             {
-                var nextZoom = Math.Clamp(cameraZoom * (mouse.ButtonIndex == MouseButton.WheelUp ? 1.25f : 0.8f), 1, 4);
+                var nextZoom = Math.Clamp(cameraZoom * (mouse.ButtonIndex == MouseButton.WheelUp ? 1.25f : 0.8f), 0.65f, 4);
                 if (Math.Abs(nextZoom - cameraZoom) > 0.001f)
                 {
                     cameraZoom = nextZoom;
@@ -3911,6 +4013,15 @@ public partial class Main : Control
 
     private void RefreshTileHoverAtMouse() => UpdateTileHover(mapCanvas.GetLocalMousePosition());
 
+    private Vector2I TileAtCanvas(Vector2 canvasPosition, OwnerWorldSnapshot snapshot)
+    {
+        var tile = (canvasPosition - mapStage.Position) / (currentTileSize + TileGap);
+        var x = Mathf.FloorToInt(tile.X);
+        if (snapshot.WrapsEastWest)
+            x = ((x % terrainMap!.Width) + terrainMap.Width) % terrainMap.Width;
+        return new Vector2I(x, Mathf.FloorToInt(tile.Y));
+    }
+
     private void UpdateTileHover(Vector2 canvasPosition)
     {
         if (renderedMapSnapshot is not { } snapshot || !HasMap(snapshot) ||
@@ -3923,9 +4034,7 @@ public partial class Main : Control
         }
 
         var stagePosition = canvasPosition - mapStage.Position;
-        var stride = currentTileSize + TileGap;
-        var tile = new Vector2I(Mathf.FloorToInt(stagePosition.X / stride),
-            Mathf.FloorToInt(stagePosition.Y / stride));
+        var tile = TileAtCanvas(canvasPosition, snapshot);
         if (!MapContains(snapshot, tile.X, tile.Y) ||
             inhabitantVisuals.Values.Any(marker => marker.Visible &&
                 new Rect2(marker.Position, marker.Size).HasPoint(stagePosition)))

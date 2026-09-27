@@ -43,6 +43,7 @@ public sealed class GeographyGeneratorTests
         Assert.Empty(projection.Tiles);
         Assert.Equal((256, 128), (projection.PackedTerrain?.Width, projection.PackedTerrain?.Height));
         Assert.Equal("terrain-kind-v1", projection.PackedTerrain!.Encoding);
+        Assert.True(projection.WrapsEastWest);
         Assert.Equal(WeatherRules.RegionSize, projection.WeatherRegionSize);
         Assert.Equal((256 / WeatherRules.RegionSize) * (128 / WeatherRules.RegionSize),
             projection.WeatherRegions.Count);
@@ -78,6 +79,7 @@ public sealed class GeographyGeneratorTests
             Map = saved.Map with { WrapsEastWest = false },
         });
         Assert.True(legacyCheckpoint.ExportState().Map.WrapsEastWest);
+        Assert.True(new OwnerWorldObservationStore(restored).GetSnapshot().WrapsEastWest);
         Assert.Equal(4, restored.Inhabitants.Count);
         Assert.True(restored.WorldSystems.Chunks.Count > 1);
         Assert.All(restored.ExportState().Map.Resources, site =>

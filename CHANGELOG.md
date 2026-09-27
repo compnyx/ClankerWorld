@@ -14,6 +14,12 @@ release yet.
   player-facing Create building workbench has been removed, while existing
   agent proposals remain recorded and visible in the read-only world package
   list.
+- Wrapped worlds now pan continuously across the east/west map seam. The
+  overview marks seam-spanning camera areas, and placement and hover use the
+  matching map tile; non-wrapped worlds keep their bounded camera edges.
+- The world view can zoom farther out to show more of a large map at once.
+  The 8-pixel terrain-tile minimum is a provisional playtest setting, not a
+  settled final readability/performance cap.
 - Main Menu Settings keeps the title-screen background, and selecting the
   already-active Settings page no longer closes it. Game Settings now separates
   physical Window Size from Render Resolution; both choices are remembered

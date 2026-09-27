@@ -224,6 +224,7 @@ public sealed record OwnerWorldSnapshot(
     long LatestEventId)
 {
     public OwnerWorldPackedTerrain? PackedTerrain { get; init; }
+    public bool WrapsEastWest { get; init; }
     public IReadOnlyList<OwnerWorldStockpile> Stockpiles { get; init; } = [];
     public OwnerWorldCouncil? Council { get; init; }
     public int? LifePaceRate { get; init; }
