@@ -56,6 +56,7 @@ public partial class Main : Control
     private readonly Label cognitionCredentialHint = new();
     private readonly Button saveCognitionProviderButton = new();
     private readonly Button forgetCognitionCredentialButton = new();
+    private readonly Button deleteCognitionCredentialSlotButton = new();
     private readonly Button refreshCognitionProviderButton = new();
     private readonly PanelContainer pairingPanel = new();
     private readonly Label pairingInstructionLabel = new();
@@ -1312,6 +1313,37 @@ public partial class Main : Control
         RenderProviderConfiguration();
     }
 
+    private async Task DeleteCredentialSlotAsync()
+    {
+        if (!TryGetOwner(out var authority, out var deviceId, out var signer))
+        {
+            SetStatus("pair this device before deleting a saved key", good: false);
+            return;
+        }
+
+        var slotId = SelectedCredentialChoice();
+        var slot = providerConfiguration?.CredentialSlots?.FirstOrDefault(item => item.Id == slotId);
+        if (slot is null)
+        {
+            SetStatus("select a named key to delete", good: false);
+            return;
+        }
+        if (providerConfiguration?.Assignments?.Any(item => item.CredentialSlotId == slotId) == true)
+        {
+            SetStatus("this key is assigned to an agent; choose another key for that agent first", good: false);
+            return;
+        }
+
+        await RunOwnerActionAsync(async () =>
+        {
+            providerConfiguration = await ownerApi.DeleteCredentialSlotAsync(
+                ResolveWorldUri(), authority, deviceId, slotId, signer, CancellationToken.None);
+            PopulateCredentialChoices();
+            RenderProviderConfiguration();
+            return $"deleted saved key {slot.Label}";
+        });
+    }
+
     private string SelectedRoleId() => SelectedCognitionTarget() is not null
         ? "personal" : cognitionRoleChoice.Selected == 1 ? "planning" : "routine";
 
@@ -1434,6 +1466,8 @@ public partial class Main : Control
         cognitionApiKeyInput.Visible = hosted && (!agentCredential || newCredential);
         cognitionCredentialHint.Visible = hosted;
         forgetCognitionCredentialButton.Visible = hosted && SelectedCognitionTarget() is null;
+        deleteCognitionCredentialSlotButton.Visible = agentCredential &&
+            SelectedCredentialChoice() is not ("default" or "new");
         if (hosted && option is not null && !cognitionModelInput.HasFocus())
         {
             cognitionModelInput.Text = SelectedAssignment() is { } assignment && assignment.Provider == provider
@@ -1954,6 +1988,11 @@ public partial class Main : Control
         StyleButton(forgetCognitionCredentialButton);
         forgetCognitionCredentialButton.Pressed += () => _ = ForgetProviderCredentialAsync();
         buttons.AddChild(forgetCognitionCredentialButton);
+        deleteCognitionCredentialSlotButton.Text = "Delete named key";
+        deleteCognitionCredentialSlotButton.TooltipText = "Delete an unused named API key from this installation. First switch any agents assigned to it.";
+        StyleButton(deleteCognitionCredentialSlotButton);
+        deleteCognitionCredentialSlotButton.Pressed += () => _ = DeleteCredentialSlotAsync();
+        buttons.AddChild(deleteCognitionCredentialSlotButton);
         refreshCognitionProviderButton.Text = "Refresh";
         StyleButton(refreshCognitionProviderButton);
         refreshCognitionProviderButton.Pressed += () => _ = RefreshProviderConfigurationAsync();
@@ -3657,6 +3696,8 @@ public partial class Main : Control
                 selectedProvider is ("openai" or "ollama-cloud") && SelectedCredentialChoice() == "default";
         forgetCognitionCredentialButton.Disabled = actionDisabled || selectedProvider == "deterministic" ||
             selectedProviderStatus?.HasCredential != true;
+        deleteCognitionCredentialSlotButton.Disabled = actionDisabled ||
+            providerConfiguration?.Assignments?.Any(item => item.CredentialSlotId == SelectedCredentialChoice()) == true;
         // A public key can have only one pending server pairing. Keep the
         // visible comparison value stable until it expires or activates.
         pairButton.Disabled = isPairingOperation || deviceKey is null || pendingPairing is not null || registration is not null;

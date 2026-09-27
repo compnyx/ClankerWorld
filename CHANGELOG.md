@@ -16,6 +16,10 @@ release yet.
   pointer keeps hover and selection priority. Agent markers sharing a tile
   divide that tile into bounded click targets at supported zoom levels, so
   adjacent-tile clicks no longer select them.
+- Owners can now delete an unused named provider API key from the host through the
+  cognition settings. A key assigned in the active world must be switched first;
+  older saved assignments to a deleted key return to deterministic cognition
+  instead of silently using another account's key.
 - Main Menu Settings now hides and blocks World Settings until a world is
   loaded, so opening settings cannot jump into the world. Removed the dark
   gaps between square terrain tiles that appeared as black grid lines.

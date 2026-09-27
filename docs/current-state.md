@@ -251,8 +251,14 @@ can use the provider's default key, an existing named key, or add a new named
 key for that same provider. Keys remain in installation-local host storage;
 only non-secret slot labels and IDs are returned to the owner. Removing a
 provider's default key removes only assignments that depended on that default;
-named-key assignments remain. Personal selections are signed, target-bound
-and durable.
+named-key assignments remain. The owner can delete a selected named key after
+switching all agents in the active world away from it; the signed deletion
+removes its key from the current installation-local provider file and refreshes
+the visible key list. Older world/checkpoint assignments that refer to a
+deleted key safely restore as deterministic rather than inheriting a different
+hosted account's credential. Filesystem backups and storage-device remnants are
+outside this in-app deletion guarantee. Personal selections are signed,
+target-bound and durable.
 
 Unchanged idle intentions are reused for up to 300 ticks, including across
 reloads. Changed legal choices or urgent need bands trigger reconsideration;

@@ -985,6 +985,49 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task OnlySignedOwnerCanDeleteUnusedNamedCredentialSlot()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-slot-http-");
+        try
+        {
+            using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            using var host = new ViewerWebApplicationFactory(directory.FullName, null, privateWorld: true);
+            using var client = host.CreateClient();
+            var device = await StartAndActivateAsync(host, client, key);
+            var store = host.Services.GetRequiredService<ProviderConfigurationStore>();
+            var slotId = Guid.NewGuid().ToString("N");
+            const string secret = "delete-me-secret";
+            _ = store.Configure(new("personal", "openai", "model", secret, false,
+                "inhabitant-test", slotId, "Discard"));
+            var action = new OwnerCredentialSlotDeletionAction(slotId);
+            const string endpoint = "/api/v1/owner/providers/slots/delete";
+            using var tampered = await SendSignedAsync(host, client, key, device.DeviceId,
+                endpoint, action, OwnerHttpBinding.CredentialSlotDeletionPayload(
+                    action with { CredentialSlotId = Guid.NewGuid().ToString("N") }));
+            Assert.Equal(HttpStatusCode.Unauthorized, tampered.StatusCode);
+            Assert.Contains(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
+
+            using var assigned = await SendSignedAsync(host, client, key, device.DeviceId,
+                endpoint, action, OwnerHttpBinding.CredentialSlotDeletionPayload(action));
+            Assert.Equal(HttpStatusCode.Conflict, assigned.StatusCode);
+            Assert.DoesNotContain(secret, await assigned.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+            _ = store.Configure(new("personal", "inherit", null, null, false, "inhabitant-test"));
+            using var removed = await SendSignedAsync(host, client, key, device.DeviceId,
+                endpoint, action, OwnerHttpBinding.CredentialSlotDeletionPayload(action));
+            Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+            var status = await removed.Content.ReadFromJsonAsync<OwnerProviderConfigurationStatus>();
+            Assert.Empty(status!.CredentialSlots!);
+            Assert.DoesNotContain(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
+            Assert.DoesNotContain(secret, await removed.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task PairedOwnerReconnectAndPausedWorldSurviveAHostRestart()
     {
         var directory = System.IO.Path.Combine(

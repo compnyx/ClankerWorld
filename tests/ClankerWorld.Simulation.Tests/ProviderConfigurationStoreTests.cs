@@ -8,6 +8,17 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class ProviderConfigurationStoreTests
 {
     [Fact]
+    public void SlotDeletionTelemetryReportsOutcomeWithoutCredentialMaterial()
+    {
+        var logger = new RecordingLogger<ProviderConfigurationStore>();
+        var slotId = Guid.NewGuid().ToString("N");
+        OwnerCredentialSlotTelemetry.Deleted(logger, "deleted", slotId);
+        var message = Assert.Single(logger.Messages);
+        Assert.Contains("outcome=deleted", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void WorldJevChangeLogReportsOnlyTickAndAvailability()
     {
         var logger = new RecordingLogger<PrivateWorldRuntimeService>();
@@ -199,6 +210,67 @@ public sealed class ProviderConfigurationStoreTests
         {
             directory.Delete(recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task DeletingNamedKeyRequiresUnassignmentErasesPersistedKeyAndOldSavesFallBackSafely()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-key-delete-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "providers.json");
+            var store = new ProviderConfigurationStore(path, EmptySeed());
+            var slotId = Guid.NewGuid().ToString("N");
+            const string secret = "obsolete-slot-secret";
+            _ = store.Configure(new("personal", "openai", "personal-model", secret, false,
+                "inhabitant-test", slotId, "Obsolete"));
+            var oldWorldAssignments = store.CaptureStatus().Assignments!.ToArray();
+            var revision = store.CaptureStatus().Revision;
+
+            var assigned = Assert.Throws<InvalidOperationException>(() => store.DeleteCredentialSlot(slotId));
+            Assert.Contains("assigned", assigned.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(revision, store.CaptureStatus().Revision);
+            Assert.Contains(secret, File.ReadAllText(path), StringComparison.Ordinal);
+
+            _ = store.Configure(new("personal", "inherit", null, null, false, "inhabitant-test"));
+            var deleted = store.DeleteCredentialSlot(slotId);
+            Assert.Empty(deleted.CredentialSlots!);
+            Assert.Empty(deleted.Assignments!);
+            Assert.DoesNotContain(secret, File.ReadAllText(path), StringComparison.Ordinal);
+            Assert.DoesNotContain(secret, System.Text.Json.JsonSerializer.Serialize(deleted), StringComparison.Ordinal);
+            Assert.Throws<ArgumentException>(() => store.DeleteCredentialSlot(slotId));
+
+            store = new ProviderConfigurationStore(path, EmptySeed());
+            Assert.Empty(store.CaptureStatus().CredentialSlots!);
+            store.RestoreWorldAssignments(oldWorldAssignments);
+            Assert.Equal(2, store.CaptureStatus().Assignments!.Count);
+            Assert.All(store.CaptureStatus().Assignments!, item =>
+            {
+                Assert.Equal("deterministic", item.Provider);
+                Assert.Null(item.CredentialSlotId);
+            });
+            var handler = new ProviderResponseHandler();
+            var router = new ConfigurableDecisionProvider(store, new FixedHttpClientFactory(handler));
+            Assert.Equal(DecisionProviderKind.Deterministic, router.KindFor(Request(router.ProviderEpoch).Observation));
+            var response = await router.DecideAsync(Request(router.ProviderEpoch, strategic: true));
+            Assert.Equal(DecisionProviderKind.Deterministic, response.Provider);
+            Assert.Null(handler.LastAuthorization);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void CredentialSlotDeletionPayloadIsBoundToTheSlotOnBothSides()
+    {
+        var action = new OwnerCredentialSlotDeletionAction(Guid.NewGuid().ToString("N"));
+        var clientAction = new ClankerWorld.GodotClient.UI.OwnerCredentialSlotDeletionAction(action.CredentialSlotId);
+        Assert.Equal(OwnerHttpBinding.CredentialSlotDeletionPayload(action),
+            ClankerWorld.GodotClient.UI.OwnerWorldActionPayload.CredentialSlotDeletion(clientAction));
+        Assert.NotEqual(OwnerHttpBinding.CredentialSlotDeletionPayload(action),
+            OwnerHttpBinding.CredentialSlotDeletionPayload(action with { CredentialSlotId = Guid.NewGuid().ToString("N") }));
     }
 
     [Fact]

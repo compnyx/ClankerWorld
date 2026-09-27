@@ -93,7 +93,8 @@ public sealed record ProviderConfigurationState(
     StoredProviderCredential OpenAi,
     StoredProviderCredential OllamaCloud,
     IReadOnlyList<InhabitantProviderAssignment>? Assignments = null,
-    IReadOnlyList<ProviderCredentialSlot>? CredentialSlots = null);
+    IReadOnlyList<ProviderCredentialSlot>? CredentialSlots = null,
+    IReadOnlyList<string>? DeletedCredentialSlotIds = null);
 
 public sealed record RuntimeProviderConfiguration(
     string RoutineProvider,
@@ -158,13 +159,44 @@ public sealed class ProviderConfigurationStore
         }
     }
 
+    /// <summary>Delete an unused named key from installation-local provider storage.</summary>
+    public OwnerProviderConfigurationStatus DeleteCredentialSlot(string slotId)
+    {
+        if (!Guid.TryParseExact(slotId, "N", out _))
+            throw new ArgumentException("Choose a valid named credential slot.", nameof(slotId));
+        lock (gate)
+        {
+            var slots = state.CredentialSlots ?? [];
+            if (!slots.Any(item => item.Id == slotId))
+                throw new ArgumentException("That named credential slot no longer exists.", nameof(slotId));
+            if ((state.Assignments ?? []).Any(item => item.CredentialSlotId == slotId))
+                throw new InvalidOperationException("This key is assigned to an agent. Choose another key or world default for that agent before deleting it.");
+
+            var next = state with
+            {
+                CredentialSlots = slots.Where(item => item.Id != slotId).ToArray(),
+                DeletedCredentialSlotIds = [.. state.DeletedCredentialSlotIds ?? [], slotId],
+                Revision = checked(state.Revision + 1),
+            };
+            SaveUnsafe(next);
+            state = next;
+            return ToStatus(next);
+        }
+    }
+
     /// <summary>Restore per-agent routing from a world checkpoint, leaving installation keys and defaults alone.</summary>
     public void RestoreWorldAssignments(IReadOnlyList<InhabitantProviderAssignment> assignments)
     {
         ArgumentNullException.ThrowIfNull(assignments);
         lock (gate)
         {
-            var ordered = assignments.OrderBy(item => item.InhabitantId, StringComparer.Ordinal)
+            // Historical world/checkpoint assignments to explicitly deleted keys
+            // must never silently inherit another hosted account's credential.
+            var deleted = state.DeletedCredentialSlotIds ?? [];
+            var ordered = assignments.Select(item => item.CredentialSlotId is { } slot && deleted.Contains(slot)
+                    ? item with { Provider = PlayerDecisionProviders.Deterministic, Model = null, CredentialSlotId = null }
+                    : item)
+                .OrderBy(item => item.InhabitantId, StringComparer.Ordinal)
                 .ThenBy(item => item.Role, StringComparer.Ordinal).ToArray();
             var next = state with { Assignments = ordered, Revision = checked(state.Revision + 1) };
             ValidateState(next);
@@ -252,6 +284,8 @@ public sealed class ProviderConfigurationStore
                 {
                     if (slots.Any(item => item.Id == slotId))
                         throw new ArgumentException("That credential slot already exists.", nameof(action));
+                    if ((state.DeletedCredentialSlotIds ?? []).Contains(slotId))
+                        throw new ArgumentException("That credential slot ID was deleted and cannot be reused.", nameof(action));
                     var label = NormalizeSlotLabel(action.NewCredentialLabel);
                     var key = NormalizeRequiredApiKey(action.ApiKey);
                     next = next with { CredentialSlots = [.. slots, new ProviderCredentialSlot(slotId, provider, label, key)] };
@@ -493,6 +527,12 @@ public sealed class ProviderConfigurationStore
                 throw new InvalidDataException("A credential slot has an invalid or duplicate identity.");
             _ = NormalizeSlotLabel(slot.Label);
             _ = NormalizeRequiredApiKey(slot.ApiKey);
+        }
+        var deletedSlotIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in state.DeletedCredentialSlotIds ?? [])
+        {
+            if (!Guid.TryParseExact(id, "N", out _) || !deletedSlotIds.Add(id) || slotIds.Contains(id))
+                throw new InvalidDataException("A deleted credential slot has an invalid or reused identity.");
         }
         var assignmentKeys = new HashSet<(string, string)>();
         foreach (var assignment in state.Assignments ?? [])

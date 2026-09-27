@@ -62,6 +62,8 @@ public sealed record OwnerDeviceListAction;
 /// </summary>
 public sealed record OwnerProviderStatusAction;
 
+public sealed record OwnerCredentialSlotDeletionAction(string CredentialSlotId);
+
 public sealed record OwnerProviderConfigurationAction(
     string Role,
     string Provider,
@@ -212,6 +214,13 @@ public static class OwnerHttpBinding
     public static string DeviceListPayload() => EmptyPayload("list_devices");
 
     public static string ProviderStatusPayload() => EmptyPayload("provider_status");
+
+    public static string CredentialSlotDeletionPayload(OwnerCredentialSlotDeletionAction action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return string.Join('\n', "clankerworld.owner-credential-slot-deletion.v1",
+            $"credential-slot={EncodeRequired(action.CredentialSlotId, nameof(action.CredentialSlotId))}");
+    }
 
     public static string ProviderConfigurationPayload(OwnerProviderConfigurationAction action)
     {

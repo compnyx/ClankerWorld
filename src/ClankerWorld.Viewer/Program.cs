@@ -1651,6 +1651,56 @@ app.MapPost("/api/v1/owner/providers/status", (
     return Results.Ok(providers.CaptureStatus());
 });
 
+app.MapPost("/api/v1/owner/providers/slots/delete", (
+    OwnerSignedHttpRequest<OwnerCredentialSlotDeletionAction> request,
+    OwnerRequestAuthorizer authorizer,
+    ProviderConfigurationStore providers,
+    ILogger<ProviderConfigurationStore> logger) =>
+{
+    if (request?.Action is null)
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["action"] = ["A credential-slot deletion action is required."],
+        });
+
+    string payload;
+    try
+    {
+        payload = OwnerHttpBinding.CredentialSlotDeletionPayload(request.Action);
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["action"] = [exception.Message],
+        });
+    }
+
+    var authorization = authorizer.Authorize(
+        request, "POST", "/api/v1/owner/providers/slots/delete", payload);
+    if (!authorization.IsSuccess)
+        return OwnerFailures.ToHttpResult(authorization.Failure);
+
+    try
+    {
+        var status = providers.DeleteCredentialSlot(request.Action.CredentialSlotId);
+        OwnerCredentialSlotTelemetry.Deleted(logger, "deleted", request.Action.CredentialSlotId);
+        return Results.Ok(status);
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["action"] = [exception.Message],
+        });
+    }
+    catch (InvalidOperationException exception)
+    {
+        OwnerCredentialSlotTelemetry.Deleted(logger, "assigned", request.Action.CredentialSlotId);
+        return Results.Conflict(new { error = exception.Message });
+    }
+});
+
 app.MapPost("/api/v1/owner/providers/configure", (
     OwnerSignedHttpRequest<OwnerProviderConfigurationAction> request,
     OwnerRequestAuthorizer authorizer,

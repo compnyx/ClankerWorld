@@ -302,6 +302,8 @@ public sealed record OwnerDeviceListAction;
 
 public sealed record OwnerProviderStatusAction;
 
+public sealed record OwnerCredentialSlotDeletionAction(string CredentialSlotId);
+
 public sealed record OwnerProviderConfigurationAction(
     string Role,
     string Provider,
@@ -613,6 +615,13 @@ public static class OwnerWorldActionPayload
     public static string DeviceList() => Control("list_devices");
 
     public static string ProviderStatus() => Control("provider_status");
+
+    public static string CredentialSlotDeletion(OwnerCredentialSlotDeletionAction action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return string.Join('\n', "clankerworld.owner-credential-slot-deletion.v1",
+            $"credential-slot={EncodeRequired(action.CredentialSlotId, nameof(action.CredentialSlotId))}");
+    }
 
     public static string ProviderConfiguration(OwnerProviderConfigurationAction action)
     {
@@ -1345,4 +1354,25 @@ public sealed class OwnerWorldApi
             action,
             deviceKey,
             cancellationToken);
+
+    public Task<OwnerProviderConfigurationStatus> DeleteCredentialSlotAsync(
+        Uri serverUri,
+        OwnerAuthorityIdentity authority,
+        string deviceId,
+        string credentialSlotId,
+        IOwnerDeviceSigner deviceKey,
+        CancellationToken cancellationToken)
+    {
+        var action = new OwnerCredentialSlotDeletionAction(credentialSlotId);
+        return pairing.SendSignedActionAsync<OwnerCredentialSlotDeletionAction, OwnerProviderConfigurationStatus>(
+            serverUri,
+            authority,
+            deviceId,
+            OwnerPairingEndpoints.OwnerCredentialSlotDelete,
+            OwnerPairingProtocol.CreateRequestId(),
+            OwnerWorldActionPayload.CredentialSlotDeletion(action),
+            action,
+            deviceKey,
+            cancellationToken);
+    }
 }
