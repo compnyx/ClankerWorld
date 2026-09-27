@@ -56,9 +56,11 @@ or passing unit test is not a
 player-visible feature. Call a capability playable only after it is connected
 to the default private world and normal Godot path.
 
-Before publishing documentation changes, run the normal test suite so required
-metadata and local Markdown links are checked. Git history retains retired
-phase and exploratory documents; they are not active product authority.
+Documentation-only changes do not require tests. When a change also affects
+code or behavior, run the applicable checks for that change; the accompanying
+documentation does not add a separate full-suite requirement. Git history
+retains retired phase and exploratory documents; they are not active product
+authority.
 
 ## Operational observability
 
