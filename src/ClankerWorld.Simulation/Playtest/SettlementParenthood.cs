@@ -139,7 +139,7 @@ public sealed partial class PrivateWorldRuntime
                 continue;
             }
             var shelter = BuildingsWithTag("shelter").First();
-            var site = map.Tiles.Where(tile => map.IsPassable(tile.Position) &&
+            var site = map.Tiles.Where(tile => map.IsBuildable(tile.Position) &&
                 IsWithinInteractionRange(tile.Position, shelter.Position, ResourceInteractionRange) &&
                 !inhabitants.Values.Any(resident => resident.Position == tile.Position)).Select(tile => (GridPoint?)tile.Position).FirstOrDefault();
             if (site is null)

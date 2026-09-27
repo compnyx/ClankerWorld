@@ -39,7 +39,7 @@ public sealed partial class PrivateWorldRuntime
                 package.Manifest.PackageDigest == SettlementContent.Create().PackageDigest && package.ActivationTick is not null) != true ||
             added.Any(resource => resource.Id != "settlement-" + resource.Kind ||
                 resource.Kind is not ("stone" or "fiber" or "seed") || resource.IsRenewable != (resource.Kind is "fiber" or "seed") ||
-                !generated.IsPassable(resource.Position) ||
+                !generated.IsBuildable(resource.Position) ||
                 generated.CampObjects.Any(item => item.Position == resource.Position) ||
                 generated.Resources.Any(item => item.Position == resource.Position)))
         {
@@ -104,7 +104,7 @@ public sealed partial class PrivateWorldRuntime
                 tile.Position.X < Math.Min(campOrigin.X + campChunk.Width, bedroll.X + 6) &&
                 tile.Position.Y >= Math.Max(campOrigin.Y, bedroll.Y - 1) &&
                 tile.Position.Y < Math.Min(campOrigin.Y + campChunk.Height, bedroll.Y + 5) &&
-                map.IsPassable(tile.Position) && !occupied.Contains(tile.Position));
+                map.IsBuildable(tile.Position) && !occupied.Contains(tile.Position));
             if (tile is null)
             {
                 AppendEvent("settlement_resource_blocked", kind);

@@ -26,7 +26,8 @@ public sealed record PlaytestInhabitantState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SettlementParenthood? Parenthood = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SettlementProficiency? Proficiency = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<SettlementSocialStanding>? SocialStanding = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<PlaytestPrivateThought>? RecentThoughts = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<PlaytestPrivateThought>? RecentThoughts = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int TravelCooldownTicks = 0);
 
 public sealed record PlaytestPrivateThought(long WorldTick, string Text);
 
@@ -1303,7 +1304,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             !Guid.TryParseExact(founderId["founder:".Length..], "N", out _) ||
             inhabitants.ContainsKey(founderId))
             throw new ArgumentException("The founder ID is invalid or already used.", nameof(founderId));
-        if (!map.IsPassable(position) || map.CampObjects.Any(item => item.Position == position) ||
+        if (!map.IsBuildable(position) || map.CampObjects.Any(item => item.Position == position) ||
             map.Resources.Any(item => item.Position == position) ||
             inhabitants.Values.Any(person => person.Position == position))
             throw new ArgumentException("Choose an empty passable tile for this founder.", nameof(position));
@@ -1342,7 +1343,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             !Guid.TryParseExact(agentId["agent:".Length..], "N", out _) ||
             society.Checkpoint.Inhabitants.Any(person => person.Id == agentId))
             throw new ArgumentException("The agent ID is invalid or already used.", nameof(agentId));
-        if (!map.IsPassable(position) || map.CampObjects.Any(item => item.Position == position) ||
+        if (!map.IsBuildable(position) || map.CampObjects.Any(item => item.Position == position) ||
             map.Resources.Any(item => item.Position == position) ||
             inhabitants.Values.Any(person => person.Position == position))
             throw new ArgumentException("Choose an empty passable tile for this agent.", nameof(position));
@@ -1447,7 +1448,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             if (!map.IsPassable(inhabitant.Position) ||
                 inhabitant.HungerBasisPoints is < 0 or > 10_000 ||
                 inhabitant.EnergyBasisPoints is < 0 or > 10_000 ||
-                inhabitant.MoveWaitTicks < 0)
+                inhabitant.MoveWaitTicks < 0 || inhabitant.TravelCooldownTicks < 0)
             {
                 throw new InvalidDataException($"Physical state for '{inhabitant.InhabitantId}' is invalid.");
             }
@@ -2604,6 +2605,12 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             return;
         }
 
+        if (state.TravelCooldownTicks > 0)
+        {
+            inhabitants[inhabitantId] = state with { TravelCooldownTicks = state.TravelCooldownTicks - 1 };
+            return;
+        }
+
         var route = FindUnoccupiedRoute(inhabitantId, state.Position, destination, interactionRange);
         if (route.Count < 2)
         {
@@ -2622,6 +2629,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             Position = next,
             MoveWaitTicks = 0,
+            TravelCooldownTicks = map.FootTravelCost(next) / 100 - 1,
             EnergyBasisPoints = Math.Max(0, state.EnergyBasisPoints - weatherCost)
         };
         AppendEvent("inhabitant_moved", $"{inhabitantId}:{state.Position.X},{state.Position.Y}->{next.X},{next.Y}:{reason}");

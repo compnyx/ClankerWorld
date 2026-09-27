@@ -17,6 +17,10 @@ release yet.
 
 ### Added
 
+- Agents can walk through one-tile-wide river crossings and mountain tiles at
+  half the dry-ground travel speed. Wider river sections, peaks, lakes and
+  oceans remain impassable, and river/mountain tiles remain non-buildable.
+
 - Generated Small/Medium worlds now place sparse food, fiber, seed, stone and
   regrowing wood sites beyond the starter camp according to local ground.
   New World offers Sparse, Normal and Abundant resource settings that change

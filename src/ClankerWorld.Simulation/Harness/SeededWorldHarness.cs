@@ -68,7 +68,17 @@ public sealed record SeededMap(
         point.X >= 0 && point.X < Width && point.Y >= 0 && point.Y < Height;
 
     public bool IsPassable(GridPoint point) =>
-        Contains(point) && IsOpenGround(TerrainAt(point));
+        Contains(point) && (IsOpenGround(TerrainAt(point)) ||
+            TerrainAt(point) == (byte)TerrainKind.Mountain || IsNarrowRiverCrossing(point));
+
+    public int FootTravelCost(GridPoint point) => !IsPassable(point)
+        ? throw new ArgumentOutOfRangeException(nameof(point), "The tile cannot be crossed on foot.")
+        : TerrainAt(point) switch
+        {
+            (byte)TerrainKind.River => 200,
+            (byte)TerrainKind.Mountain => 200,
+            _ => 100,
+        };
 
     // Construction eligibility is separate from travel: future mountain
     // paths must not silently become build sites when traversal is expanded.
@@ -86,6 +96,21 @@ public sealed record SeededMap(
     private static bool IsOpenGround(byte kind) => kind is
         (byte)TerrainKind.Meadow or (byte)TerrainKind.Sand or
         (byte)TerrainKind.Forest or (byte)TerrainKind.Snow;
+
+    private bool IsNarrowRiverCrossing(GridPoint point)
+    {
+        if (TerrainAt(point) != (byte)TerrainKind.River)
+            return false;
+        var west = new GridPoint(point.X - 1, point.Y);
+        var east = new GridPoint(point.X + 1, point.Y);
+        var north = new GridPoint(point.X, point.Y - 1);
+        var south = new GridPoint(point.X, point.Y + 1);
+        return IsDryBank(west) && IsDryBank(east) ||
+            IsDryBank(north) && IsDryBank(south);
+    }
+
+    private bool IsDryBank(GridPoint point) => Contains(point) &&
+        (IsOpenGround(TerrainAt(point)) || TerrainAt(point) == (byte)TerrainKind.Mountain);
 
     private byte TerrainAt(GridPoint point) =>
         TerrainIndexes.GetValue(this, static map =>
@@ -468,7 +493,7 @@ public static class MapAcceptance
 
         var founder = map.CampObjects.SingleOrDefault(mapObject =>
             string.Equals(mapObject.Kind, "founder", StringComparison.Ordinal));
-        if (!allowEmptyCamp && (founder is null || !map.IsPassable(founder.Position)))
+        if (!allowEmptyCamp && (founder is null || !map.IsBuildable(founder.Position)))
         {
             return MapValidationResult.Invalid("The founder must occupy passable ground.");
         }
@@ -484,13 +509,13 @@ public static class MapAcceptance
 
         if (map.CampObjects.Select(mapObject => mapObject.Id).Distinct(StringComparer.Ordinal).Count() != map.CampObjects.Count ||
             map.CampObjects.Select(mapObject => mapObject.Position).Distinct().Count() != map.CampObjects.Count ||
-            map.CampObjects.Any(mapObject => !map.IsPassable(mapObject.Position)))
+            map.CampObjects.Any(mapObject => !map.IsBuildable(mapObject.Position)))
         {
             return MapValidationResult.Invalid("Camp-start objects are duplicated or overlap impassable terrain.");
         }
 
         if (map.Resources.Select(resource => resource.Id).Distinct(StringComparer.Ordinal).Count() != map.Resources.Count ||
-            map.Resources.Any(resource => !map.IsPassable(resource.Position)))
+            map.Resources.Any(resource => !map.IsBuildable(resource.Position)))
         {
             return MapValidationResult.Invalid("Resource placements are invalid.");
         }
@@ -592,7 +617,7 @@ public static class DeterministicRouteFinder
                     continue;
                 }
 
-                var candidate = new RouteRecord(checked(node.G + 100), node.Position);
+                var candidate = new RouteRecord(checked(node.G + map.FootTravelCost(next)), node.Position);
                 if (best.TryGetValue(next, out var old) && Compare(candidate, old) >= 0)
                 {
                     continue;

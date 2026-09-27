@@ -45,9 +45,10 @@ the resolution evidence below.
   hover outline. Add a square tile highlight and resolve overlapping pointer
   targets so an agent under the pointer takes priority over the ground tile;
   this is hover hit-testing/selection priority, not a larger agent hitbox.
-- **Narrow river crossings and bridges absent — current capability gap:**
-  river tiles are impassable, and no Road or bridge system exists yet. Intended
-  one-tile river crossings are slower on foot; sufficiently used crossings can
+- **Bridges absent — current capability gap:**
+  agents can now cross one-tile-wide river tiles on foot at half dry-ground
+  speed; wider river sections remain impassable, and no Road or bridge system
+  exists yet. Sufficiently used crossings can
   automatically gain bridges. Town-generated Roads, not walking alone, serve
   building placement and automatic links between Towns when a legal land route
   exists. Bridges need spacing against redundant crossings on the same river,

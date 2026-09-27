@@ -58,10 +58,48 @@ public sealed class SeededHarnessTests
                 ? tile with { Terrain = TerrainKind.Mountain } : tile).ToArray(),
         };
 
-        Assert.False(revised.IsPassable(site));
+        Assert.True(revised.IsPassable(site));
         Assert.False(revised.IsBuildable(site));
+        Assert.Equal(200, revised.FootTravelCost(site));
         Assert.True(original.IsPassable(site));
     }
+
+    [Fact]
+    public void NarrowRiverCanBeCrossedOnFootButNeitherRiverNorMountainCanBeBuiltOn()
+    {
+        var river = new GridPoint(2, 1);
+        var mountain = new GridPoint(1, 0);
+        var map = TerrainMap(5, 3, point => point == river ? TerrainKind.River :
+            point == mountain ? TerrainKind.Mountain : TerrainKind.Meadow);
+
+        Assert.True(map.IsPassable(river));
+        Assert.False(map.IsBuildable(river));
+        Assert.Equal(200, map.FootTravelCost(river));
+        Assert.True(map.IsPassable(mountain));
+        Assert.False(map.IsBuildable(mountain));
+        Assert.Equal(200, map.FootTravelCost(mountain));
+        Assert.Contains(river, DeterministicRouteFinder.Find(map, new GridPoint(0, 1), new GridPoint(4, 1)));
+        Assert.Contains(river, DeterministicRouteFinder.Find(map, new GridPoint(2, 0), new GridPoint(2, 2)));
+    }
+
+    [Fact]
+    public void TwoTileWideRiverRemainsImpassable()
+    {
+        var map = TerrainMap(6, 3, point => point.X is 2 or 3 ? TerrainKind.River : TerrainKind.Meadow);
+
+        Assert.All(map.Tiles.Where(tile => tile.Terrain == TerrainKind.River),
+            tile => Assert.False(map.IsPassable(tile.Position)));
+        Assert.Throws<InvalidOperationException>(() =>
+            DeterministicRouteFinder.Find(map, new GridPoint(1, 1), new GridPoint(4, 1)));
+    }
+
+    private static SeededMap TerrainMap(int width, int height, Func<GridPoint, TerrainKind> terrain) =>
+        new(width, height, 0,
+            [.. from y in Enumerable.Range(0, height)
+                from x in Enumerable.Range(0, width)
+                let point = new GridPoint(x, y)
+                select new TerrainTile(point, terrain(point))],
+            [], [], string.Empty);
 
     [Fact]
     public void ScriptedActorMovesHarvestsConsumesAndSleepsInOrderedTicks()
