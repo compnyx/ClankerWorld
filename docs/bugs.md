@@ -21,6 +21,12 @@ the resolution evidence below.
 
 ## September playtest reports and confirmed product gaps
 
+- **Agents rarely pursue non-survival activity — playtest report with confirmed
+  candidate gap:** there is no ordinary exploration/curiosity candidate in the
+  playable decision list. Low hunger/energy or urgent weather exposure can
+  pause projects and narrow adult choices to routine survival. There is no
+  separate numeric safety need; `safe_idle` is a fallback action, not a safety
+  meter. The desired balance of food, rest and exposure is being redesigned.
 - **Load World has no compatibility warning — confirmed gap:** its list shows
   only world name, current-world marker and update time. The catalog does not
   expose a compatibility assessment for each saved world, so the client cannot

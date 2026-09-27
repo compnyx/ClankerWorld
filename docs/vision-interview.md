@@ -118,9 +118,10 @@ reopen the decided player-local distribution goal.
   controls, preview/reroll, wrapping, and an optional early survival grace
   period. The ordinary game has **one supported starter-camp mode**. The
   nothing-start challenge mode was removed from the plan for now. Generating
-  the world creates the map and opens it paused; the player must then place the
-  **empty base camp** in that world and place/configure four founders before
-  starting time. API keys are not a prerequisite for reaching the world view.
+  the world creates the map and opens it paused; four founders must be
+  configured before starting time. The exact initial camp siting and building
+  layout flow is **reopened** below. API keys are not a prerequisite for
+  reaching the world view.
 - Enter a visually coherent generated world. The player can see its whole
   geography from the start; there is no player fog of war. Individual agents
   may know only what they have experienced or learned.
@@ -351,7 +352,9 @@ accounting details need design and playtesting.
   for unusual worlds. North/south wrapping into a torus is not intended.
 - Climate choices include **uniform**, **dominant**, and **balanced** modes,
   with advanced controls such as water percentage, continent count, and
-  resource abundance. Players need not manage raw rainfall/temperature sliders.
+  resource abundance. The breadth of advanced sliders, including mountains,
+  forests and possibly other geography, is now under reconsideration; simple
+  presets should remain usable without micromanaging every value.
 - **Small and Medium each have one continent**; a continent-count control is
   available only for **Large, Huge, and Mega**. The selected count is a loose
   generation target, not a promise of that many ocean-separated landmasses:
@@ -359,11 +362,11 @@ accounting details need design and playtesting.
 - **Simple regional weather is accepted.** Weather is not synchronized across
   the planet. Different regions can experience different conditions, with the
   local climate influencing how likely rain, snow, and other conditions are.
-  Initial effects are visible clouds/rain/snow; rain affecting soil moisture
-  and crops; cold, heat, and wetness making shelter/clothing useful without
-  sudden lethal exposure; and heavy rain/snow mildly affecting outdoor work
-  and travel. Severe storms, floods, disasters, and elaborate weather physics
-  are not assumed for the first complete game.
+  Visible clouds/rain/snow and rain affecting soil moisture/crops remain the
+  starting direction. The degree to which cold, heat, wetness, shelter,
+  clothing, and travel/work penalties drive agent behavior is **reopened**
+  after the survival-heavy playtest. Severe storms, floods, disasters, and
+  elaborate weather physics are not assumed for the first complete game.
 - Model **climate zone**, **elevation**, **surface**, **hydrology**, **vegetation
   cover**, and **objects** separately. The generator makes plausible forests,
   cacti, grass, stone, snow, water depths, and transitions for their locations.
@@ -382,6 +385,16 @@ accounting details need design and playtesting.
 - In the intended finished game, agents can **move diagonally** on the 2D tile
   map, and roads can also run diagonally. The current playable route finder
   still uses cardinal neighbors only; diagonal movement is not implemented.
+
+### Preferred after the September world-generation playtest
+
+At default settings, generated worlds should visibly include forests and
+mountain regions rather than relying on rare seeds to reveal them. Computment
+is considering sliders for many meaningful generation aspects—not necessarily
+every internal parameter—and a **live preview that updates as settings change**
+instead of a static snapshot. Keep a useful preset/default path. The exact
+controls, attainable guarantees for each world size/climate, preview fidelity,
+and update performance remain open.
 
 ### Open
 
@@ -492,42 +505,23 @@ first-complete-game roadmap.
 ### Decided
 
 - A civilization-oriented new world is generated without agents or a placed
-  camp. After opening the generated world, the player **chooses where to place
-  its empty base camp** and adds and configures **four biologically unrelated
-  founder agents**, using the per-agent provider/model/credential flow. The
-  simulation cannot begin until the camp is placed and all four founders are
-  added. They are grouped 2+2 into two starter households, not forced couples;
+  camp. After opening it, the player adds and configures **four biologically
+  unrelated founder agents** using the per-agent provider/model/credential
+  flow. They are grouped 2+2 into two starter households, not forced couples;
   family lines develop later through relationships and children. The households
-  exist even before any formal land claims or settlement. The player
-  individually places **two small houses**, a **shared storehouse**, a
-  **fire/cooking area**, and a **basic workshop**. The game connects them with a
-  path and stocks starter food, seeds, hand tools, and clothing. The storehouse
-  holds **one common pool** for both starter households. If a settlement later
-  exists and the storehouse is within its borders, **only agents who live in
-  that settlement may use it**. The simulation physically blocks nonresidents
-  from using that storehouse; they cannot bypass its access rule by stealing
-  from it. This storehouse restriction does not settle whether other kinds of
-  theft may exist later. Nearby fertile land remains part of the desired camp
-  setting. Furniture can be abstracted as inspectable building
-  contents/capabilities rather than every chair being drawn. A poor camp site
-  is allowed with a warning rather than rejected solely for its survival
-  disadvantages; physically impossible placements still need rules.
-- **Preferred from playtesting:** during the entire paused camp-placement
-  process, including before placing the first component, distinguish more
-  suitable build locations with a color/overlay. Keep merely poor-but-legal
-  sites visibly distinct from physically impossible sites; exact scoring and
-  colors are not yet decided.
+  exist even before formal land claims or settlement. The simulation cannot
+  begin until this paused founder setup is complete. **How the initial camp is
+  sited and laid out, and which starter buildings/resources are included, is
+  reopened** below; the earlier individually placed kit is not the current
+  settled layout flow.
 - Once all four founders are configured and placed, the player explicitly
   presses **Start World**; the simulation must not begin automatically on the
   fourth placement. An incomplete founder setup is saved so the player can
   quit and finish it later. Before Start World, the game should clearly show
-  progress toward the required four founders. During this paused setup, the
-  player can move or undo placement of both camp structures and founder agents.
-  Founders must start near the camp, and the camp structures must form a
-  bounded cluster rather than being scattered across the world. For initial
-  playtesting, the **fire/cooking area is the camp center**: other structures
-  must be within an **8-logical-tile circular radius**, and founder placements
-  within a **12-tile circular radius**. These numbers can be tuned after play.
+  progress toward the required four founders. During this paused setup, founder
+  placement can be moved or undone. Founders should start near the camp; the
+  camp's exact center, clustering, layout-editing controls, and prior 8/12-tile
+  playtest radii must be revisited with the automated-layout proposal.
 - Each agent independently has a chosen provider/model, private memory and
   context, goals/personality, call schedule, usage, and failure state. Different
   agents may use the same stored key. Agents choose their own personality,
@@ -543,9 +537,10 @@ first-complete-game roadmap.
   conversation is initiated even if they are far apart in the world: a narrow
   exception to ordinary proximity-bound conversation, not a general remote
   communication ability. A completed marriage must not be left without a
-  shared surname. The conversation must be bounded; the exact way to reach
-  agreement or handle provider failure/nonagreement within that bound remains
-  open.
+  shared surname. The conversation must be bounded; if the partners do not
+  agree within that bound, a disclosed tie-break rule selects one of their two
+  surnames so the marriage can finalize. The tie-break method, turn limit, and
+  provider-failure behavior remain open.
 - **A child uses their own selected personal LLM once they leave infancy.**
   Infants do not make calls to their personal model. The parents' provider/model
   choice can be stored at birth, then used when that agent enters the child
@@ -587,6 +582,23 @@ first-complete-game roadmap.
   threshold may be the first implementation, but the finished system should
   assess **continuity risk**—eligible unrelated adults, family lines, children,
   expected deaths, and care/resources—not just count heads.
+
+### Reopened after the survival and town-layout playtest
+
+The player previously chose an empty camp location and individually placed two
+small houses, a shared storehouse, a fire/cooking area, and a workshop; the
+game connected them with a path and stocked starter food, seeds, hand tools,
+and clothing. Computment now prefers exploring a town-layout system that
+places the initial buildings and paths instead of requiring every footprint
+from the player. Whether the player chooses a general camp area, accepts a
+generated layout, or can reroll/edit it is open. The **starter building catalogue
+and stocking assumptions are also reopened**, not silently retained as a
+mandatory kit. If the shared storehouse remains, revisit its common-pool and
+settlement-resident access rules alongside the wider building design.
+
+A suitability overlay that distinguishes good, poor-but-legal, and physically
+impossible camp areas is still a useful proposal, but its scoring and UI should
+be designed against the revised setup flow.
 
 ### Open
 
@@ -702,6 +714,28 @@ triggers and fallback method without Jev, and Jev's exact role
 need implementation and playtesting. The proposed lifecycle is accepted as a
 direction, not proof that it will feel right in the finished game.
 
+## Survival, rest, and exploration — reopened
+
+### Current prototype evidence (not finished-game intent)
+
+There is no separate numeric **safety** need in the playable runtime. Agents
+do have hunger and energy meters, warmth/exposure and illness, shelter/rest
+benefits, weather responses, and a `safe_idle` fallback. Hunger, low energy,
+and urgent exposure can pause projects or restrict available adult actions.
+The current candidate list has no ordinary curiosity/exploration action, so
+removing the word “safe” would not itself make agents roam or discover things.
+
+### Open after the September playtest
+
+Computment finds that agents spend too much time seeking food, rest and warmth
+or trying to feel safe, and wants more room for exploration, social life,
+building and invention. Reconsider whether energy/sleep should be a meter and
+mandatory recovery loop at all; whether weather exposure should be occasional
+context rather than a constant survival veto; and what food scarcity should
+mean. No need has yet been explicitly removed. Decide which pursuits should
+be available when agents are not in immediate danger, and give exploration a
+real motive/action rather than expecting it to emerge from idle behavior.
+
 ## Buildings, land, settlements, and animals
 
 ### Decided
@@ -714,8 +748,9 @@ direction, not proof that it will feel right in the finished game.
   may invent new designs, including unusual shapes if the art and world rules
   can represent them; larger, irregular, or multi-floor buildings are therefore
   possibilities, not automatic unlocks. Homes have households, storage,
-  sleeping/comfort capacity, and inspectable occupants and
-  contents. An entire household may shelter together even if crowded, but
+  occupancy capacity, and inspectable occupants and contents; their exact
+  sleeping/comfort effects are reopened with the energy mechanic. An entire
+  household may shelter together even if crowded, but
   overcrowding has consequences rather than making house size meaningless.
   Guests may request permission to stay.
 - Non-residential buildings have distinct physical occupancy, workstation,
@@ -723,28 +758,17 @@ direction, not proof that it will feel right in the finished game.
   practical, queue or choose alternatives when full, and retain the blocked
   goal for later retry. The simulation owns that memory; Jev can help choose an
   alternative but is not responsible for remembering the task.
-- A **workshop** holds tools/materials and supports crafting, repair,
-  prototypes, machines, and specialized production. Farms include outdoor field
-  work zones and separate occupiable structures such as farmhouse, barn, or
-  silo. Warehouses, markets, town halls, and other buildings need distinct
-  useful functions.
 - Building sites should come from understandable legal options considering
   access, terrain, resources, ownership, and settlement context. Land can first
   be claimed, shared, granted, or disputed. Monetary land values and purchase
   prices become meaningful after currencies exist. Agents can later buy/sell
   property. Roads help travel and influence site choice.
-- **Agents choose the exact site/footprint** for a building they decide is
-  needed, then gather/build it. The world system validates hard physical
-  constraints such as terrain, footprint and overlap with existing
-  objects/resources/buildings. Access, ownership/claims and settlement context
-  also matter, without turning every
-  agent-created law into an unbreakable physical rule. If a proposed site fails,
-  the agent must reconsider rather than the world silently placing the building
-  somewhere else. The world may expose map facts or candidate sites to make
-  this choice tractable, but the final choice remains the agent's. This
-  supersedes the proposal that a deterministic town-layout system selects the
-  final site. Exact candidate information, suitability weights, consent and
-  retry limits remain open.
+- The world system must validate hard physical building constraints such as
+  terrain, footprint and overlap with existing objects/resources/buildings.
+  Access, ownership/claims and settlement context also matter, without turning
+  every agent-created law into an unbreakable physical rule. **Who chooses the
+  site is reopened** below; the prior answer that agents choose exact tiles is
+  no longer settled.
 - **Housing priority for a newly added adult (decided):** when the adult has no
   home, seek suitable existing housing first; start a new home project only if
   none is suitable. Suitability, available capacity, ownership/household
@@ -758,6 +782,34 @@ direction, not proof that it will feel right in the finished game.
   placements in this direction.
 - **Livestock and mounts** belong in the finished game. Hostile predators do
   **not** belong in the current plan, though they may be revisited later.
+
+### Reopened: incremental town layout
+
+Computment is reconsidering agent-picked coordinates in favor of **agents
+identifying a need and doing the work, while town-layout code produces a small
+set of viable, coherent sites that the agent can accept or reject**. The agent
+would retain a real say but not search the entire map tile by tile. This is a
+current preference for discussion, not a final selection policy. The same
+layout rules might arrange the initial camp rather than requiring the player
+to place every starter building. Site rules could consider reachable entrances,
+terrain, resources, existing buildings, settlement shape, claims, and paths;
+exact weights, how refusals work, and whether the layout system chooses one
+site or a shortlist remain open. The building catalogue and functions are
+also under review after survival-heavy playtesting.
+
+The earlier functional catalogue proposed a **workshop** for tools, crafting,
+repair and prototypes; farms with outdoor fields plus optional occupiable
+structures; and useful distinct roles for warehouses, markets and town halls.
+Which of these should exist at the start, emerge later, or be dropped is open.
+
+**Clanker's proposal, not approved:** use one incremental layout service for
+starter-camp arrangement and later construction requests. Filter impossible
+footprints, then rank a small set of sites by building purpose, access,
+distance to existing activity/resources, terrain, and space for future growth.
+Agents ask for a building and can accept, refuse with a reason, or defer rather
+than searching coordinates. Keep paths physically connected; distinguish
+reserved access corridors from roads that later form through actual traffic.
+The generator should not preselect a fixed lifetime count of buildings.
 
 ### Decided road scope; formation details preferred
 
