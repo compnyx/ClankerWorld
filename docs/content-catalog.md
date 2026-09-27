@@ -72,8 +72,9 @@ Sources: [starter](../src/ClankerWorld.Simulation/Playtest/StarterContent.cs),
 | Path | 1 marker | Does not constitute a Road network | Rename **Road**; generated Roads immediately connect starter Houses and Warehouse |
 
 These come from [base-camp generation](../src/ClankerWorld.Simulation/Harness/SeededWorldHarness.cs).
-The normal generated world has four founders added during paused setup; the
-fixture-only `founder` marker is **not** an initial person in a new world.
+The current generated world adds four agents during paused setup (the code
+calls them `founders`); the fixture-only `founder` marker is **not** an initial
+person in a new world. The intended player-facing term is simply **agent**.
 
 ## Generated resource sites and terrain — current
 
@@ -107,9 +108,11 @@ finished foliage/object art layer. Sources:
 
 ## Intended content roles — **not implemented as described**
 
-The only guaranteed starter buildings are **two Houses and one Warehouse**,
-joined immediately by generated Roads. Other entries may develop later; none
-is guaranteed at New World creation. Building inspection uses a panel for
+The **first Town** is created during paused New World setup. Its only
+guaranteed starting buildings are **two Houses and one Warehouse**, joined
+immediately by generated Roads. A minimum food supply and some tools are also
+guaranteed; exact names and quantities are open. Other buildings may develop
+later; none is guaranteed at New World creation. Building inspection uses a panel for
 occupants, stocks and ownership, not visible room interiors.
 
 | Concept | Intended role | Current interview status |
@@ -117,7 +120,7 @@ occupants, stocks and ownership, not visible room interiors.
 | House | Household members and invited visitors; no occupant limit, private food/resources only accessible to members inside; cooking, storm refuge, childcare/property | **Decided role**; footprint, invitation details and cooking recipes open |
 | Warehouse | Town-resident communal resources, physically inspectable stock | **Decided role**; residency and border changes open |
 | Workshop | Inventions/mods, accessible to outsiders | **Decided role**; other crafting jobs and starter presence open |
-| Farm fields + Farmhouse | Household plants/tends/harvests fertile fields; Farmhouse processes crops | **Decided role**; farm cap depends on Town population and yields; exact formula open |
+| Farm fields + Farmhouse | Household plants/tends/harvests fertile fields; Farmhouse processes crops | **Decided role**; population and yield inform expansion, but shortage can justify another farm; exact rule open |
 | Farm Silo or linked store | Private farm work stock | **Preferred**, exact form and access open |
 | Blacksmith | Household-owned tool business with internal work stock | **Decided role**; recipes/tier progression open |
 | Clothing-making building | Makes clothing as a distinct business | **Decided role**, name and chain open; Tailor Shop is Clanker's suggestion |
@@ -126,11 +129,32 @@ occupants, stocks and ownership, not visible room interiors.
 | Restaurant | Optional agent-founded business that buys ingredients and sells cooked meals | **Decided possible building**; quality/pricing open |
 | Town Hall | Town governance | **Decided role**; timing/mechanics open |
 | Port | Boat access | **Decided role**; timing/mechanics open |
-| Roads and bridges | Fast Roads appear with Town buildings and connect Towns automatically; traffic may add bridges with minimum spacing | **Decided direction**; layout, permanence, bridge threshold/radius open |
+| Roads and bridges | Fast Roads appear with Town buildings and connect Towns if a legal land route exists; traffic may add bridges with minimum spacing; Roads survive building/Town loss | **Decided direction**; layout, removal edge cases, bridge threshold/radius open |
 | Trees, stumps, seeds and regrowth | Physical harvestable forest with regrowth and planting | **Decided direction**; ecology rates/art open |
 | Iron, gold, diamond, more materials/tools | Wood tools → stone → stone tools → iron → iron tools → rarer materials | **Decided starting ladder**; higher tiers and uses open |
 | Livestock and mounts | Care, production or transport | Finished-game scope, detailed design deferred |
 
-**Next pass:** settle higher tool tiers, exact field/Silo model, business
-ownership and access, and the remaining road/border/stock edge cases.
-No invented costs, occupancy limits or recipe stats are approved here.
+## Full-game content roster — interview scaffold
+
+Computment wants a complete, concrete catalogue of final-game tools, items,
+foods, objects and visual assets rather than a vague list of building roles.
+That catalogue is **not selected yet**. Use this sheet as its working home;
+do not infer that an example below is a locked recipe, quantity or sprite.
+For every eventual entry, record its source or recipe, tool gate, purpose,
+storage/ownership, trade use, visual asset/variants, and whether it is a
+starting item, later production, agent invention or late-game content.
+
+| Category to enumerate | Already named in vision | Needs a deliberate roster pass |
+| --- | --- | --- |
+| Raw materials and deposits | Wood, stone, iron, gold, diamond, fiber, seeds | Exact variants, abundance, renewability, mining gates and art |
+| Tools and equipment | Wood/stone/iron tool tiers, clothing | Individual tools, durability, crafting stations, bonuses and sprites |
+| Crops and wild foods | Wild food, fertile fields, planted seeds | Plant/food species, yields, seasons, farm work and art |
+| Meals and ingredients | House-cooked meals, processed farm food, Restaurant meals | Recipes, quality, food effects, ownership and art |
+| Buildings and work sites | Role table above | Designs, materials, footprints, functions and appearances |
+| World objects and infrastructure | Trees, stumps, Roads, bridges, ports | Object variants, growth/decay, placement and sprites |
+| Trade and knowledge goods | Tools, food, maps, records and books | What can be sold, copied, learned, carried and displayed |
+| Animals and transport | Livestock, mounts, boats | Detailed roster deferred until later development |
+
+**Next pass:** select exact starter supplies and first-tier tools; then fill
+the remaining food, resource, tool, building and object rosters in dependency
+order. No invented costs, occupant limits or recipe stats are approved here.

@@ -103,7 +103,7 @@ Whether the local host is embedded in the installed game or bundled as a
 background companion process; installer and update design; exact Windows
 version/architecture support; local credential storage and diagnostics export;
 save migration between deployments; performance requirements and packaging
-tests; on-demand credential validation and the new-world founder setup when no
+tests; on-demand credential validation and the new-world starting-agent setup when no
 key exists yet. These are implementation choices to prove, not reasons to
 reopen the decided player-local distribution goal.
 
@@ -116,10 +116,10 @@ reopen the decided player-local distribution goal.
   most recently played world.
 - **New World** offers world size and climate choices, advanced generation
   controls, preview/reroll, wrapping, and an optional early survival grace
-  period. The ordinary game has **one supported starter-camp mode**. The
+  period. The ordinary game has **one supported first-Town setup mode**. The
   nothing-start challenge mode was removed from the plan for now. Generating
-  the world creates the map and opens it paused; four founders must be
-  configured before starting time. The initial camp siting and generated
+  the world creates the map and opens it paused; four starting agents must be
+  configured before starting time. The first-Town siting and generated
   building layout flow are specified below. API keys are not a prerequisite for
   reaching the world view.
 - Enter a visually coherent generated world. The player can see its whole
@@ -233,9 +233,9 @@ Town joins the Town but no household; placement on unclaimed land
 outside both starts an independent agent. Location establishes **starting
 social membership**, not biological ancestry or permanent membership based on
 where the agent later walks. A player-added adult could be a new unrelated
-founder line even when placed inside an existing household. Exact overlap,
+  unrelated family line even when placed inside an existing household. Exact overlap,
 capacity, consent, and invalid-placement rules are still open. The agreed
-starter-world household bootstrap below is separate from this later Add Agent
+first-Town household setup below is separate from this later Add Agent
 placement rule.
 
 ### Open
@@ -345,7 +345,7 @@ accounting details need design and playtesting.
 ### Decided
 
 - World-size presets are **Small, Medium, Large, Huge, Mega**. They should feel
-  roughly like one town, one city/region, one major continent, two or three
+  roughly like one Town, several Towns across a region, one major continent, two or three
   continents, and a planet respectively. The proposed logical dimensions are
   **256×128, 512×256, 1024×512, 2048×1024, 4096×2048**—initial benchmark
   targets, **not locked constants**.
@@ -413,10 +413,9 @@ Computment wants agents to cross **one-tile-wide rivers on foot, more slowly**
 than dry ground. The world automatically adds bridges at sufficiently used
 crossings. Once a bridge is placed, a no-other-bridge radius prevents one
 appearing right next to it. Exact radius, traffic threshold, bridge
-materials/work, and wider/deeper river crossing rules remain open. Some
-established roads should become permanent; the criterion and later removal
-rule remain open. Town site planning
-and road generation must be designed together, not as unrelated generators.
+materials/work, and wider/deeper river crossing rules remain open. Town site
+planning and Road generation must be designed together; Road persistence is
+specified in the building/Town section below.
 
 ### Open
 
@@ -526,21 +525,22 @@ first-complete-game roadmap.
 
 ### Decided
 
-- A civilization-oriented new world is generated without agents or a placed
-  camp. After opening it, the player adds and configures **four biologically
-  unrelated founder agents** using the per-agent provider/model/credential
-  flow. They are grouped 2+2 into two starter households, not forced couples;
-  family lines develop later through relationships and children. The households
-  exist even before formal land claims or a Town. The simulation cannot
-  begin until this paused founder setup is complete. The player chooses a
-  rough camp site; Town generation lays out the guaranteed starter core below.
-- Once all four founders are configured and placed, the player explicitly
+- A civilization-oriented new world first generates its map without agents.
+  During paused setup, the player chooses a rough site and Town generation
+  creates the **first Town** with its initial border and buildings. The player
+  adds and configures **four biologically unrelated starting agents** using
+  the per-agent provider/model/credential flow. They are grouped 2+2 into two
+  starting households, not forced couples; family lines develop later through
+  relationships and children. All four begin as agents of the first Town.
+  The simulation cannot begin until this setup is complete. The exact order
+  of site/layout acceptance and agent configuration remains open.
+- Once all four starting agents are configured and placed, the player explicitly
   presses **Start World**; the simulation must not begin automatically on the
-  fourth placement. An incomplete founder setup is saved so the player can
+  fourth placement. An incomplete starting-agent setup is saved so the player can
   quit and finish it later. Before Start World, the game should clearly show
-  progress toward the required four founders. During this paused setup, founder
-  placement can be moved or undone. Founders should start near the camp; the
-  camp's exact center, clustering, layout-editing controls, and prior 8/12-tile
+  progress toward the required four agents. During this paused setup, agent
+  placement can be moved or undone. They should start near the first Town's
+  buildings; exact clustering, layout-editing controls, and prior 8/12-tile
   playtest radii must be revisited with the generated layout.
 - Each agent independently has a chosen provider/model, private memory and
   context, goals/personality, call schedule, usage, and failure state. Different
@@ -551,20 +551,23 @@ first-complete-game roadmap.
   parents' surnames. Children inherit tendencies, abilities,
   culture, and provider/model settings; baby appearance uses baby art. Close
   biological relatives cannot pair.
-- Agents can become a couple and then marry. **Marriage is required before
-  they can have a child.** When they marry, both partners must share one of their existing
-  surnames, chosen by the partners in a dedicated conversation. That
+- Agents can become a couple and then marry. **Whether marriage is required
+  before they can have a child is reopened:** an earlier answer sounded like
+  yes, but computment now recalls that unmarried parents were allowed. Do not
+  enforce either interpretation until clarified. When agents marry, both
+  partners must share one of their existing surnames, chosen by the partners
+  in a dedicated conversation. That
   conversation is initiated even if they are far apart in the world: a narrow
   exception to ordinary proximity-bound conversation, not a general remote
   communication ability. A completed marriage must not be left without a
   shared surname. The conversation must be bounded; if the partners do not
   agree within that bound, a disclosed tie-break rule selects one of their two
   surnames so the marriage can finalize. The tie-break method, turn limit, and
-  provider-failure behavior remain open. Because married partners share a
-  surname, the earlier rule that they choose one parent's surname for a baby
-  may be redundant; exceptional cases, if any, need clarification. This
-  supersedes the earlier interview rule allowing parenthood without romantic
-  partnership.
+  provider-failure behavior remain open. If birth requires marriage, the
+  earlier rule that parents choose one of their surnames for a baby normally
+  offers only one surname; if unmarried parents are allowed, the choice has
+  two possibilities. Computment accepts that the low-population continuity
+  rule may push agents toward marriage, regardless of the final birth rule.
 - **A child uses their own selected personal LLM once they leave infancy.**
   Infants do not make calls to their personal model. The parents' provider/model
   choice can be stored at birth, then used when that agent enters the child
@@ -609,30 +612,35 @@ first-complete-game roadmap.
 
 ### Decided and open after the survival and town-layout playtest
 
-The player chooses a **rough camp site** in New World, with the best suitable
-areas shown. Town-generation rules place the starter buildings and roads;
-the player can accept that layout or remove it and redo it. The **only
+The player chooses a **rough site for the first Town** in New World, with the
+best suitable areas shown. Town-generation rules place its starting buildings
+and Roads; the player can accept that layout or remove it and redo it. The **only
 guaranteed starter buildings are two Houses and a Warehouse**, connected by
 generated Roads. Farmhouse, Blacksmith, clothing-making place and Workshop
 are not guaranteed starters; agents may develop them later.
-The player chooses starter supplies during New World setup. Exact suitability
-scoring, placement controls, what a redo preserves, available supply choices,
-and whether any nonguaranteed building can appear at start remain open.
+The player chooses starter supplies during New World setup, but a **minimum
+food supply and some tools are guaranteed** so the first Town can begin.
+Exact item names, quantities, suitability scoring, placement controls, what
+a redo preserves, available supply choices, and whether any nonguaranteed
+building can appear at start remain open. The
+[content catalogue](content-catalog.md)
+is the working home for the eventual complete tool/item/food/object/art roster;
+the roster is not yet selected.
 
 ### Open
 
-Expected/variable lifespan below the six-hour cap, founders' starting ages,
-the exact UI for assigning the first four founders to the two starter
+Expected/variable lifespan below the six-hour cap, starting agents' ages,
+the exact UI for assigning the first four agents to the two starting
 households, the detailed limits on child tasks and elder capabilities, whether
 older childhood needs a separate phase, age display, relationship and
 inheritance mechanics, continuity threshold and exit conditions,
 pregnancy/birth and childcare rules, care/resource eligibility, Jev's
 optional role in childhood, and the identity implications of player renaming.
-Base-camp placement rules and interface remain open: its order relative to
-founder placement, physically valid terrain and footprints, how fertile land
+First-Town placement rules and interface remain open: its order relative to
+agent placement, physically valid terrain and footprints, how fertile land
 is ensured or assessed, the placement boundary's exact distance measurement
 near tile/footprint edges, whether geometric proximity also requires a walkable
-route, and how redo affects assigned founder households and configuration.
+route, and how redo affects assigned starting households and configuration.
 Warehouse details remain open: formal ownership, how Town residency is
 determined, access when the building is outside all Town borders or borders
 change, and how its hard access gate relates to any future crime system. The
@@ -825,12 +833,14 @@ than an idle-label change.
   project only if none is suitable. How they join an existing household and
   gain its permission, or form a new household, remains open. There is no
   occupancy-capacity gate.
-- **Town(s)** replaces “settlement” in player-facing terminology. Towns have
-  generated, inspectable borders with room to grow. The border follows the
+- **Town(s)** replaces “settlement” in player-facing terminology. There are
+  no village or city place classes: every such place is a Town. The first Town
+  already exists during paused New World setup, and its four starting agents
+  are Town residents with access to its Warehouse. Towns have generated,
+  inspectable borders with room to grow. The border follows the
   Town's assigned buildings, includes spare space around them, and expands
   when new buildings join that Town; exact margin, connected geometry,
-  assignment and overlap handling remain open. Prior population-based
-  village/town/city classes need reconsideration against the Town label.
+  assignment and overlap handling remain open.
 - **Warehouse** replaces Storehouse. It holds actual inspectable resource stock
   at its location for agents/households resident in its Town, within that
   Town's borders. Food belongs at home instead. Residency and border-change
@@ -863,8 +873,10 @@ Farmhouse, farm fields, a private farm Silo/linked store, household-run Store,
 household-run Blacksmith with internal work stock, a clothing-making building,
 public Market, Town Hall, Port, and optional agent-founded Restaurant. A
 Farmhouse processes crops; its owning household places fertile fields, plants
-seeds, tends, harvests, and sells/trades the produce. Farm count depends on
-**Town population and farm yields**, with the exact rule open. Farm work stock
+seeds, tends, harvests, and sells/trades the produce. Farm count responds to
+**Town population and farm yields**; a shortage or reduced yield can justify
+more farming rather than a hard cap blocking recovery. The exact formula is
+open. Farm work stock
 is private to its household; the private Silo/linked store is distinct from the
 public Town
 Warehouse. The Blacksmith makes tools, with stock inside the building. A Store
@@ -891,14 +903,20 @@ building. The generator should not preselect a fixed lifetime building count.
 ### Decided Road scope; formation details open
 
 The baseline has **one Road type**, with no extra categories required yet.
-Roads appear immediately with Town buildings and automatically link Towns;
-they are not generated by footsteps or a separate building project. Agents
-and player do not paint Road tiles. Roads speed up travel. **Bridge placement
+Roads appear immediately with Town buildings and automatically link Towns
+**when a legal land route exists**. If geography blocks a legal route, the
+Towns remain unconnected by Road; boats or later transport may still connect
+their travelers. Roads are not generated by footsteps or a separate building
+project. Agents and player do not paint Road tiles. Roads speed up travel.
+**Bridge placement
 responds to traffic** at narrow river crossings, even without a planned Road,
-and excludes another bridge in a nearby radius. Some Roads become permanent.
-Exact inter-Town route timing, Road layout, bridge thresholds/radius/materials,
-permanence/removal, and rendering remain open. Diagonal travel/Roads remain in
-scope; diagonal moves must not pass through blocked corners, with precise
+and excludes another bridge in a nearby radius. Generated Roads **remain after
+the supporting building is removed or a Town is abandoned**. Whether any
+other event can remove a Road—and thus whether the earlier temporary versus
+permanent distinction still means anything—remains open. Exact inter-Town
+route timing, layout, bridge thresholds/radius/materials and rendering remain
+open. Diagonal travel/Roads remain in scope; diagonal moves must not pass
+through blocked corners, with precise
 cost/corner rules open.
 
 ### Open
@@ -928,14 +946,14 @@ economics; and later livestock/wildlife detail.
   underlying ownership record. Laws may guide or contest transfers through
   validated mechanisms, but cannot bypass those mechanisms.
 - A newly founded Town starts with a **simple council** rather than a
-  single founder automatically ruling everyone. **Every adult resident** sits
+  single starting agent automatically ruling everyone. **Every adult resident** sits
   on this initial council and can propose laws and vote. Towns may later
   change their governing arrangement through in-world decisions; the council
   is the starting form, not a universal permanent government.
 
 ### Preferred starting election trigger
 
-Once a Town reaches **eight adult residents**—double the four-founder
+Once a Town reaches **eight adult residents**—double the four-agent
 starting population—it begins electing a smaller representative council
 instead of keeping every adult as a council member. Count adults in that
 Town, not across the world. Eight is an initial threshold to playtest,
@@ -1086,8 +1104,8 @@ compatibility policy.
 
 These are **open questions**, not changes to the decisions above:
 
-1. **Population continuity and ancestry.** Four unrelated founders in two
-   starter households, a close-kin pairing ban, and a low-population safeguard may
+1. **Population continuity and ancestry.** Four unrelated starting agents in two
+   households, a close-kin pairing ban, and a low-population safeguard may
    eventually leave no eligible unrelated adults even if everyone wants
    children. Computment now prefers player-controlled addition of unrelated
    adults, with placement seeding household/Town membership. Decide
@@ -1117,48 +1135,40 @@ These are **open questions**, not changes to the decisions above:
    player-local and Windows-only at first, while development stays VPS-backed.
    Prove the same simulation and save behavior in both; choose the local
    process/installer shape without creating a second, divergent game.
-6. **Starter Town versus Town-only Warehouse.** Four founders and two Houses
-   exist before a Town is formally founded, but the guaranteed Warehouse is
-   usable only by residents of its Town. Decide whether New World creates the
-   first Town immediately or how the Warehouse works before founding. Also
-   clarify whether the older village/town/city population classes remain
-   meaningful after renaming every settlement a Town.
-7. **Marriage, surnames, and continuity.** Birth now requires marriage and
-   spouses share a surname, making the baby's choice between parent surnames
-   normally trivial. Decide whether the baby simply inherits that shared name
-   and what the low-population continuity rule can do if nobody is married.
-8. **Starter economy and tool bootstrap.** There is no guaranteed farm,
-   Blacksmith or Workshop. Decide the minimum food/seed/tool supplies and
-   where founders can make the first wood and stone tools without those
-   buildings. A hard population-based farm cap must not prevent recovery when
-   yields are poor and food is scarce.
-9. **Automatic infrastructure versus geography.** Town buildings gain Roads
-   immediately and Towns connect automatically, while mountain/peak tiles
-   forbid Roads and water crossing needs a separate rule. Define what happens
-   when no legal land route exists and whether automatic bridges/roads require
-   materials or labor. Clarify whether bridge spacing applies along the same
-   river or across any nearby crossings. Since Roads no longer form from
-   repeated walking, decide what “becomes permanent” means and when a
-   generated Road could ever disappear.
-10. **Home invitations versus membership.** Guests may enter a House, but its
+6. **Marriage, birth and surnames.** Whether unmarried parents can have a
+   child is reopened after contradictory interview wording. The continuity
+   rule may push agents toward marriage. Clarify birth eligibility; that also
+   determines whether choosing between parent surnames is meaningful.
+7. **Starter economy and tool bootstrap.** A minimum food supply and some
+   tools are guaranteed, but no farm, Blacksmith or Workshop is guaranteed.
+   Decide exact starter items/quantities and where agents make first-tier
+   tools without those buildings. More farms may answer food shortages when
+   yields fall; the population-and-yield planning rule remains open.
+8. **Automatic infrastructure edge cases.** Towns connect by Road where a
+   legal land route exists and can remain disconnected otherwise. Define
+   whether Roads or bridges consume materials, whether bridge spacing applies
+   only to the same river, and whether anything besides explicit world edits
+   can remove a Road. Roads remain after buildings or Towns disappear, so a
+   separate temporary/permanent distinction may be unnecessary.
+9. **Home invitations versus membership.** Guests may enter a House, but its
     stock is household-private, while Add Agent placement on household land
     was previously suggested to join that household automatically. Define
     consent to membership, guest cooking/storm access, and what happens when
     an agent leaves or changes household.
-11. **Physical stocks and trade.** Food is held at Houses, Town resources at
+10. **Physical stocks and trade.** Food is held at Houses, Town resources at
     Warehouses, and farm/Blacksmith stock at businesses, while outsiders can
     visit a Market or Workshop. Decide how goods physically move into Stores,
     Restaurants and Markets, and when ownership changes; location-specific
     inventories cannot be an invisible shared pool.
-12. **Compact Pause Menu versus Mod Library.** The menu is specified as one
+11. **Compact Pause Menu versus Mod Library.** The menu is specified as one
     row of Save World, Settings and Quit to Menu, but a separate accepted
     vision section says the Pause Menu also exposes a Mod Library. Decide
     where the in-world library opens without resurrecting the old crowded UI.
-13. **House form without capacity.** Household occupancy is unlimited and
+12. **House form without capacity.** Household occupancy is unlimited and
     rooms are not drawn. Decide whether larger/stone Houses matter through
     storage, cooking, protection, status or aesthetics, so building upgrades
     have a purpose without reintroducing an occupancy limit.
-14. **Night without sleep.** The world still has a day/night cycle, but agents
+13. **Night without sleep.** The world still has a day/night cycle, but agents
     never need to sleep. Decide whether night affects visibility, travel,
     temperature or social behavior, rather than silently creating a new
     rest/energy gate.

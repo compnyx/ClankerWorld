@@ -38,7 +38,7 @@ host sends packed terrain for generated worlds, but repeated full-map transfer
 remains a large-world blocker.
 The simulation can project Small/Medium deterministic generated geography into
 its existing physical-map contract, place an empty camp on a clear 64×64
-region, then carry generation options through save/reload and founder setup.
+region, then carry generation options through save/reload and starting-agent setup.
 This bridge maps rivers, lakes, ocean, mountain and peak, plus provisional
 sand, forest and snow ground. It saves an independent per-tile climate-zone
 layer in the map manifest; surface and vegetation are still collapsed into
@@ -206,7 +206,7 @@ providers still require network access and the player's own keys. Whether the
 local host is embedded or bundled as a companion process is open.
 
 The vision ledger owns future behavior, including the custom calendar,
-in-world founder setup, private-memory inspection, optional AI-usage stop,
+in-world starting-agent setup, private-memory inspection, optional AI-usage stop,
 Jev toggle, safe agent inventions and external mods. [Current state](current-state.md)
 reports what is connected to normal play.
 
