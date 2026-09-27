@@ -1211,3 +1211,21 @@ the center of circular placement limits, with other camp structures within an
 starting values for playtesting, not immutable balance constants. Whether a
 geometrically nearby position also needs a walkable route, and exact handling
 of multi-tile footprints at the boundary, remain open.
+
+### Roads as an emergent world system; diagonal movement (2026-09-27)
+
+Asked whether roads should include both worn trails and built roads or only
+deliberately built roads, computment said they think there should be **one road
+type**, probably formed by repeated walking. They want a limit so roads do not
+appear everywhere and asked how that logic could work. In answer to who builds
+roads, they chose the **game/world system itself**: agents and player should
+have no say in road placement. They also want agents to move diagonally and
+roads to run diagonally. One-type/repeated-walking details remain a preferred
+direction rather than a finalized algorithm. The current prototype's route
+finder uses only four cardinal neighbors, so this is not playable behavior yet.
+
+Clanker proposed accumulating traffic from repeated journeys on neighboring
+tile connections, including diagonals; forming a road only on sustained,
+locally dominant connected routes; fading unused segments; and using only a
+modest road preference in route-finding. This is an unaccepted proposal, not a
+decision on thresholds, road lifetime, materials or visual connections.

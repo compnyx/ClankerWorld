@@ -355,6 +355,9 @@ accounting details need design and playtesting.
   Roads exist and influence travel and building placement. **Mountain and peak
   tiles cannot hold construction**—including buildings, farms and roads. Travel
   rules for those elevations are a separate decision.
+- In the intended finished game, agents can **move diagonally** on the 2D tile
+  map, and roads can also run diagonally. The current playable route finder
+  still uses cardinal neighbors only; diagonal movement is not implemented.
 
 ### Open
 
@@ -687,8 +690,29 @@ direction, not proof that it will feel right in the finished game.
 - Agents formally establish settlements and borders. Village/town/city classes
   are population-based. The player can inspect actual property and settlement
   boundaries through map filters.
+- The **world system**, not agents or the player, determines where roads form.
+  Neither agents nor the player directly chooses road construction projects or
+  placements in this direction.
 - **Livestock and mounts** belong in the finished game. Hostile predators do
   **not** belong in the current plan, though they may be revisited later.
+
+### Preferred road formation, pending confirmation
+
+Computment leans toward **one road type** that forms from repeated walking,
+rather than separate worn trails and deliberately built roads. Roads must not
+appear wherever anyone walks once; their formation needs a limiting rule.
+
+### Proposed road-formation rule, not accepted
+
+Count actual repeated journeys along neighboring tile connections, including
+diagonals, rather than painting every tile crossed once. A road appears only
+after sustained use on a locally dominant connected route; unused segments
+gradually fade. Give existing roads a modest route preference without letting
+a single early segment force all future traffic onto it. Honor the existing
+no-road rule for mountain and peak tiles. This is a candidate rule, not an
+approved threshold, decay rate, material model, or rendering design. Diagonal
+moves should not pass through blocked corners; exact movement cost and corner
+rules remain open.
 
 ### Open
 
@@ -696,8 +720,9 @@ Structure catalogue and effects; exact permitted configurations, footprint,
 floor, access, reservation, and queue rules; comfortable-capacity numbers;
 land-claim and dispute law;
 mayors and settlement governance; currency/land pricing; village/town/city
-thresholds; transport progression; livestock uses and care; and whether other
-non-hostile wildlife is wanted.
+thresholds; transport progression; road-use threshold, decay, other terrain
+eligibility, effects on travel, and junction/diagonal visuals; livestock uses
+and care; and whether other non-hostile wildlife is wanted.
 
 ## Settlement laws and governance
 
