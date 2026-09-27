@@ -62,6 +62,8 @@ public sealed record OwnerDeviceListAction;
 /// </summary>
 public sealed record OwnerProviderStatusAction;
 
+public sealed record OwnerUsageStatusAction;
+
 public sealed record OwnerCredentialSlotDeletionAction(string CredentialSlotId);
 
 public sealed record OwnerProviderConfigurationAction(
@@ -214,6 +216,19 @@ public static class OwnerHttpBinding
     public static string DeviceListPayload() => EmptyPayload("list_devices");
 
     public static string ProviderStatusPayload() => EmptyPayload("provider_status");
+
+    public static string UsageStatusPayload() => EmptyPayload("usage_status");
+
+    public static string UsageLimitPayload(ProviderUsageLimitAction action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (action.AttemptLimit is < 1 or > 1_000_000 || action.AdditionalCalls is < 0 or > 1_000_000 ||
+            action.AdditionalCalls > 0 && action.AttemptLimit is not null)
+            throw new ArgumentOutOfRangeException(nameof(action));
+        return string.Join('\n', "clankerworld.owner-usage-limit.v1",
+            $"attempt-limit={action.AttemptLimit?.ToString(CultureInfo.InvariantCulture) ?? "off"}",
+            $"additional-calls={action.AdditionalCalls.ToString(CultureInfo.InvariantCulture)}");
+    }
 
     public static string CredentialSlotDeletionPayload(OwnerCredentialSlotDeletionAction action)
     {

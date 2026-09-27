@@ -134,7 +134,7 @@ in the following repair evidence, not implied to remain open.
 | AW-B002 | High | Cognition/cost | Routine cognition can repeatedly pay for `safe_idle` when no meaningful observation changed. | Idle decisions are reused/coalesced until relevant state changes or a bounded reevaluation deadline; telemetry proves materially fewer no-op calls. |
 | AW-B003 | Medium | Settings UI | “Inhabitant cognition” is visually dense and too wordy for a normal settings screen. | The panel uses compact role/provider/model/key rows, progressive help and clear saved/error state without losing the two-role distinction. |
 | AW-B004 | Medium | Menu layout | With no inhabitant selected, the pause/menu content drops toward the bottom of the screen. | Menu position and layout remain stable regardless of world selection state and supported window size. |
-| AW-B005 | Medium | Player observability | Provider decisions, fallback and usage are visible in safe server logs but not clearly in the game. | A compact in-game activity view shows provider role/model, accepted/fallback outcome and bounded usage/latency without exposing prompts, raw responses or secrets. |
+| AW-B005 | Medium | Player observability | World Settings now shows installation-lifetime paid-call and token totals by provider/model, while the selected-agent tooltip shows the last accepted decision. A compact activity history of accepted/fallback outcomes is still missing. | A compact in-game activity view shows provider role/model, accepted/fallback outcome and bounded usage/latency without exposing prompts, raw responses or secrets. |
 
 ## First repair increment
 

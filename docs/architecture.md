@@ -156,6 +156,15 @@ Jev-assisted memory compaction is not implemented yet.
   assignments. Signed owner actions bind the selected slot ID and new-key
   label; owner status returns only non-secret IDs and labels. One personal
   provider/model selection produces routine and planning assignments together.
+- A separate installation-local usage sidecar durably reserves each hosted
+  attempt before provider HTTP work. Its atomic reservation enforces the
+  optional installation-lifetime call-attempt cap across concurrent agents;
+  retry, failure and abandonment keep their spent allowance. Completed
+  responses add only known token counts. Reaching the cap persists an explicit
+  world pause; the signed owner limit action can add allowance or disable the
+  cap before the normal signed Resume action succeeds. Deterministic provider
+  work does not reserve an attempt. The bounded sidecar stores no prompts,
+  responses, hidden reasoning or credentials and is not part of world saves.
 - Agents have bounded personal knowledge. A fact in the world or visible to
   the player is not automatically known to every agent. Accepted personal-model
   decisions can include a short in-character private thought; the last eight

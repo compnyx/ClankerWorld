@@ -8,6 +8,33 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class ProviderConfigurationStoreTests
 {
     [Fact]
+    public async Task PaidCallCapBlocksProviderBeforeHttpAndLocalDecisionsRemainFree()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-usage-router-");
+        try
+        {
+            var configuration = new ProviderConfigurationStore(Path.Combine(directory.FullName, "providers.json"), EmptySeed());
+            var usage = new ProviderUsageStore(Path.Combine(directory.FullName, "usage.json"));
+            var handler = new ProviderResponseHandler();
+            _ = configuration.Configure(new("planning", "openai", "gpt-test", "secret-usage-key", false));
+            _ = usage.Configure(new ProviderUsageLimitAction(1));
+            var router = new ConfigurableDecisionProvider(configuration, new FixedHttpClientFactory(handler),
+                usageStore: usage);
+            _ = await router.DecideAsync(Request(router.ProviderEpoch, strategic: true));
+            Assert.Equal(1, usage.Capture().Attempts);
+            await Assert.ThrowsAsync<ProviderUsageLimitReachedException>(async () =>
+                await router.DecideAsync(Request(router.ProviderEpoch, strategic: true)));
+            Assert.Equal(1, usage.Capture().Attempts);
+            Assert.DoesNotContain("secret-usage-key", File.ReadAllText(Path.Combine(directory.FullName, "usage.json")));
+            _ = configuration.Configure(new("planning", "deterministic", null, null, false));
+            var local = await router.DecideAsync(Request(router.ProviderEpoch, strategic: true));
+            Assert.Equal(DecisionProviderKind.Deterministic, local.Provider);
+            Assert.Equal(1, usage.Capture().Attempts);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public void SlotDeletionTelemetryReportsOutcomeWithoutCredentialMaterial()
     {
         var logger = new RecordingLogger<ProviderConfigurationStore>();

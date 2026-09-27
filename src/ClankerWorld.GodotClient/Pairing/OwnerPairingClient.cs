@@ -46,6 +46,8 @@ public static class OwnerPairingEndpoints
     public const string OwnerDeviceRevoke = "/api/v1/owner/devices/revoke";
     public const string OwnerDeviceList = "/api/v1/owner/devices/list";
     public const string OwnerProviderStatus = "/api/v1/owner/providers/status";
+    public const string OwnerUsageStatus = "/api/v1/owner/usage/status";
+    public const string OwnerUsageLimit = "/api/v1/owner/usage/limit";
     public const string OwnerProviderConfigure = "/api/v1/owner/providers/configure";
     public const string OwnerCredentialSlotDelete = "/api/v1/owner/providers/slots/delete";
 }

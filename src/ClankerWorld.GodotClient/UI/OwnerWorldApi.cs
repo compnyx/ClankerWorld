@@ -308,6 +308,18 @@ public sealed record OwnerDeviceListAction;
 
 public sealed record OwnerProviderStatusAction;
 
+public sealed record OwnerUsageStatusAction;
+
+public sealed record OwnerUsageLimitAction(long? AttemptLimit, long AdditionalCalls = 0);
+
+public sealed record OwnerUsageRow(string Provider, string Model, string Role,
+    long Attempts, long Completed, long Failed, long Abandoned,
+    long InputTokens, long OutputTokens);
+
+public sealed record OwnerUsageStatus(long Attempts, long Completed, long Failed,
+    long Abandoned, long InputTokens, long OutputTokens, long? AttemptLimit,
+    bool LimitReached, IReadOnlyList<OwnerUsageRow> Rows);
+
 public sealed record OwnerCredentialSlotDeletionAction(string CredentialSlotId);
 
 public sealed record OwnerProviderConfigurationAction(
@@ -621,6 +633,19 @@ public static class OwnerWorldActionPayload
     public static string DeviceList() => Control("list_devices");
 
     public static string ProviderStatus() => Control("provider_status");
+
+    public static string UsageStatus() => Control("usage_status");
+
+    public static string UsageLimit(OwnerUsageLimitAction action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (action.AttemptLimit is < 1 or > 1_000_000 || action.AdditionalCalls is < 0 or > 1_000_000 ||
+            action.AdditionalCalls > 0 && action.AttemptLimit is not null)
+            throw new ArgumentOutOfRangeException(nameof(action));
+        return string.Join('\n', "clankerworld.owner-usage-limit.v1",
+            $"attempt-limit={action.AttemptLimit?.ToString(CultureInfo.InvariantCulture) ?? "off"}",
+            $"additional-calls={action.AdditionalCalls.ToString(CultureInfo.InvariantCulture)}");
+    }
 
     public static string CredentialSlotDeletion(OwnerCredentialSlotDeletionAction action)
     {
@@ -1353,6 +1378,24 @@ public sealed class OwnerWorldApi
             deviceKey,
             cancellationToken);
     }
+
+    public Task<OwnerUsageStatus> GetUsageStatusAsync(Uri serverUri, OwnerAuthorityIdentity authority,
+        string deviceId, IOwnerDeviceSigner deviceKey, CancellationToken cancellationToken)
+    {
+        var action = new OwnerUsageStatusAction();
+        return pairing.SendSignedActionAsync<OwnerUsageStatusAction, OwnerUsageStatus>(
+            serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerUsageStatus,
+            OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.UsageStatus(),
+            action, deviceKey, cancellationToken);
+    }
+
+    public Task<OwnerUsageStatus> ConfigureUsageLimitAsync(Uri serverUri, OwnerAuthorityIdentity authority,
+        string deviceId, OwnerUsageLimitAction action, IOwnerDeviceSigner deviceKey,
+        CancellationToken cancellationToken) =>
+        pairing.SendSignedActionAsync<OwnerUsageLimitAction, OwnerUsageStatus>(
+            serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerUsageLimit,
+            OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.UsageLimit(action),
+            action, deviceKey, cancellationToken);
 
     public Task<OwnerProviderConfigurationStatus> ConfigureProviderAsync(
         Uri serverUri,

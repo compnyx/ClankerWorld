@@ -860,6 +860,76 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
     }
 
     [Fact]
+    public async Task SignedUsageCapPausesWorldPersistsAndRequiresOwnerAllowanceBeforeResume()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-usage-http-");
+        try
+        {
+            using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            OwnerDevice device;
+            using (var host = new ViewerWebApplicationFactory(directory.FullName, null, privateWorld: true))
+            using (var client = host.CreateClient())
+            {
+                device = await StartAndActivateAsync(host, client, key);
+                var cap = new ProviderUsageLimitAction(1);
+                using var configured = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/usage/limit", cap, OwnerHttpBinding.UsageLimitPayload(cap));
+                Assert.Equal(HttpStatusCode.OK, configured.StatusCode);
+                var usage = host.Services.GetRequiredService<ProviderUsageStore>();
+                var ticket = usage.Begin("openai", "test-model", "planning");
+                usage.Finish(ticket, "completed", 4, 2);
+                Assert.True(host.Services.GetRequiredService<PrivateWorldRuntime>().Society.IsPaused);
+                var statusAction = new OwnerUsageStatusAction();
+                using var observed = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/usage/status", statusAction, OwnerHttpBinding.UsageStatusPayload());
+                Assert.Equal(HttpStatusCode.OK, observed.StatusCode);
+                var meter = await observed.Content.ReadFromJsonAsync<ProviderUsageStatus>();
+                Assert.True(meter!.LimitReached);
+                Assert.Equal(1, meter.Attempts);
+                Assert.Equal(4, meter.InputTokens);
+                using var refused = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/control/resume", new OwnerControlAction("resume"),
+                    OwnerHttpBinding.EmptyPayload("resume"));
+                Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+            }
+            using (var restarted = new ViewerWebApplicationFactory(directory.FullName, null, privateWorld: true))
+            using (var client = restarted.CreateClient())
+            {
+                Assert.True(restarted.Services.GetRequiredService<PrivateWorldRuntime>().Society.IsPaused);
+                var usage = restarted.Services.GetRequiredService<ProviderUsageStore>();
+                var statusAction = new OwnerUsageStatusAction();
+                using var response = await SendSignedAsync(restarted, client, key, device.DeviceId,
+                    "/api/v1/owner/usage/status", statusAction, OwnerHttpBinding.UsageStatusPayload());
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                var meter = await response.Content.ReadFromJsonAsync<ProviderUsageStatus>();
+                Assert.Equal(1, meter!.Attempts);
+                Assert.Equal(1, meter.AttemptLimit);
+                using var refused = await SendSignedAsync(restarted, client, key, device.DeviceId,
+                    "/api/v1/owner/control/resume", new OwnerControlAction("resume"),
+                    OwnerHttpBinding.EmptyPayload("resume"));
+                Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+                var grant = new ProviderUsageLimitAction(null, AdditionalCalls: 2);
+                var signed = await CreateSignedRequestAsync(restarted, client, key, device.DeviceId,
+                    "/api/v1/owner/usage/limit", grant, OwnerHttpBinding.UsageLimitPayload(grant));
+                using var tampered = await client.PostAsJsonAsync("/api/v1/owner/usage/limit",
+                    signed with { Action = grant with { AdditionalCalls = 100 } });
+                Assert.False(tampered.IsSuccessStatusCode);
+                Assert.Equal(1, usage.Capture().AttemptLimit);
+                using var consent = await SendSignedAsync(restarted, client, key, device.DeviceId,
+                    "/api/v1/owner/usage/limit", grant, OwnerHttpBinding.UsageLimitPayload(grant));
+                Assert.Equal(HttpStatusCode.OK, consent.StatusCode);
+                using var resumed = await SendSignedAsync(restarted, client, key, device.DeviceId,
+                    "/api/v1/owner/control/resume", new OwnerControlAction("resume"),
+                    OwnerHttpBinding.EmptyPayload("resume"));
+                Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
+                Assert.False(restarted.Services.GetRequiredService<PrivateWorldRuntime>().Society.IsPaused);
+                Assert.Equal(3, usage.Capture().AttemptLimit);
+            }
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public async Task PairedOwnerCanConfigureHostedCognitionWithoutEchoingOrSavingTheKeyInTheWorld()
     {
         var directory = System.IO.Path.Combine(
@@ -1288,6 +1358,8 @@ public sealed class ViewerWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting(
             "ClankerWorld:Runtime:ProviderStatePath",
             System.IO.Path.Combine(stateDirectory, "provider-configuration.json"));
+        builder.UseSetting("ClankerWorld:Runtime:ProviderUsagePath",
+            System.IO.Path.Combine(stateDirectory, "provider-usage.json"));
         builder.UseSetting("ClankerWorld:Pairing:ServerAuthorityId", "authority-http-tests");
         if (!string.IsNullOrWhiteSpace(approvedAssetCatalogPath))
         {

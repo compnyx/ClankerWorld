@@ -68,6 +68,8 @@ var privateRuntimeStatePath = isPrivateWorld
         Path.Combine(builder.Environment.ContentRootPath, "saves", "private-world.json");
 var providerConfigurationPath = builder.Configuration["ClankerWorld:Runtime:ProviderStatePath"] ??
     Path.Combine(builder.Environment.ContentRootPath, "saves", "provider-configuration.json");
+var providerUsagePath = builder.Configuration["ClankerWorld:Runtime:ProviderUsagePath"] ??
+    Path.Combine(builder.Environment.ContentRootPath, "saves", "provider-usage.json");
 var approvedAssetCatalogPath = builder.Configuration["ClankerWorld:Assets:CatalogPath"] ??
     Path.Combine(builder.Environment.ContentRootPath, "approved-assets.json");
 var configuredAuthorityId = builder.Configuration["ClankerWorld:Pairing:ServerAuthorityId"] ??
@@ -82,6 +84,7 @@ builder.Services.AddSingleton(approvedAssetCatalog);
 builder.Services.AddHttpClient("typesafe");
 builder.Services.AddHttpClient("model");
 builder.Services.AddSingleton<WorldJevPolicy>();
+builder.Services.AddSingleton(new ProviderUsageStore(providerUsagePath));
 builder.Services.AddSingleton(new ProviderConfigurationStore(
     providerConfigurationPath,
     new ProviderConfigurationSeed(
@@ -185,6 +188,23 @@ if (advanceRuntime)
 }
 
 var app = builder.Build();
+app.Services.GetRequiredService<ProviderUsageStore>().LimitReached += () =>
+{
+    if (isPrivateWorld)
+    {
+        var runtime = app.Services.GetRequiredService<PrivateWorldRuntime>();
+        runtime.Pause();
+        app.Services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
+        ProviderUsageTelemetry.LimitReached(app.Logger, runtime.WorldTick);
+    }
+    else
+    {
+        var runtime = app.Services.GetRequiredService<OwnerWorldRuntime>();
+        if (runtime.Pause("provider_usage_limit"))
+            app.Services.GetRequiredService<OwnerWorldStateFile>().Save(runtime);
+        ProviderUsageTelemetry.LimitReached(app.Logger, 0);
+    }
+};
 var founderSetupGate = new object();
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -493,6 +513,8 @@ app.MapPost("/api/v1/owner/control/resume", (
         var privateRuntime = services.GetRequiredService<PrivateWorldRuntime>();
         if (privateRuntime.FounderSetup is { Started: false })
             return Results.Conflict(new { message = "Place four configured founders, then select Start World." });
+        if (services.GetRequiredService<ProviderUsageStore>().Capture().LimitReached)
+            return Results.Conflict(new { message = "The paid-call limit is reached. Grant more calls or turn off the limit in World Settings before resuming." });
         var privateStateFile = services.GetRequiredService<PrivateWorldStateFile>();
         var wasPaused = privateRuntime.Society.IsPaused;
         privateRuntime.Resume();
@@ -1696,6 +1718,46 @@ app.MapPost("/api/v1/owner/providers/status", (
     }
 
     return Results.Ok(providers.CaptureStatus());
+});
+
+app.MapPost("/api/v1/owner/usage/status", (
+    OwnerSignedHttpRequest<OwnerUsageStatusAction> request,
+    OwnerRequestAuthorizer authorizer,
+    ProviderUsageStore usage) =>
+{
+    if (request?.Action is null)
+        return Results.BadRequest(new { error = "A usage-status action is required." });
+    var authorization = authorizer.Authorize(request, "POST", "/api/v1/owner/usage/status",
+        OwnerHttpBinding.UsageStatusPayload());
+    return authorization.IsSuccess ? Results.Ok(usage.Capture()) : OwnerFailures.ToHttpResult(authorization.Failure);
+});
+
+app.MapPost("/api/v1/owner/usage/limit", (
+    OwnerSignedHttpRequest<ProviderUsageLimitAction> request,
+    OwnerRequestAuthorizer authorizer,
+    ProviderUsageStore usage) =>
+{
+    if (request?.Action is null)
+        return Results.BadRequest(new { error = "A usage-limit action is required." });
+    string payload;
+    try { payload = OwnerHttpBinding.UsageLimitPayload(request.Action); }
+    catch (ArgumentException exception)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]> { ["action"] = [exception.Message] });
+    }
+    var authorization = authorizer.Authorize(request, "POST", "/api/v1/owner/usage/limit", payload);
+    if (!authorization.IsSuccess) return OwnerFailures.ToHttpResult(authorization.Failure);
+    try
+    {
+        var status = usage.Configure(request.Action);
+        ProviderUsageTelemetry.LimitConfigured(app.Logger, status.AttemptLimit is not null,
+            status.AttemptLimit, status.Attempts);
+        return Results.Ok(status);
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or OverflowException)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]> { ["action"] = [exception.Message] });
+    }
 });
 
 app.MapPost("/api/v1/owner/providers/slots/delete", (

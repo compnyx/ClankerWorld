@@ -54,6 +54,11 @@ public partial class Main : Control
     private readonly LineEdit cognitionCredentialLabelInput = new();
     private readonly Label cognitionConfigurationStatus = new();
     private readonly Label cognitionCredentialHint = new();
+    private readonly Label usageMeterStatus = new();
+    private readonly LineEdit usageAttemptLimitInput = new();
+    private readonly Button applyUsageLimitButton = new();
+    private readonly Button grantUsageCallsButton = new();
+    private readonly Button refreshUsageButton = new();
     private readonly Button saveCognitionProviderButton = new();
     private readonly Button forgetCognitionCredentialButton = new();
     private readonly Button deleteCognitionCredentialSlotButton = new();
@@ -172,6 +177,9 @@ public partial class Main : Control
     private Uri? pendingPairingOrigin;
     private OwnerDevice[] pairedDevices = [];
     private OwnerProviderConfigurationStatus? providerConfiguration;
+    private OwnerUsageStatus? usageStatus;
+    private string? usagePauseWorldId;
+    private bool wasObservedPaused;
     private OwnerPendingSubmission? pendingSubmission;
     private string? selectedInhabitantId;
     private string? renamingAgentId;
@@ -396,6 +404,16 @@ public partial class Main : Control
             Render(sample with { JevEnabled = false }, []);
             if (jevAssistanceToggle.ButtonPressed)
                 throw new InvalidOperationException("World Settings must show when Jev assistance is off.");
+            usageStatus = new OwnerUsageStatus(2, 1, 0, 1, 10, 3, 2, true,
+                [new OwnerUsageRow("openai", "test-model", "planning", 2, 1, 0, 1, 10, 3)]);
+            RenderUsageStatus();
+            if (!usageMeterStatus.Text.Contains("Installation lifetime", StringComparison.Ordinal) ||
+                !usageMeterStatus.Text.Contains("LIMIT REACHED", StringComparison.Ordinal) ||
+                !usageMeterStatus.Text.Contains("openai / test-model", StringComparison.Ordinal) ||
+                !grantUsageCallsButton.Visible || usageAttemptLimitInput.Text != "2")
+                throw new InvalidOperationException("World Settings must present paid attempts, scope, provider/model and explicit consent at the cap.");
+            usageStatus = null;
+            RenderUsageStatus();
             Render(sample, []);
             Render(sample with { FounderSetup = new OwnerFounderSetup(4, 2, false) }, []);
             founderSetupPanel.Show();
@@ -1078,7 +1096,10 @@ public partial class Main : Control
             successfulRefreshCount++;
             if (!isOwnerAction)
             {
-                SetStatus(string.Empty, good: true);
+                SetStatus(usageStatus?.LimitReached == true && reconnect.Baseline.Snapshot.Authoring?.IsPaused == true
+                    ? "Paid-call limit reached. The world is paused; open World Settings to allow more calls."
+                    : string.Empty,
+                    good: usageStatus?.LimitReached != true);
             }
         }
         catch (Exception exception)
@@ -1331,6 +1352,89 @@ public partial class Main : Control
             PopulateCredentialChoices();
             RenderProviderConfiguration();
             return "loaded inhabitant cognition settings";
+        });
+    }
+
+    private async Task RefreshUsageAsync()
+    {
+        if (!TryGetOwner(out var authority, out var deviceId, out var signer))
+        {
+            usageMeterStatus.Text = "Pair this device to see paid-call usage.";
+            return;
+        }
+        await RunOwnerActionAsync(async () =>
+        {
+            usageStatus = await ownerApi.GetUsageStatusAsync(ResolveWorldUri(), authority, deviceId,
+                signer, CancellationToken.None);
+            RenderUsageStatus();
+            return "loaded paid-call usage";
+        });
+    }
+
+    private async Task ObserveUsagePauseAsync()
+    {
+        if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        try
+        {
+            usageStatus = await ownerApi.GetUsageStatusAsync(ResolveWorldUri(), authority, deviceId,
+                signer, CancellationToken.None);
+            RenderUsageStatus();
+            if (usageStatus.LimitReached)
+                SetStatus("Paid-call limit reached. The world is paused; open World Settings to allow more calls.", good: false);
+        }
+        catch (Exception)
+        {
+            // A pause is authoritative even when the optional meter read is unavailable.
+        }
+    }
+
+    private void RenderUsageStatus()
+    {
+        if (usageStatus is null)
+        {
+            usageMeterStatus.Text = "Loading paid-call usage…";
+            return;
+        }
+        if (!usageAttemptLimitInput.HasFocus())
+            usageAttemptLimitInput.Text = usageStatus.AttemptLimit?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        var rows = usageStatus.Rows.OrderByDescending(row => row.Attempts)
+            .Select(row => $"{row.Provider} / {row.Model} ({row.Role}): {row.Attempts} attempts, " +
+                $"{row.InputTokens}/{row.OutputTokens} known tokens in/out");
+        usageMeterStatus.Text = $"Installation lifetime · {usageStatus.Attempts} paid call attempts " +
+            $"({usageStatus.Completed} completed, {usageStatus.Failed} failed, {usageStatus.Abandoned} abandoned). " +
+            $"Known tokens in/out: {usageStatus.InputTokens}/{usageStatus.OutputTokens}. " +
+            (usageStatus.AttemptLimit is null ? "Limit off." :
+                $"Limit: {usageStatus.AttemptLimit} attempts." +
+                (usageStatus.LimitReached ? " LIMIT REACHED — world paused. Consent is needed before more paid calls." : "")) +
+            (usageStatus.Rows.Count == 0 ? string.Empty : "\n" + string.Join("\n", rows));
+        grantUsageCallsButton.Visible = usageStatus.LimitReached;
+        RefreshControlAvailability();
+    }
+
+    private async Task ConfigureUsageAsync(bool grant)
+    {
+        if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        long? cap = null;
+        if (!grant && !string.IsNullOrWhiteSpace(usageAttemptLimitInput.Text))
+        {
+            if (!long.TryParse(usageAttemptLimitInput.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) ||
+                parsed is < 1 or > 1_000_000)
+            {
+                SetStatus("Enter 1–1,000,000 paid call attempts, or leave blank to turn the limit off.", good: false);
+                return;
+            }
+            cap = parsed;
+        }
+        var action = grant ? new OwnerUsageLimitAction(null, AdditionalCalls: 100) :
+            new OwnerUsageLimitAction(cap);
+        await RunOwnerActionAsync(async () =>
+        {
+            usageStatus = await ownerApi.ConfigureUsageLimitAsync(ResolveWorldUri(), authority, deviceId,
+                action, signer, CancellationToken.None);
+            RenderUsageStatus();
+            if (grant)
+                return "Allowed 100 more paid calls. Resume the world when ready";
+            return cap is null ? "paid-call limit turned off" : $"paid-call limit set to {cap} attempts";
         });
     }
 
@@ -2099,8 +2203,32 @@ public partial class Main : Control
         buttons.AddChild(refreshCognitionProviderButton);
         body.AddChild(buttons);
 
+        body.AddChild(new Label { Text = "Paid model usage · installation lifetime" });
+        usageMeterStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        body.AddChild(usageMeterStatus);
+        usageAttemptLimitInput.PlaceholderText = "Optional paid-call attempt limit (blank = off)";
+        usageAttemptLimitInput.TooltipText = "Counts every hosted call attempt, including retries and abandoned calls. Tokens are informational, not the limit unit.";
+        body.AddChild(usageAttemptLimitInput);
+        var usageButtons = new HBoxContainer();
+        applyUsageLimitButton.Text = "Apply limit";
+        StyleButton(applyUsageLimitButton);
+        applyUsageLimitButton.Pressed += () => _ = ConfigureUsageAsync(grant: false);
+        usageButtons.AddChild(applyUsageLimitButton);
+        grantUsageCallsButton.Text = "Allow 100 more calls";
+        grantUsageCallsButton.TooltipText = "Explicitly consent to 100 more paid model attempts. Resume the paused world separately when ready.";
+        StyleButton(grantUsageCallsButton, primary: true);
+        grantUsageCallsButton.Pressed += () => _ = ConfigureUsageAsync(grant: true);
+        grantUsageCallsButton.Visible = false;
+        usageButtons.AddChild(grantUsageCallsButton);
+        refreshUsageButton.Text = "Refresh usage";
+        StyleButton(refreshUsageButton);
+        refreshUsageButton.Pressed += () => _ = RefreshUsageAsync();
+        usageButtons.AddChild(refreshUsageButton);
+        body.AddChild(usageButtons);
+
         AddPanelContents(cognitionSettingsPanel, "Inhabitant cognition", body);
         RenderProviderConfiguration();
+        RenderUsageStatus();
     }
 
     private void ShowSettingsSection(bool worldSpecific)
@@ -2119,11 +2247,17 @@ public partial class Main : Control
         developerToggleButton.Text = "Developer tools";
         if (worldSpecific && registration is not null)
         {
-            _ = RefreshProviderConfigurationAsync();
-            _ = RefreshAutosaveSettingsAsync();
+            _ = RefreshWorldSettingsAsync();
         }
 
         ApplyResponsiveLayout();
+    }
+
+    private async Task RefreshWorldSettingsAsync()
+    {
+        await RefreshProviderConfigurationAsync();
+        await RefreshUsageAsync();
+        await RefreshAutosaveSettingsAsync();
     }
 
     private async Task ConnectUsingCurrentUrlAsync()
@@ -3039,6 +3173,14 @@ public partial class Main : Control
 
     private void Render(OwnerWorldSnapshot snapshot, IReadOnlyList<OwnerWorldEvent> appendedEvents)
     {
+        if (usagePauseWorldId != snapshot.WorldId)
+        {
+            usagePauseWorldId = snapshot.WorldId;
+            wasObservedPaused = false;
+        }
+        var isPaused = snapshot.Authoring?.IsPaused == true;
+        var checkUsagePause = isPaused && !wasObservedPaused;
+        wasObservedPaused = isPaused;
         observedCalendarPace = snapshot.CalendarPace;
         jevAssistanceToggle.SetPressedNoSignal(snapshot.JevEnabled == true);
         if (cameraWorldId is not null && cameraWorldId != snapshot.WorldId)
@@ -3059,6 +3201,7 @@ public partial class Main : Control
         RenderInhabitantList(snapshot);
         RenderMap(snapshot);
         RenderWorldHud(snapshot);
+        if (checkUsagePause && registration is not null) _ = ObserveUsagePauseAsync();
         RenderFounderSetup(snapshot);
         RenderWorldInfo(snapshot);
         RenderInhabitantDetails(snapshot);
@@ -3716,6 +3859,10 @@ public partial class Main : Control
         cognitionApiKeyInput.Editable = !actionDisabled && SelectedProviderId() != "deterministic";
         cognitionCredentialLabelInput.Editable = !actionDisabled;
         refreshCognitionProviderButton.Disabled = actionDisabled;
+        applyUsageLimitButton.Disabled = actionDisabled;
+        grantUsageCallsButton.Disabled = actionDisabled || usageStatus?.LimitReached != true;
+        refreshUsageButton.Disabled = actionDisabled;
+        usageAttemptLimitInput.Editable = !actionDisabled;
         var selectedProvider = SelectedProviderId();
         var selectedProviderStatus = providerConfiguration?.Providers.FirstOrDefault(item =>
             string.Equals(item.Provider, selectedProvider, StringComparison.Ordinal));

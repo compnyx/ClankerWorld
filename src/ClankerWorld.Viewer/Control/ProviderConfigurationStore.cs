@@ -713,7 +713,8 @@ public sealed partial class ConfigurableDecisionProvider(
     ProviderConfigurationStore configuration,
     IHttpClientFactory httpClientFactory,
     ILogger<ConfigurableDecisionProvider>? logger = null,
-    WorldJevPolicy? jevPolicy = null) : IDecisionProvider
+    WorldJevPolicy? jevPolicy = null,
+    ProviderUsageStore? usageStore = null) : IDecisionProvider
 {
     private readonly WorldJevPolicy jevPolicy = jevPolicy ?? new WorldJevPolicy();
     private static readonly HashSet<string> RoutineCandidateIds = new(StringComparer.Ordinal)
@@ -804,11 +805,19 @@ public sealed partial class ConfigurableDecisionProvider(
             _ => throw new InvalidOperationException("Unsupported cognition provider configuration."),
         };
 
+        // Reserve before any potentially billable HTTP request. A retry is a
+        // new DecideAsync invocation and consumes a separate allowance.
+        var usageTicket = providerId == PlayerDecisionProviders.Deterministic ||
+            string.IsNullOrWhiteSpace(credential.ApiKey)
+            ? null : usageStore?.Begin(providerId, credential.Model, role);
         var stopwatch = Stopwatch.StartNew();
         try
         {
             var response = await provider.DecideAsync(request, cancellationToken).ConfigureAwait(false);
             stopwatch.Stop();
+            if (usageTicket is not null)
+                usageStore!.Finish(usageTicket, "completed", response.Usage?.InputTokens ?? 0,
+                    response.Usage?.OutputTokens ?? 0);
             if (logger is not null)
             {
                 LogProviderCallCompleted(
@@ -837,6 +846,7 @@ public sealed partial class ConfigurableDecisionProvider(
         catch (OperationCanceledException)
         {
             stopwatch.Stop();
+            if (usageTicket is not null) usageStore!.Finish(usageTicket, "abandoned");
             if (logger is not null)
             {
                 LogProviderCallCancelled(
@@ -853,6 +863,7 @@ public sealed partial class ConfigurableDecisionProvider(
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             stopwatch.Stop();
+            if (usageTicket is not null) usageStore!.Finish(usageTicket, "failed");
             if (logger is not null)
             {
                 LogProviderCallFailed(

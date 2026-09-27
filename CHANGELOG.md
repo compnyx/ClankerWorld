@@ -53,6 +53,10 @@ release yet.
 
 ### Added
 
+- World Settings now shows installation-lifetime paid-model attempt and known
+  token totals by provider/model. An optional call-attempt cap pauses the world
+  at the limit; the owner must explicitly allow more paid calls or turn the cap
+  off before resuming. Retries and abandoned calls count as attempts.
 - Agents now route and move diagonally when both orthogonal corner tiles are
   clear. Diagonal steps have a deterministic longer cost, work across wrapped
   east/west seams, and cannot squeeze past blocked or occupied corners.

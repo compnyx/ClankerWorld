@@ -274,6 +274,22 @@ inhabitant card shows the last accepted decision, with available usage/model/
 latency details in a tooltip. Missing model/latency is shown as unavailable;
 adapter token counts can be zero when the provider omits usage.
 
+World Settings now shows an **installation-lifetime** paid-model usage meter,
+including provider/model/role rows and known input/output tokens. The unit of
+the optional limit is **hosted call attempts**, not token cost or currency:
+retries, failed calls and calls abandoned on pause/quit each consume an
+allowance even when the provider returns no token count. The limit is off by
+default. At its cap the host persists an explicit world pause before another
+paid request; ordinary deterministic choices remain free. The owner can grant
+100 further paid attempts in World Settings, then resume the world separately,
+or remove the cap.
+The installation-local meter persists across worlds and host restarts but does
+not claim to reconcile against a provider invoice; token counts may be zero
+for attempts that never returned usage. At most 64 named provider/model/role
+combinations are retained, with later combinations grouped as `other`. This
+call-attempt unit and lifetime period are the current playtest implementation,
+not a finished-game billing policy chosen in the vision ledger.
+
 ## Evidence boundary
 
 The repository's executable evidence is the merged code, automated tests,
