@@ -217,6 +217,41 @@ public sealed class SettlementSurvivalTests
     }
 
     [Fact]
+    public async Task DryStreakReducesCompletedCropYieldAndRecordsCauseAcrossRestart()
+    {
+        using var seed = new PrivateWorldRuntime("crop-dry-streak", _ => new IdleProvider());
+        seed.StageStarterContent();
+        for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
+        using var drying = PrivateWorldRuntime.Restore(WithWeather(seed.ExportState(), WeatherKind.Clear), _ => new IdleProvider());
+        var ticksThroughTwoDays = drying.ExportState().WorldSystems!.Config.TicksPerDay * 2;
+        while (drying.WorldTick < ticksThroughTwoDays)
+            Assert.True((await drying.AdvanceOneTickAsync()).Advanced);
+
+        var state = drying.ExportState();
+        var site = state.Map.GetResource(SeededMapGenerator.FertileLandResourceId).Position;
+        Assert.InRange(WeatherRules.SoilMoistureAt(state.WorldSystems!, site, state.Map.Height), 0, 14);
+        var worker = state.Inhabitants[0];
+        state = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == worker.InhabitantId
+                ? person with { Position = site, HungerBasisPoints = 10_000, EnergyBasisPoints = 10_000 }
+                : person.Position == site ? person with { Position = worker.Position } : person).ToArray()
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+        var recipe = world.WorldContent.Recipes.Single(item => item.LocalId == "vegetables");
+        var started = world.StartProduction(recipe.CanonicalId, WorldBuildSiteRules.FertileLandSiteId(site), worker.InhabitantId);
+        Assert.True(started.Applied, started.Failure);
+
+        var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        using var resumed = PrivateWorldRuntime.Restore(saved, _ => new IdleProvider());
+        for (var tick = 0; tick < recipe.DurationTicks; tick++)
+            Assert.True((await resumed.AdvanceOneTickAsync()).Advanced);
+        Assert.Equal(4, resumed.Society.Inventory.Lots.Single(lot => lot.Id == started.JobId + ":output:00").Quantity);
+        Assert.Contains(resumed.ExportState().Events, item => item.Kind == "crop_moisture_effect" &&
+            item.Detail.StartsWith(started.JobId + ":dry:", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task DifferentFoodSourceImprovesDietAfterInventoryTransfer()
     {
         using var seed = new PrivateWorldRuntime("varied-food", _ => new IdleProvider());
