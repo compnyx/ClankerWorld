@@ -221,10 +221,14 @@ members can share that tile without an occupancy cap; children carry spare food
 to their household House when one exists. Adults can carry bounded loads of
 older unlocated household stock from camp to the House; stock stays with the
 carrier through save/reload and only appears in the House after delivery.
+Adults with more than one personally carried food serving and sufficient
+fullness can also take a bounded surplus load to their own House, keeping one
+serving; that food becomes household stock only on arrival and remains located
+there after reload. A resident without a House has no such deposit route.
 The current four-unit load is a prototype rule, not an accepted carrying
 capacity. House access requires recorded household membership even when an
 unassigned resident can still use the old camp fallback.
-Other resource-production and gathering paths do not yet physically deliver
+Other material-gathering and production paths do not yet physically deliver
 goods to House storage. Legacy Shelters remain loadable. Houses are not yet
 guaranteed at world start; expansion and guest entry are unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities

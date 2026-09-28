@@ -2919,6 +2919,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             HaulHouseholdStock(inhabitantId, state);
             return;
         }
+        if (candidateId == "store_household_food")
+        {
+            StoreHouseholdFood(inhabitantId, state);
+            return;
+        }
         if (candidateId.StartsWith(KnowledgeSharePrefix, StringComparison.Ordinal))
         {
             ApplyKnowledgeShare(inhabitantId, state, candidateId);
@@ -3247,7 +3252,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         (society.Checkpoint.GetInhabitant(workerId).HouseholdId is null ? workerId : HouseholdId);
 
     private PlacedBuilding? HouseForHousehold(string householdId) => worldSimulation.Buildings
-        .Where(building => building.HouseholdId == householdId)
+        .Where(building => building.HouseholdId == householdId &&
+            worldContent.Buildings.Any(definition => definition.CanonicalId == building.DefinitionId &&
+                definition.Tags.Contains("house", StringComparer.Ordinal)))
         .OrderBy(building => building.InstanceId, StringComparer.Ordinal).FirstOrDefault();
 
     private GridPoint HouseholdStockPosition(InventoryLot lot) => lot.StorageBuildingId is { } buildingId

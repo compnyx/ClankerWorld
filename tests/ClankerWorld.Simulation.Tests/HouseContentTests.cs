@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Globalization;
 using ClankerWorld.Simulation.Cognition;
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Kernel;
 using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Simulation.World;
 using ClankerWorld.Viewer.Observation;
@@ -10,6 +11,89 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class HouseContentTests
 {
+    [Fact]
+    public async Task AdultCarriesPersonalSpareFoodIntoOwnHouseWithoutLosingLastServing()
+    {
+        using var seed = new PrivateWorldRuntime("house-personal-food", _ => new IdleProvider(),
+            startPace: WorldStartPace.FounderSetup);
+        var founderPositions = new[]
+        {
+            new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2),
+        };
+        for (var index = 0; index < founderPositions.Length; index++)
+            seed.PlaceFounder("founder:" + (index + 1).ToString("x32", CultureInfo.InvariantCulture), founderPositions[index]);
+        seed.StartWorld();
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 8; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+
+        var state = seed.ExportState();
+        var actor = state.Society.Society.Inhabitants.First(person =>
+            person.HouseholdId == "household:camp-alpha").Id;
+        var camp = state.Map.GetObject("storage").Position;
+        var occupied = state.Inhabitants.Where(person => person.InhabitantId != actor)
+            .Select(person => person.Position).ToHashSet();
+        var reachable = new HashSet<GridPoint> { camp };
+        var pending = new Queue<GridPoint>();
+        pending.Enqueue(camp);
+        while (pending.TryDequeue(out var current))
+        {
+            foreach (var next in state.Map.FootNeighbors(current))
+            {
+                if (occupied.Contains(next) ||
+                    state.Map.IsDiagonalFootStep(current, next) &&
+                    (occupied.Contains(new GridPoint(next.X, current.Y)) ||
+                     occupied.Contains(new GridPoint(current.X, next.Y))))
+                    continue;
+                if (reachable.Add(next)) pending.Enqueue(next);
+            }
+        }
+        var site = reachable.OrderBy(point => state.Map.FootDistance(camp, point))
+            .ThenBy(point => point.Y).ThenBy(point => point.X).First(point =>
+            state.Map.IsBuildable(point) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.Position == point));
+        var house = seed.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        var placed = seed.PlaceBuilding("food-home-alpha", house.CanonicalId, site, "household:camp-alpha");
+        Assert.True(placed.Applied, placed.Failure);
+        var foodBefore = HouseholdQuantity(seed, "household:camp-alpha", "food");
+        state = seed.ExportState();
+        state = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == actor
+                ? person with { Position = camp, HungerBasisPoints = 9_000 } : person).ToArray(),
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Inventory = InventoryFixture.AddLot(state.Society.Society.Inventory,
+                        "food:personal-surplus", "food", actor, 4),
+                },
+            },
+        };
+        using var world = PrivateWorldRuntime.Restore(state,
+            id => id == actor ? new PreferredCandidateProvider("store_household_food") : new IdleProvider());
+        for (var tick = 0; tick < 20 && !world.ExportState().Events.Any(item =>
+                 item.Kind == "household_food_stored" && item.Detail.StartsWith(actor + ":", StringComparison.Ordinal)); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        var delivery = world.ExportState().Events.Single(item => item.Kind == "household_food_stored" &&
+            item.Detail.StartsWith(actor + ":", StringComparison.Ordinal));
+        Assert.Equal(site, delivery.Position);
+        Assert.Equal(1, world.Society.Inventory.GetLot("food:personal-surplus").Quantity);
+        Assert.Equal(foodBefore + 3, HouseholdQuantity(world, "household:camp-alpha", "food"));
+        var stored = new OwnerWorldObservationStore(world).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "food-home-alpha").StoredItems!;
+        Assert.Contains(stored, item => item.Kind == "food" && item.Quantity == 3);
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Contains(new OwnerWorldObservationStore(restored).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "food-home-alpha").StoredItems!,
+            item => item.Kind == "food" && item.Quantity == 3);
+    }
+
     [Fact]
     public async Task HouseMealUsesOnlyItsHouseholdsIngredientsAndKeepsTheOutputOnReload()
     {

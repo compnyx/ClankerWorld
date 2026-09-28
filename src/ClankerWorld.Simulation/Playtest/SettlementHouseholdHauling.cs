@@ -41,6 +41,32 @@ public sealed partial class PrivateWorldRuntime
             FindUnoccupiedRoute(actor, camp, house.Position, 0).Count > 0)
             candidates.Add(new("haul_household_stock",
                 "Carry a load of household supplies from camp to the House.", 28, house.InstanceId));
+        if (state.HungerBasisPoints >= 6_000 && PersonalSpareFood(actor) is not null &&
+            (state.Position == house.Position ||
+             FindUnoccupiedRoute(actor, state.Position, house.Position, 0).Count > 0))
+            candidates.Add(new("store_household_food",
+                "Bring personally carried spare food into the household House.", 30, house.InstanceId));
+    }
+
+    private InventoryLot? PersonalSpareFood(string actor) => PreferredFood(actor, actor)
+        .FirstOrDefault(lot => lot.DeliveryBuildingId is null && AvailableLotQuantity(lot) > 1);
+
+    private void StoreHouseholdFood(string actor, PlaytestInhabitantState state)
+    {
+        var householdId = society.Checkpoint.GetInhabitant(actor).HouseholdId;
+        if (!AdultResident(actor) || householdId is null || state.HungerBasisPoints < 6_000 ||
+            HouseForHousehold(householdId) is not { } house || PersonalSpareFood(actor) is not { } food)
+            return;
+        if (state.Position != house.Position)
+        {
+            MoveToward(actor, state, house.Position, "household_food", 0);
+            return;
+        }
+        var quantity = Math.Min(HouseHaulLoadQuantity, AvailableLotQuantity(food) - 1);
+        ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory,
+            $"house-food-storage:{WorldTick}:{actor}", actor, householdId, food.Id,
+            quantity, "household_food_stored", house.InstanceId));
+        AppendEvent("household_food_stored", $"{actor}:{food.Id}:{quantity}:{house.InstanceId}");
     }
 
     private void HaulHouseholdStock(string actor, PlaytestInhabitantState state)

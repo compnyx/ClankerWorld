@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- Adults with spare personally carried food can bring a bounded load to their
+  own House while keeping one serving. The transfer happens only after they
+  reach the House, becomes household-owned stock at that location, and survives
+  save/reload; a resident without a House cannot use this route.
 - Add Agent placement now previews the saved Town and recorded household owner
   under the pointer and reveals their map overlays. Placing an adult on an
   owned building footprint joins that household and the enclosing Town, if
@@ -25,8 +29,8 @@ release yet.
   appears in the House's inspected stock only after the carrier reaches home;
   invalid delivery destinations are rejected on reload. Residents without a
   household cannot use the first household's House through the legacy camp
-  fallback. Other gathering and production paths still need physical delivery
-  before all household supplies consistently live at the House.
+  fallback. Other material-gathering and production paths still need physical
+  delivery before all household supplies consistently live at the House.
 - Meals finished at a House now record that House as their physical stock
   location. Its map inspection shows only items actually recorded there, and
   household members enter the House tile to collect those meals, cook, or take
