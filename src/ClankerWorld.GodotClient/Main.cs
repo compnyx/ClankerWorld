@@ -16,6 +16,16 @@ public partial class Main : Control
     private const int DefaultTileSize = 96;
     private const int TileGap = 0;
     private const int RefreshSeconds = 1;
+    private const string UiScaleBaseFontSizeMetaPrefix = "clanker_ui_scale_base_font_size_";
+    private static readonly string[] UiScaleFontSizeThemeItems = ["font_size"];
+    private static readonly string[] UiScaleRichTextFontSizeThemeItems =
+    [
+        "normal_font_size",
+        "bold_font_size",
+        "italics_font_size",
+        "bold_italics_font_size",
+        "mono_font_size",
+    ];
 
     private readonly System.Net.Http.HttpClient httpClient = new();
     private readonly OwnerWorldApi ownerApi;
@@ -30,6 +40,7 @@ public partial class Main : Control
     private readonly Dictionary<string, Label> mapObjectVisuals = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> inhabitantCanonicalXs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> mapObjectCanonicalXs = new(StringComparer.Ordinal);
+    private readonly HashSet<ulong> uiScaleWatchedNodes = [];
 
     private readonly Label statusLabel = new();
     private readonly PanelContainer statusToast = new();
@@ -134,6 +145,7 @@ public partial class Main : Control
     private readonly CheckBox fullscreenToggle = new();
     private readonly OptionButton windowSizeChoice = new();
     private readonly OptionButton renderResolutionChoice = new();
+    private readonly OptionButton uiScaleChoice = new();
     private static readonly Vector2I[] DisplaySizePresets =
     [
         new(1280, 720),
@@ -203,6 +215,7 @@ public partial class Main : Control
     private bool draggingMap;
     private GameDisplayPreferences displayPreferences = new();
     private OwnerWorldCalendarPace? observedCalendarPace;
+    private bool uiScaleTreeReady;
 
     public Main()
     {
@@ -214,6 +227,9 @@ public partial class Main : Control
         displayPreferences = displayPreferencesStore.Load();
         ApplySavedDisplaySettings();
         BuildLayout();
+        uiScaleTreeReady = true;
+        WatchUiScaleTree(this);
+        ApplyUiScale(displayPreferences.UiScalePercent);
         GetWindow().SizeChanged += RefreshAutomaticRenderResolution;
         ShowMainMenu();
         if (OS.GetCmdlineUserArgs().Contains("--ui-smoke-test", StringComparer.Ordinal))
@@ -232,6 +248,102 @@ public partial class Main : Control
         };
         timer.Timeout += () => _ = PulseAsync();
         AddChild(timer);
+    }
+
+    private async Task VerifyUiScaleAt1440pAsync(Window displayWindow)
+    {
+        var originalWindowSize = displayWindow.Size;
+        var originalRenderSize = displayWindow.ContentScaleSize;
+        var originalScaleMode = displayWindow.ContentScaleMode;
+        var originalScaleAspect = displayWindow.ContentScaleAspect;
+        var originalPreferences = displayPreferences;
+        OpenMainMenuSettings();
+        try
+        {
+            displayPreferences = originalPreferences with
+            {
+                UiScalePercent = 100,
+                RenderWidth = 2560,
+                RenderHeight = 1440,
+                AutoRenderResolution = false,
+            };
+            ApplyUiScale(100);
+            displayWindow.ContentScaleMode = Window.ContentScaleModeEnum.Viewport;
+            displayWindow.ContentScaleAspect = Window.ContentScaleAspectEnum.Keep;
+            displayWindow.Size = new Vector2I(2560, 1440);
+            displayWindow.ContentScaleSize = new Vector2I(2560, 1440);
+            for (var frame = 0; frame < 3; frame++)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
+            var smokeMap = new OwnerWorldSnapshot("ui-scale-smoke", 0, "ui-scale-map",
+                Enumerable.Range(0, 16).Select(index => new OwnerWorldTile(index % 4, index / 4, "meadow")).ToArray(),
+                [], [], null, 0)
+            {
+                PackedTerrain = new OwnerWorldPackedTerrain(4, 4, "terrain-kind-v1",
+                    Convert.ToBase64String(new byte[16])),
+            };
+            RenderMap(smokeMap);
+            for (var frame = 0; frame < 2; frame++)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
+            var nativeRenderSize = displayWindow.ContentScaleSize;
+            var baseSettingsFontSize = uiScaleChoice.GetThemeFontSize("font_size");
+            var baseHudFontSize = clockLabel.GetThemeFontSize("font_size");
+            var baseTextPanelFontSize = eventLog.GetThemeFontSize("normal_font_size");
+            var baseResumeButtonHeight = menuResumeButton.GetCombinedMinimumSize().Y;
+            var baseHudMinimumWidth = topBar.GetCombinedMinimumSize().X;
+            var mapStageScale = mapStage.Scale;
+            if (baseSettingsFontSize < 1 || baseHudFontSize < 1 || baseTextPanelFontSize < 1 || baseResumeButtonHeight < 1)
+                throw new InvalidOperationException("UI Scale smoke check could not read the settings font size.");
+            if (TileAtCanvas(mapStage.Position + new Vector2(currentTileSize * 1.5f, currentTileSize * 1.5f), smokeMap) != new Vector2I(1, 1))
+                throw new InvalidOperationException("1440p UI Scale map input smoke check could not resolve its reference tile.");
+
+            var scaleIndex = 1;
+            foreach (var percent in DisplayUiScalePolicy.SupportedPercentages.Skip(1))
+            {
+                uiScaleChoice.Select(scaleIndex);
+                SetUiScale(scaleIndex);
+                RenderMap(smokeMap);
+                for (var frame = 0; frame < 2; frame++)
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+
+                var expectedScale = DisplayUiScalePolicy.ScaleFactor(percent);
+                if (!Mathf.IsEqualApprox(ThemeDB.FallbackBaseScale, expectedScale))
+                    throw new InvalidOperationException($"UI Scale did not update Godot's fallback base scale to {percent}%.");
+                if (uiScaleChoice.GetThemeFontSize("font_size") <= baseSettingsFontSize ||
+                    clockLabel.GetThemeFontSize("font_size") <= baseHudFontSize ||
+                    eventLog.GetThemeFontSize("normal_font_size") <= baseTextPanelFontSize)
+                    throw new InvalidOperationException($"UI Scale {percent}% did not enlarge settings, HUD, and text-panel text.");
+                if (displayWindow.Size != new Vector2I(2560, 1440) ||
+                    displayWindow.ContentScaleSize != nativeRenderSize)
+                    throw new InvalidOperationException($"UI Scale {percent}% changed the 1440p window or native render size.");
+                if (mapStage.Scale != mapStageScale ||
+                    TileAtCanvas(mapStage.Position + new Vector2(currentTileSize * 1.5f, currentTileSize * 1.5f), smokeMap) != new Vector2I(1, 1))
+                    throw new InvalidOperationException($"UI Scale {percent}% changed the terrain transform or map interaction coordinates.");
+
+                var settingsViewport = settingsScroll.GetGlobalRect();
+                var scaleChoiceBounds = uiScaleChoice.GetGlobalRect();
+                if (!mainMenuOverlay.GetGlobalRect().Encloses(gameMenuPanel.GetGlobalRect()) ||
+                    scaleChoiceBounds.Position.X < settingsViewport.Position.X - 1 ||
+                    scaleChoiceBounds.End.X > settingsViewport.End.X + 1)
+                    throw new InvalidOperationException($"Game Settings escaped its usable bounds at 1440p and {percent}% UI Scale.");
+                scaleIndex++;
+            }
+
+            if (menuResumeButton.GetCombinedMinimumSize().Y <= baseResumeButtonHeight ||
+                topBar.GetCombinedMinimumSize().X <= baseHudMinimumWidth)
+                throw new InvalidOperationException("UI Scale did not enlarge the pause buttons and HUD control geometry.");
+        }
+        finally
+        {
+            displayWindow.Size = originalWindowSize;
+            displayWindow.ContentScaleMode = originalScaleMode;
+            displayWindow.ContentScaleAspect = originalScaleAspect;
+            displayWindow.ContentScaleSize = originalRenderSize;
+            SaveDisplayPreferences(originalPreferences);
+            ApplyUiScale(originalPreferences.UiScalePercent);
+            RefreshRenderResolutionOptions();
+        }
     }
 
     private async Task VerifyMenuLayoutAsync()
@@ -302,11 +414,14 @@ public partial class Main : Control
             var displayWindow = GetWindow();
             var originalWindowSize = displayWindow.Size;
             var originalRenderSize = displayWindow.ContentScaleSize;
+            var originalScaleMode = displayWindow.ContentScaleMode;
             var originalDisplayPreferences = displayPreferences;
             var originalWindowChoice = windowSizeChoice.Selected;
             var originalRenderChoice = renderResolutionChoice.Selected;
+            var originalUiScaleChoice = uiScaleChoice.Selected;
             try
             {
+                await VerifyUiScaleAt1440pAsync(displayWindow);
                 windowSizeChoice.Select(1);
                 SetWindowSize(1);
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -336,8 +451,11 @@ public partial class Main : Control
             {
                 displayWindow.Size = originalWindowSize;
                 displayWindow.ContentScaleSize = originalRenderSize;
+                displayWindow.ContentScaleMode = originalScaleMode;
                 windowSizeChoice.Select(originalWindowChoice);
+                uiScaleChoice.Select(originalUiScaleChoice);
                 SaveDisplayPreferences(originalDisplayPreferences);
+                ApplyUiScale(originalDisplayPreferences.UiScalePercent);
                 RefreshRenderResolutionOptions();
                 renderResolutionChoice.Select(originalRenderChoice);
             }
@@ -2699,6 +2817,18 @@ public partial class Main : Control
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         });
 
+        foreach (var percentage in DisplayUiScalePolicy.SupportedPercentages)
+            uiScaleChoice.AddItem($"{percentage}%");
+        uiScaleChoice.Selected = DisplayUiScalePolicy.IndexOfPercent(displayPreferences.UiScalePercent);
+        uiScaleChoice.TooltipText = "Scales interface controls and text without changing the selected render resolution or terrain detail.";
+        uiScaleChoice.ItemSelected += SetUiScale;
+        gameSettingsContent.AddChild(DisplaySettingRow("UI Scale", uiScaleChoice));
+        gameSettingsContent.AddChild(new Label
+        {
+            Text = "UI Scale enlarges interface text and controls without changing map/terrain resolution.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        });
+
         var clockFormatRow = new HBoxContainer();
         clockFormatRow.AddChild(new Label { Text = "Time display" });
         clockFormatChoice.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -3208,6 +3338,67 @@ public partial class Main : Control
             ? AutomaticRenderSize()
             : new DisplayDimensions(renderSize.X, renderSize.Y).IsReasonable
                 ? renderSize : AutomaticRenderSize();
+        ApplyUiScale(displayPreferences.UiScalePercent);
+    }
+
+    private void ApplyUiScale(int percent)
+    {
+        var factor = DisplayUiScalePolicy.ScaleFactor(percent);
+        // The fallback base scale helps theme-aware controls, while this
+        // client's explicit font-size overrides also need direct scaling.
+        ThemeDB.FallbackBaseScale = factor;
+        if (uiScaleTreeReady)
+        {
+            ApplyUiScaleFontOverrides(this, factor);
+            ApplyResponsiveLayout();
+        }
+    }
+
+    private void WatchUiScaleTree(Node node)
+    {
+        if (IsMapRenderNode(node) || !uiScaleWatchedNodes.Add(node.GetInstanceId())) return;
+        node.ChildEnteredTree += OnUiScaleChildEnteredTree;
+        foreach (var child in node.GetChildren())
+            WatchUiScaleTree(child);
+    }
+
+    private void OnUiScaleChildEnteredTree(Node child)
+    {
+        if (IsMapRenderNode(child)) return;
+        WatchUiScaleTree(child);
+        ApplyUiScaleFontOverrides(child, DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent));
+    }
+
+    private bool IsMapRenderNode(Node node) =>
+        node.GetInstanceId() == mapStage.GetInstanceId() || mapStage.IsAncestorOf(node);
+
+    private void ApplyUiScaleFontOverrides(Node node, float factor)
+    {
+        // Map terrain, object labels, and fixed-size agent hit targets stay in
+        // their native map-space geometry; only the surrounding GUI is scaled.
+        if (IsMapRenderNode(node)) return;
+        if (node is Control control)
+        {
+            // RichTextLabel has separate sizes for each style; ordinary controls use font_size.
+            var themeFontSizeItems = control is RichTextLabel
+                ? UiScaleRichTextFontSizeThemeItems
+                : UiScaleFontSizeThemeItems;
+            foreach (var themeFontSizeItem in themeFontSizeItems)
+            {
+                // Cache each original resolved size so changes never compound.
+                var metadataKey = UiScaleBaseFontSizeMetaPrefix + themeFontSizeItem;
+                var baseFontSize = control.HasMeta(metadataKey)
+                    ? (int)control.GetMeta(metadataKey)
+                    : control.GetThemeFontSize(themeFontSizeItem);
+                if (!control.HasMeta(metadataKey))
+                    control.SetMeta(metadataKey, baseFontSize);
+                var scaledFontSize = Math.Max(1, (int)Math.Round(baseFontSize * factor, MidpointRounding.AwayFromZero));
+                control.AddThemeFontSizeOverride(themeFontSizeItem, scaledFontSize);
+            }
+        }
+
+        foreach (var child in node.GetChildren())
+            ApplyUiScaleFontOverrides(child, factor);
     }
 
     private static Vector2I CurrentMonitorSize() =>
@@ -3296,6 +3487,14 @@ public partial class Main : Control
         GetWindow().ContentScaleSize = size;
     }
 
+    private void SetUiScale(long index)
+    {
+        if (index < 0 || index >= DisplayUiScalePolicy.SupportedPercentages.Count) return;
+        var percent = DisplayUiScalePolicy.SupportedPercentages[(int)index];
+        SaveDisplayPreferences(displayPreferences with { UiScalePercent = percent });
+        ApplyUiScale(percent);
+    }
+
     private void SetClockFormat(long index)
     {
         SaveDisplayPreferences(displayPreferences with { UseTwelveHourClock = index == 1 });
@@ -3313,7 +3512,10 @@ public partial class Main : Control
 
     private void SaveDisplayPreferences(GameDisplayPreferences updated)
     {
-        displayPreferences = updated;
+        displayPreferences = updated with
+        {
+            UiScalePercent = DisplayUiScalePolicy.NormalizePercent(updated.UiScalePercent),
+        };
         try
         {
             displayPreferencesStore.Save(displayPreferences);

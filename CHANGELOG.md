@@ -8,6 +8,9 @@ release yet.
 
 ### Added
 
+- Game Settings now offers a locally saved UI Scale from 100% to 200%, making
+  controls and text easier to read without changing the selected map render
+  resolution or terrain detail.
 - After an agent dies, their assigned personal model can make one bounded final
   choice to leave frozen personal belongings on the household inheritance path
   or give the whole estate to a living agent. Invalid, unavailable, timed-out or

@@ -7,6 +7,8 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class GameUiTextTests
 {
+    private static readonly int[] UiScalePercentages = [100, 125, 150, 175, 200];
+
     [Fact]
     public void OwnerSnapshotReportsTheSavedWorldCalendarPace()
     {
@@ -74,20 +76,50 @@ public sealed class GameUiTextTests
             var store = new GameDisplayPreferencesStore(Path.Combine(directory, "game-settings.json"));
             Assert.False(store.Load().UseTwelveHourClock);
             store.Save(new GameDisplayPreferences(UseTwelveHourClock: true,
-                WindowWidth: 1600, WindowHeight: 900, RenderWidth: 1920, RenderHeight: 1080));
+                WindowWidth: 1600, WindowHeight: 900, RenderWidth: 1920, RenderHeight: 1080,
+                UiScalePercent: 150));
             var restored = new GameDisplayPreferencesStore(Path.Combine(directory, "game-settings.json")).Load();
             Assert.True(restored.UseTwelveHourClock);
             Assert.Equal((1600, 900), (restored.WindowWidth, restored.WindowHeight));
             Assert.Equal((1920, 1080), (restored.RenderWidth, restored.RenderHeight));
             Assert.False(restored.UsesAutomaticRenderResolution);
+            Assert.Equal(150, restored.UiScalePercent);
             store.Save(restored with { DateFormat = "ymd" });
             Assert.Equal("ymd", store.Load().DateFormat);
             Assert.Equal((1600, 900), (store.Load().WindowWidth, store.Load().WindowHeight));
             Assert.Equal((1920, 1080), (store.Load().RenderWidth, store.Load().RenderHeight));
+            Assert.Equal(150, store.Load().UiScalePercent);
         }
         finally
         {
             if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void UiScaleOffersAccessiblePercentagesAndNormalizesUnsupportedSavedValues()
+    {
+        Assert.Equal(UiScalePercentages, DisplayUiScalePolicy.SupportedPercentages);
+        Assert.Equal(1f, DisplayUiScalePolicy.ScaleFactor(100));
+        Assert.Equal(1.5f, DisplayUiScalePolicy.ScaleFactor(150));
+        Assert.Equal(2f, DisplayUiScalePolicy.ScaleFactor(200));
+        Assert.Equal(100, DisplayUiScalePolicy.NormalizePercent(123));
+        Assert.Equal(100, new GameDisplayPreferences().UiScalePercent);
+
+        var directory = Directory.CreateTempSubdirectory("clanker-display-ui-scale-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "game-settings.json");
+            File.WriteAllText(path, "{\"UiScalePercent\":300}");
+            var store = new GameDisplayPreferencesStore(path);
+            Assert.Equal(100, store.Load().UiScalePercent);
+
+            store.Save(store.Load() with { UiScalePercent = 200 });
+            Assert.Equal(200, store.Load().UiScalePercent);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
         }
     }
 
