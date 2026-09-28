@@ -1,6 +1,8 @@
+using System.Text.Json;
 using ClankerWorld.Simulation.Cognition;
 using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Simulation.Society;
+using ClankerWorld.Viewer.Observation;
 
 namespace ClankerWorld.Simulation.Tests;
 
@@ -89,15 +91,18 @@ public sealed class PrivateWorldMemoryRetrievalTests
     {
         using var seed = new PrivateWorldRuntime("memory-compaction");
         var state = seed.ExportState();
+        const string repeatedExperience = "Mira described a quasar, tungsten, zirconium, and xylophonic monolith.";
         var memories = new[]
         {
-            new SocietySocialMemory("experience-1", "founder-scout", "founder-mira", "Mira helped me fix the roof.", "private", 0),
-            new SocietySocialMemory("experience-2", "founder-scout", "founder-rowan", "I learned to repair the garden fence.", "private", 0),
-            new SocietySocialMemory("experience-3", "founder-scout", "founder-ilya", "Rowan and I promised to share the harvest.", "private", 0),
+            new SocietySocialMemory("experience-major", "founder-scout", "founder-mira", repeatedExperience, "private", 0),
+            new SocietySocialMemory("experience-low-1", "founder-scout", "founder-rowan", repeatedExperience, "private", 0),
+            new SocietySocialMemory("experience-low-2", "founder-scout", "founder-ilya", repeatedExperience, "private", 0),
+            new SocietySocialMemory("experience-low-3", "founder-scout", "founder-rowan", repeatedExperience, "private", 0),
+            new SocietySocialMemory("experience-low-4", "founder-scout", "founder-ilya", repeatedExperience, "private", 0),
             new SocietySocialMemory("other-agent-secret", "founder-mira", "founder-scout", "My private cache is under the stone.", "private", 0),
         };
         var belief = new SocietyAgentBelief("belief-cache", "founder-scout",
-            "Mira said a hidden cache is beneath the old oak.", SocietyBeliefProvenance.Hearsay,
+            repeatedExperience, SocietyBeliefProvenance.Hearsay,
             4_200, 0, SourceAgentId: "founder-mira");
         state = state with
         {
@@ -117,20 +122,33 @@ public sealed class PrivateWorldMemoryRetrievalTests
             ? provider
             : new DeterministicDecisionProvider());
         var beforeSocietyEvents = world.Society.Events;
-        Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        var jevStep = await world.AdvanceOneTickAsync();
+        Assert.True(jevStep.Advanced);
 
         var compaction = Assert.Single(world.Society.MemoryCompactions!, item => item.OwnerId == "founder-scout");
-        Assert.Equal(4, compaction.Sources.Count);
+        Assert.Equal(6, compaction.Sources.Count);
         Assert.Contains(compaction.Sources, item => item.Kind == SocietyMemorySourceKind.Belief && item.SourceId == belief.Id);
         Assert.DoesNotContain(compaction.Sources, item => item.SourceId == "other-agent-secret");
+        Assert.Equal(1, provider.JevDecisionCount);
+        Assert.Equal(memories.OrderBy(item => item.Id, StringComparer.Ordinal), world.Society.Memories);
         Assert.Equal(belief, Assert.Single(world.Society.Beliefs!));
         Assert.Equal(beforeSocietyEvents, world.Society.Events.Take(beforeSocietyEvents.Count).ToArray());
         Assert.DoesNotContain(world.ExportState().Events, item => item.Detail.Contains("hidden cache", StringComparison.Ordinal));
+        Assert.DoesNotContain(repeatedExperience,
+            JsonSerializer.Serialize(Assert.Single(jevStep.MemoryCompactionTransitions)));
 
         var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
         using (var restored = PrivateWorldRuntime.Restore(saved))
             Assert.Equal(compaction.Sources, Assert.Single(restored.Society.MemoryCompactions!,
                 item => item.OwnerId == "founder-scout").Sources);
+
+        var schema20 = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(state with { SchemaVersion = 20 }));
+        using (var migrated = PrivateWorldRuntime.Restore(schema20))
+        {
+            Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, migrated.ExportState().SchemaVersion);
+            Assert.Equal(belief, Assert.Single(migrated.Society.Beliefs!));
+            Assert.Empty(migrated.Society.MemoryCompactions ?? []);
+        }
 
         world.Pause();
         provider.UseJev = false;
@@ -140,11 +158,20 @@ public sealed class PrivateWorldMemoryRetrievalTests
             Assert.True((await world.AdvanceOneTickAsync()).Advanced);
 
         var personal = Assert.IsType<InhabitantObservation>(provider.PersonalObservation);
+        Assert.Equal(1, provider.PersonalDecisionCount);
         Assert.Null(personal.MemoryCompactionCandidates);
+        Assert.Equal(4, personal.RetrievedMemories!.Count);
+        var recalledMajorExperience = Assert.Single(personal.RetrievedMemories!, item => item.Id == "experience-major");
+        Assert.Equal(repeatedExperience, recalledMajorExperience.Summary);
+        Assert.Equal(10_000, recalledMajorExperience.ImportanceBasisPoints);
+        Assert.Equal(8_800, recalledMajorExperience.ImportanceConfidenceBasisPoints);
+        Assert.DoesNotContain(personal.RetrievedMemories!, item => item.Id == "experience-low-4");
         var recalledBelief = Assert.Single(personal.RetrievedMemories!, item => item.Id == belief.Id);
         Assert.Equal("hearsay", recalledBelief.Provenance);
         Assert.Equal(4_200, recalledBelief.ConfidenceBasisPoints);
         Assert.Equal("founder-mira", recalledBelief.SourceAgentId);
+        Assert.Equal(9_000, recalledBelief.ImportanceBasisPoints);
+        Assert.Equal(9_000, recalledBelief.ImportanceConfidenceBasisPoints);
         Assert.Equal("founder-scout", recalledBelief.OwnerId);
         Assert.DoesNotContain(personal.RetrievedMemories!, item => item.Id == "other-agent-secret");
         Assert.Equal(beforeSocietyEvents, world.Society.Events.Take(beforeSocietyEvents.Count).ToArray());
@@ -155,14 +182,20 @@ public sealed class PrivateWorldMemoryRetrievalTests
     {
         using var seed = new PrivateWorldRuntime("memory-failure");
         var state = seed.ExportState();
-        var memory = new SocietySocialMemory("secret", "founder-scout", "founder-mira",
-            "Secret map marker that must remain private.", "private", 0);
+        var memories = new[]
+        {
+            new SocietySocialMemory("secret", "founder-scout", "founder-mira",
+                "Secret map marker that must remain private.", "private", 0),
+            new SocietySocialMemory("secret-2", "founder-scout", "founder-mira", "A private remembered event.", "private", 0),
+            new SocietySocialMemory("secret-3", "founder-scout", "founder-mira", "Another private remembered event.", "private", 0),
+            new SocietySocialMemory("secret-4", "founder-scout", "founder-mira", "A final private remembered event.", "private", 0),
+        };
         state = state with
         {
-            JevEnabled = false,
+            JevEnabled = true,
             Society = state.Society with
             {
-                Society = state.Society.Society with { Memories = [memory] },
+                Society = state.Society.Society with { Memories = memories },
             },
         };
         var observed = new List<InhabitantObservation>();
@@ -178,12 +211,65 @@ public sealed class PrivateWorldMemoryRetrievalTests
         }
         Assert.Contains(world.ExportState().Events, item => item.Kind == "hosted_decision_completed");
         Assert.Contains(observed, item => item.InhabitantId == "founder-scout" &&
-            item.RetrievedMemories!.Any(retrieved => retrieved.Id == memory.Id));
+            item.RetrievedMemories!.Any(retrieved => retrieved.Id == memories[0].Id) &&
+            item.MemoryCompactionCandidates?.Count == 4);
         Assert.DoesNotContain(observed.Where(item => item.InhabitantId != "founder-scout"),
-            item => item.RetrievedMemories!.Any(retrieved => retrieved.Id == memory.Id));
-        Assert.Equal(memory, Assert.Single(world.Society.Memories));
+            item => item.RetrievedMemories!.Any(retrieved => retrieved.Id == memories[0].Id) ||
+                item.MemoryCompactionCandidates?.Any(candidate => candidate.Id == memories[0].Id) == true);
+        Assert.Equal(memories, world.Society.Memories);
+        Assert.Empty(world.Society.MemoryCompactions ?? []);
+        Assert.Contains(world.ExportState().Society.Cognition.Runtimes.Single(runtime =>
+            runtime.InhabitantId == "founder-scout").Events,
+            item => item.Kind == "cognition_fallback_applied");
         Assert.DoesNotContain(world.ExportState().Events,
             item => item.Detail.Contains("Secret map marker", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task AcceptedJevCompactionTelemetryIsCommittedAndContainsNoSourceText()
+    {
+        using var seed = new PrivateWorldRuntime("memory-compaction-telemetry");
+        var state = seed.ExportState();
+        const string privateSource = "Private telemetry marker: secret oath under the quartz arch.";
+        var memories = Enumerable.Range(0, 6).Select(index => new SocietySocialMemory(
+            $"memory-{index}", "founder-scout", "founder-mira", privateSource, "private", 0)).ToArray();
+        state = state with
+        {
+            JevEnabled = true,
+            Society = state.Society with
+            {
+                Society = state.Society.Society with { Memories = memories },
+            },
+        };
+
+        var provider = new JevScoringProvider();
+        using var world = PrivateWorldRuntime.Restore(state, id => id == "founder-scout"
+            ? provider
+            : new DeterministicDecisionProvider());
+        var directory = Directory.CreateTempSubdirectory("clankerworld-memory-telemetry-");
+        try
+        {
+            var presence = new OwnerClientPresenceLease(TimeSpan.FromMinutes(1));
+            presence.RecordAuthenticatedReconnect("owner");
+            var logger = new RecordingLogger<PrivateWorldRuntimeService>();
+            using var service = new PrivateWorldRuntimeService(world,
+                new PrivateWorldStateFile(Path.Combine(directory.FullName, "world.json")), presence, logger);
+
+            for (var attempt = 0; attempt < 10 &&
+                 !logger.Messages.Any(message => message.Contains("agent_memory_compaction", StringComparison.Ordinal)); attempt++)
+                Assert.True(await service.TryAdvanceOnceAsync());
+
+            var message = Assert.Single(logger.Messages, item =>
+                item.Contains("agent_memory_compaction", StringComparison.Ordinal));
+            Assert.Contains("owner=founder-scout", message, StringComparison.Ordinal);
+            Assert.Contains("assessed=6 index_size=6", message, StringComparison.Ordinal);
+            Assert.DoesNotContain(privateSource, message, StringComparison.Ordinal);
+            Assert.DoesNotContain(logger.Messages, item => item.Contains(privateSource, StringComparison.Ordinal));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
     }
 
     private sealed class CapturingProvider(List<InhabitantObservation> observed) : IDecisionProvider
@@ -206,7 +292,7 @@ public sealed class PrivateWorldMemoryRetrievalTests
 
     private sealed class FailingHostedProvider(List<InhabitantObservation> observed) : IDecisionProvider
     {
-        public DecisionProviderKind Kind => DecisionProviderKind.LargeLanguageModel;
+        public DecisionProviderKind Kind => DecisionProviderKind.Jev;
         public long ProviderEpoch => 1;
 
         public ValueTask<CognitionDecisionResponse> DecideAsync(
@@ -217,10 +303,34 @@ public sealed class PrivateWorldMemoryRetrievalTests
         }
     }
 
+    private sealed class JevScoringProvider : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Jev;
+        public long ProviderEpoch => 1;
+
+        public ValueTask<CognitionDecisionResponse> DecideAsync(
+            CognitionDecisionRequest request, CancellationToken cancellationToken = default)
+        {
+            var selected = request.Observation.Candidates[0].Id;
+            var probabilities = request.Observation.Candidates.ToDictionary(item => item.Id,
+                item => item.Id == selected ? 1d : 0d, StringComparer.Ordinal);
+            var scores = request.Observation.MemoryCompactionCandidates?.Select(item =>
+                new CognitionMemoryCompactionScore(item.Id, item.OwnerId, item.Kind, item.SourceTick,
+                    5_000, 8_000)).ToArray();
+            return ValueTask.FromResult(new CognitionDecisionResponse(
+                request.RequestId, request.Observation.InhabitantId, Kind, ProviderEpoch,
+                request.Observation.RunEpoch, request.Observation.DecisionGeneration,
+                request.Observation.ObservationDigest, selected, 1, probabilities,
+                MemoryCompactionScores: scores));
+        }
+    }
+
     private sealed class JevThenPersonalProvider : IDecisionProvider
     {
         public bool UseJev { get; set; } = true;
         public InhabitantObservation? PersonalObservation { get; private set; }
+        public int JevDecisionCount { get; private set; }
+        public int PersonalDecisionCount { get; private set; }
         public DecisionProviderKind Kind => UseJev ? DecisionProviderKind.Jev : DecisionProviderKind.LargeLanguageModel;
         public long ProviderEpoch => 1;
 
@@ -232,12 +342,14 @@ public sealed class PrivateWorldMemoryRetrievalTests
                 item => item.Id == selected ? 1d : 0d, StringComparer.Ordinal);
             if (UseJev)
             {
-                Assert.InRange(request.Observation.MemoryCompactionCandidates?.Count ?? 0, 4, 12);
+                JevDecisionCount++;
+                Assert.InRange(request.Observation.MemoryCompactionCandidates?.Count ?? 0, 6, 12);
                 Assert.All(request.Observation.MemoryCompactionCandidates!, item =>
                     Assert.Equal(request.Observation.InhabitantId, item.OwnerId));
                 var scores = request.Observation.MemoryCompactionCandidates!.Select(item =>
                     new CognitionMemoryCompactionScore(item.Id, item.OwnerId, item.Kind, item.SourceTick,
-                        item.Kind == "belief" ? 10_000 : 2_000, item.Kind == "belief" ? 9_000 : 6_000)).ToArray();
+                        item.Id == "experience-major" ? 10_000 : item.Kind == "belief" ? 9_000 : 0,
+                        item.Id == "experience-major" ? 8_800 : item.Kind == "belief" ? 9_000 : 6_000)).ToArray();
                 return ValueTask.FromResult(new CognitionDecisionResponse(
                     request.RequestId, request.Observation.InhabitantId, DecisionProviderKind.Jev, ProviderEpoch,
                     request.Observation.RunEpoch, request.Observation.DecisionGeneration,
@@ -245,6 +357,7 @@ public sealed class PrivateWorldMemoryRetrievalTests
                     MemoryCompactionScores: scores));
             }
 
+            PersonalDecisionCount++;
             PersonalObservation = request.Observation;
             return ValueTask.FromResult(new CognitionDecisionResponse(
                 request.RequestId, request.Observation.InhabitantId, DecisionProviderKind.LargeLanguageModel,

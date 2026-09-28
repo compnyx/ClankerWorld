@@ -208,6 +208,8 @@ capture or generated narrative summaries.
   previously unassessed records in an existing routine call; scores link to the
   unchanged sources and are used only as retrieval weights. This adds bounded
   input to an already-reserved provider attempt, not another provider call.
+  Accepted index changes travel with the committed tick result and produce
+  owner/count-only host telemetry; no source prose or source IDs are logged.
   Beliefs are not yet generated from conversations or shared automatically;
   automatic experience capture and generated narrative summaries remain
   unimplemented.

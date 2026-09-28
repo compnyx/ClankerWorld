@@ -79,7 +79,10 @@ public sealed record PrivateWorldStepResult(
     string Outcome,
     long WorldTick,
     IReadOnlyList<SocietyCognitionDispatchResult> Decisions,
-    IReadOnlyList<PlaytestWorldEvent> Events);
+    IReadOnlyList<PlaytestWorldEvent> Events)
+{
+    public IReadOnlyList<PrivateWorldMemoryCompactionTransition> MemoryCompactionTransitions { get; init; } = [];
+}
 
 /// <summary>
 /// The live private-world composition for the first complete single-player
@@ -133,6 +136,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private List<TownRuntimeState> towns = [];
     private long nextInstructionSequence = 1;
     private readonly Dictionary<string, PendingHostedDecision> pendingHosted = new(StringComparer.Ordinal);
+    private readonly List<PrivateWorldMemoryCompactionTransition> memoryCompactionTransitions = [];
 
     private sealed record HostedDecisionOutcome(CognitionDecisionResponse? Response, string? Failure);
     private sealed record PendingHostedDecision(
@@ -823,7 +827,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
             AppendEvent("tick_advanced", targetTick.ToString(System.Globalization.CultureInfo.InvariantCulture));
             var newEvents = events.Skip(startingEvent).ToArray();
-            return new PrivateWorldStepResult(true, "advanced", targetTick, decisions, newEvents);
+            return new PrivateWorldStepResult(true, "advanced", targetTick, decisions, newEvents)
+            {
+                MemoryCompactionTransitions = memoryCompactionTransitions.ToArray(),
+            };
         }
         finally
         {

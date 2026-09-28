@@ -45,9 +45,9 @@ public sealed partial class PrivateWorldRuntimeService(
         string beliefId, string outcome, SocietyBeliefProvenance provenance, int confidenceBasisPoints);
 
     [LoggerMessage(EventId = 2221, Level = LogLevel.Information,
-        Message = "agent_memory_compaction tick={WorldTick} owner={OwnerId} assessed={AssessedCount} indexed={IndexedCount}")]
+        Message = "agent_memory_compaction tick={WorldTick} owner={OwnerId} assessed={AssessedCount} index_size={IndexSize}")]
     private static partial void LogAgentMemoryCompaction(ILogger logger, long worldTick, string ownerId,
-        int assessedCount, int indexedCount);
+        int assessedCount, int indexSize);
 
     [LoggerMessage(EventId = 2253, Level = LogLevel.Information,
         Message = "autosave outcome=created save={SaveId} tick={WorldTick}")]
@@ -60,7 +60,6 @@ public sealed partial class PrivateWorldRuntimeService(
     public override Task StartAsync(CancellationToken cancellationToken)
     {
         runtime.AgentBeliefChanged += OnAgentBeliefChanged;
-        runtime.AgentMemoryCompactionChanged += OnAgentMemoryCompactionChanged;
         if (logger is not null)
             foreach (var town in runtime.Towns)
                 TownTelemetry.Transition(logger, runtime.WorldTick, town.Id, TownTransitionKind.StateLoaded,
@@ -71,7 +70,6 @@ public sealed partial class PrivateWorldRuntimeService(
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         runtime.AgentBeliefChanged -= OnAgentBeliefChanged;
-        runtime.AgentMemoryCompactionChanged -= OnAgentMemoryCompactionChanged;
         return base.StopAsync(cancellationToken);
     }
 
@@ -80,13 +78,6 @@ public sealed partial class PrivateWorldRuntimeService(
         if (logger is null) return;
         LogAgentBeliefTransition(logger, transition.WorldTick, transition.OwnerId, transition.BeliefId,
             transition.Outcome, transition.Provenance, transition.ConfidenceBasisPoints);
-    }
-
-    private void OnAgentMemoryCompactionChanged(PrivateWorldMemoryCompactionTransition transition)
-    {
-        if (logger is null) return;
-        LogAgentMemoryCompaction(logger, transition.WorldTick, transition.OwnerId,
-            transition.AssessedCount, transition.IndexedCount);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -156,6 +147,11 @@ public sealed partial class PrivateWorldRuntimeService(
             }
             if (logger?.IsEnabled(LogLevel.Information) == true)
             {
+                foreach (var transition in result.MemoryCompactionTransitions)
+                {
+                    LogAgentMemoryCompaction(logger, transition.WorldTick, transition.OwnerId,
+                        transition.AssessedCount, transition.IndexSize);
+                }
                 foreach (var worldEvent in result.Events.Where(item => item.Kind.StartsWith("hosted_decision_", StringComparison.Ordinal)))
                 {
                     var split = worldEvent.Detail.Split(':', 2);

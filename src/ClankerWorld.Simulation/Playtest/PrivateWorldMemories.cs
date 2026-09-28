@@ -8,12 +8,10 @@ public sealed record PrivateWorldMemoryCompactionTransition(
     long WorldTick,
     string OwnerId,
     int AssessedCount,
-    int IndexedCount);
+    int IndexSize);
 
 public sealed partial class PrivateWorldRuntime
 {
-    public event Action<PrivateWorldMemoryCompactionTransition>? AgentMemoryCompactionChanged;
-
     private void ApplyMemoryCompaction(
         string ownerId,
         IReadOnlyList<CognitionMemoryCompactionScore> scores)
@@ -37,15 +35,7 @@ public sealed partial class PrivateWorldRuntime
         checkpointSchemaVersion = StateSchemaVersion;
         var retained = (society.Checkpoint.MemoryCompactions ?? [])
             .Single(item => item.OwnerId == ownerId).Sources.Count;
-        var transition = new PrivateWorldMemoryCompactionTransition(
-            WorldTick, ownerId, indexed.Length, retained);
-        try
-        {
-            AgentMemoryCompactionChanged?.Invoke(transition);
-        }
-        catch (Exception exception) when (exception is not OutOfMemoryException)
-        {
-            // Optional diagnostics cannot change or roll back a committed index update.
-        }
+        memoryCompactionTransitions.Add(new PrivateWorldMemoryCompactionTransition(
+            WorldTick, ownerId, indexed.Length, retained));
     }
 }
