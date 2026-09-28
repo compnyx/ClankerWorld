@@ -43,7 +43,9 @@ public sealed class GodotOwnerWorldApiTests
             {
                 Snapshot = first.Baseline.Snapshot with
                 {
-                    Tiles = [], PackedTerrain = packed, PackedMapLayers = packedLayers,
+                    Tiles = [],
+                    PackedTerrain = packed,
+                    PackedMapLayers = packedLayers,
                     MapLayersDigest = layerDigest,
                 },
             },
@@ -56,7 +58,9 @@ public sealed class GodotOwnerWorldApiTests
             {
                 Snapshot = first.Baseline.Snapshot with
                 {
-                    Tiles = [], PackedTerrain = null, PackedMapLayers = null,
+                    Tiles = [],
+                    PackedTerrain = null,
+                    PackedMapLayers = null,
                     MapLayersDigest = layerDigest,
                 },
                 Events = first.Baseline.Events with { AfterEventId = 5, Events = [] },

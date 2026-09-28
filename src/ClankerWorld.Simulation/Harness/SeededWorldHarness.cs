@@ -474,9 +474,12 @@ public static class GeneratedCampMapGenerator
         var withoutDigest = new SeededMap(width, height, 0, tiles, objects,
             resources.Concat(distributed).Concat(trees).Concat(orchards).ToArray(), string.Empty)
         {
-            ClimateZones = climateZones, ElevationLevels = elevationLevels,
-            HydrologyKinds = hydrologyKinds, SurfaceKinds = surfaceKinds,
-            VegetationKinds = vegetationKinds, WrapsEastWest = options.WrapEastWest,
+            ClimateZones = climateZones,
+            ElevationLevels = elevationLevels,
+            HydrologyKinds = hydrologyKinds,
+            SurfaceKinds = surfaceKinds,
+            VegetationKinds = vegetationKinds,
+            WrapsEastWest = options.WrapEastWest,
         };
         var map = withoutDigest with { ManifestDigest = MapManifestCodec.Digest(withoutDigest) };
         var validation = MapAcceptance.Validate(map, allowEmptyCamp: true);

@@ -69,11 +69,14 @@ public sealed class PostDeathWillTests
         var checkpoint = SocietyFixture.MarkWillStarted(world.Society,
             world.Society.Estates.Single(item => item.DeceasedId == "founder-scout").Id).Checkpoint;
         var estate = checkpoint.Estates.Single(item => item.DeceasedId == "founder-scout");
-        var forged = checkpoint with { Inventory = checkpoint.Inventory with
+        var forged = checkpoint with
         {
-            Lots = checkpoint.Inventory.Lots.Select(lot => lot.Id == "seed-lot"
-                ? lot with { OwnerId = "founder-rowan" } : lot).ToArray(),
-        } };
+            Inventory = checkpoint.Inventory with
+            {
+                Lots = checkpoint.Inventory.Lots.Select(lot => lot.Id == "seed-lot"
+                    ? lot with { OwnerId = "founder-rowan" } : lot).ToArray(),
+            }
+        };
         var resolved = SocietyFixture.ResolveWill(forged, estate.Id, "founder-mira", "accepted").Checkpoint;
         Assert.Equal("default", resolved.GetEstate(estate.Id).WillStatus);
         Assert.Null(resolved.GetEstate(estate.Id).WillBeneficiaryId);

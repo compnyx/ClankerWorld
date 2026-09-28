@@ -22,8 +22,10 @@ public sealed class PrivateWorldTerrainChunkTests
             SchemaVersion = 18,
             Map = state.Map with
             {
-                ElevationLevels = null, HydrologyKinds = null,
-                SurfaceKinds = null, VegetationKinds = null,
+                ElevationLevels = null,
+                HydrologyKinds = null,
+                SurfaceKinds = null,
+                VegetationKinds = null,
             },
         });
         var newBytes = PrivateWorldRuntimeCodec.Encode(state);
@@ -55,11 +57,16 @@ public sealed class PrivateWorldTerrainChunkTests
             Encoding.UTF8.GetString(PrivateWorldRuntimeCodec.Encode(migrated.ExportState())), StringComparison.Ordinal);
 
         var oldChunked = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(
-            state with { Map = state.Map with
+            state with
             {
-                ElevationLevels = null, HydrologyKinds = null,
-                SurfaceKinds = null, VegetationKinds = null,
-            } }));
+                Map = state.Map with
+                {
+                    ElevationLevels = null,
+                    HydrologyKinds = null,
+                    SurfaceKinds = null,
+                    VegetationKinds = null,
+                }
+            }));
         using var migratedChunked = PrivateWorldRuntime.Restore(oldChunked);
         Assert.Equal(state.Map.ManifestDigest, migratedChunked.ExportState().Map.ManifestDigest);
         Assert.Equal(state.Map.ElevationLevels, migratedChunked.ExportState().Map.ElevationLevels);

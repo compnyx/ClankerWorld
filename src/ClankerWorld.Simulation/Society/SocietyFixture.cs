@@ -767,8 +767,11 @@ public static partial class SocietyFixture
         var estate = checkpoint.GetEstate(estateId);
         if (estate.Settled || estate.WillStatus is not null)
             return new SocietyOperationResult(checkpoint, null, []);
-        var next = checkpoint with { Estates = checkpoint.Estates.Select(item => item.Id == estateId
-            ? item with { WillStatus = "pending" } : item).ToArray() };
+        var next = checkpoint with
+        {
+            Estates = checkpoint.Estates.Select(item => item.Id == estateId
+            ? item with { WillStatus = "pending" } : item).ToArray()
+        };
         return Commit(next, "estate_will_started", estateId, estateId);
     }
 
@@ -787,13 +790,16 @@ public static partial class SocietyFixture
         var validBeneficiary = beneficiaryId is not null &&
             checkpoint.Inhabitants.Any(item => item.Id == beneficiaryId && item.Status == SocietyInhabitantStatus.Active);
         var accepted = validSnapshot && validBeneficiary && outcome == "accepted";
-        var next = checkpoint with { Estates = checkpoint.Estates.Select(item => item.Id == estateId
+        var next = checkpoint with
+        {
+            Estates = checkpoint.Estates.Select(item => item.Id == estateId
             ? item with
             {
                 BeneficiaryIds = accepted ? [beneficiaryId!] : item.BeneficiaryIds,
                 WillStatus = accepted ? "accepted" : "default",
                 WillBeneficiaryId = accepted ? beneficiaryId : null,
-            } : item).ToArray() };
+            } : item).ToArray()
+        };
         return Commit(next, accepted ? "estate_will_accepted" : "estate_will_default",
             $"{estateId}:{(accepted ? beneficiaryId : outcome)}", estateId);
     }
