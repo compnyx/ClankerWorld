@@ -632,8 +632,40 @@ public partial class Main : Control
                 !selectedTileText.Text.Contains("Surface: Sand", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Vegetation: Scrub", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Fertility: unavailable", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Town border: First Town", StringComparison.Ordinal))
+                !selectedTileText.Text.Contains("Town border: First Town", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Household property: none recorded", StringComparison.Ordinal))
                 throw new InvalidOperationException("Selected-tile inspection must show separate map facts, established Town coverage and unavailable fertility honestly.");
+            var ownedMap = sample with
+            {
+                PlacedBuildings = [.. sample.PlacedBuildings,
+                    new("test-house", "house", new(2, 2), 0, "House", ["shelter"], 2, 1,
+                        HouseholdId: "household:one")],
+                Stockpiles = [new("household:one", "Founder's household", [])],
+            };
+            RenderMap(ownedMap);
+            filtersButton.EmitSignal(BaseButton.SignalName.Pressed);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!filtersPanel.Visible || !mapCanvas.GetGlobalRect().Encloses(filtersPanel.GetGlobalRect()))
+                throw new InvalidOperationException("Map Filters must open inside the world view.");
+            townBorderFilter.ButtonPressed = false;
+            householdPropertyFilter.ButtonPressed = true;
+            if (!worldInfoText.Text.Contains("Town borders are hidden by Map filters", StringComparison.Ordinal))
+                throw new InvalidOperationException("The Town border filter must update the visible map explanation.");
+            HandleMapInput(new InputEventMouseButton
+            {
+                Position = mapStage.Position + new Vector2(currentTileSize * 2.5f, currentTileSize * 2.5f),
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            });
+            if (!selectedTileText.Text.Contains("Household property: Founder's household", StringComparison.Ordinal))
+                throw new InvalidOperationException("Owned building footprints must expose their recorded household in tile inspection.");
+            householdPropertyFilter.ButtonPressed = false;
+            townBorderFilter.ButtonPressed = true;
+            filtersButton.EmitSignal(BaseButton.SignalName.Pressed);
+            RenderMap(sample);
+            selectedTile = new Vector2I(1, 1);
+            terrainLayer.SetSelectedTile(selectedTile);
+            RenderTileInspection(sample);
             var renderedSurface = terrainMap?.DisplayColorAt(1, 1) ?? Colors.Transparent;
             var expectedSurface = new Color("AA985F");
             if (terrainMap?.SurfaceAt(1, 1) != 1 ||
@@ -2474,9 +2506,11 @@ public partial class Main : Control
             eventsPanel.Hide();
             familyTreePanel.Hide();
             worldInfoPanel.Hide();
+            filtersPanel.Hide();
             worldOverviewPanel.Visible = show;
         };
         topBar.AddChild(mapButton);
+        BuildFiltersButton();
 
         clockLabel.Text = "Connecting…";
         clockLabel.AddThemeFontSizeOverride("font_size", 20);
@@ -2503,6 +2537,7 @@ public partial class Main : Control
         StyleButton(settlementButton);
         settlementButton.Pressed += () =>
         {
+            filtersPanel.Hide();
             rosterPanel.Hide();
             eventsPanel.Hide();
             worldOverviewPanel.Hide();
@@ -2830,6 +2865,7 @@ public partial class Main : Control
 
     private void BuildInspectorColumn(Control content)
     {
+        BuildMapFiltersPanel(content);
         var rosterBody = new VBoxContainer();
         rosterBody.AddThemeConstantOverride("separation", 6);
         rosterSummaryLabel.Text = "Waiting for the world…";
@@ -3367,6 +3403,7 @@ public partial class Main : Control
     private void ToggleInhabitants()
     {
         var show = !rosterPanel.Visible;
+        filtersPanel.Hide();
         familyTreePanel.Hide();
         settlementPanel.Hide();
         eventsPanel.Hide();
@@ -3378,6 +3415,7 @@ public partial class Main : Control
     private void ToggleEvents()
     {
         var show = !eventsPanel.Visible;
+        filtersPanel.Hide();
         familyTreePanel.Hide();
         settlementPanel.Hide();
         rosterPanel.Hide();
@@ -3389,6 +3427,7 @@ public partial class Main : Control
     private void ToggleWorldInfo()
     {
         var show = !worldInfoPanel.Visible;
+        filtersPanel.Hide();
         familyTreePanel.Hide();
         settlementPanel.Hide();
         rosterPanel.Hide();
@@ -3414,6 +3453,7 @@ public partial class Main : Control
         worldOverviewPanel.Hide();
         worldInfoPanel.Hide();
         settlementPanel.Hide();
+        filtersPanel.Hide();
         familyTreePanel.Show();
         ApplyResponsiveLayout();
     }
@@ -3892,7 +3932,7 @@ public partial class Main : Control
         terrainLayer.SetTrees(snapshot.Resources);
         terrainLayer.SetNaturalObjects(snapshot.Resources);
         terrainLayer.SetWeatherRegions(snapshot.WeatherRegionSize, snapshot.WeatherRegions);
-        terrainLayer.SetTownBorders(snapshot.Towns);
+        ApplyMapFilters(snapshot);
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
         worldOverview.WrapsEastWest = snapshot.WrapsEastWest;
@@ -4080,7 +4120,9 @@ public partial class Main : Control
         var localWeather = snapshot.Authoring is { } authoring
             ? $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))}"
             : "Not reported";
-        var townInfo = snapshot.Towns.Count == 0 ? string.Empty : "\nTown borders are outlined in amber on the map.\n" + string.Join("\n",
+        var townInfo = snapshot.Towns.Count == 0 ? string.Empty :
+            (townBorderFilter.ButtonPressed ? "\nTown borders are outlined in amber on the map.\n"
+                : "\nTown borders are hidden by Map filters.\n") + string.Join("\n",
             snapshot.Towns.Select(town =>
                 $"{town.Name}: {Pretty(town.FoundingState)} · {town.ResidentIds.Count} residents · {town.BorderTiles.Count} border tiles\n" +
                 "Residents: " + string.Join(", ", town.ResidentIds.Select(id =>
@@ -4615,6 +4657,9 @@ public partial class Main : Control
         rosterPanel.Position = new Vector2(14, 14);
         settlementPanel.Position = new Vector2(14, 14);
         worldInfoPanel.Position = new Vector2(14, 14);
+        filtersPanel.Position = new Vector2(
+            Math.Max(14, viewport.X - Math.Max(filtersPanel.Size.X, filtersPanel.CustomMinimumSize.X) - 14),
+            14);
         selectedTilePanel.Position = new Vector2(14,
             Math.Max(14, viewport.Y - Math.Max(selectedTilePanel.Size.Y,
                 selectedTilePanel.CustomMinimumSize.Y) - 14));
@@ -4846,6 +4891,11 @@ public partial class Main : Control
         var surface = WorldTerrainMap.SurfaceName(terrainMap.SurfaceAt(tile.X, tile.Y)) ?? "unavailable";
         var vegetation = WorldTerrainMap.VegetationName(terrainMap.VegetationAt(tile.X, tile.Y)) ?? "unavailable";
         var town = snapshot.Towns.FirstOrDefault(item => item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y));
+        var propertyOwnerId = snapshot.PlacedBuildings.FirstOrDefault(item => item.HouseholdId is not null &&
+            tile.X >= item.Position.X && tile.X < item.Position.X + item.Width &&
+            tile.Y >= item.Position.Y && tile.Y < item.Position.Y + item.Height)?.HouseholdId;
+        var propertyName = propertyOwnerId is null ? "none recorded" :
+            snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == propertyOwnerId)?.Name ?? propertyOwnerId;
         selectedTileText.Text =
             $"Tile {tile.X}, {tile.Y}\n" +
             $"Terrain kind: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}\n" +
@@ -4858,6 +4908,7 @@ public partial class Main : Control
             $"Elevation: {(elevation is { } level ? level + "/255" : "unavailable")}\n" +
             $"Fertility: unavailable\n" +
             $"Town border: {(town?.Name ?? "none established")}\n" +
+            $"Household property: {propertyName}\n" +
             $"Objects: {(objects.Length == 0 ? "none observed" : string.Join(", ", objects))}";
     }
 

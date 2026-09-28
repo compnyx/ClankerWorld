@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- The top-bar Filters panel can hide the saved Town-border outline and show
+  household-owned building footprints with stable household colors. It never
+  tints unclaimed land as property; selecting a tile names its recorded
+  household property owner or says none is recorded. Filter changes follow
+  new observations without changing the underlying Town or ownership facts.
 - Adult household members can carry bounded loads of older camp supplies to
   their own House. The load remains with its carrier through save/reload and
   appears in the House's inspected stock only after the carrier reaches home;

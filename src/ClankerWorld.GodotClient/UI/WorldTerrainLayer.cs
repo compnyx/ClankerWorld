@@ -19,6 +19,11 @@ public partial class WorldTerrainLayer : Control
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
     private readonly HashSet<Vector2I> townBorderTiles = [];
+    private readonly Dictionary<Vector2I, string> householdPropertyTiles = [];
+    private static readonly Color[] HouseholdPropertyColors =
+    [
+        new("4DC7B9"), new("9D89DF"), new("6AA6E8"), new("E69D70"),
+    ];
 
     public int VisibleTileCount { get; private set; }
 
@@ -43,6 +48,8 @@ public partial class WorldTerrainLayer : Control
         naturalObjects = new byte[checked(map.Width * map.Height)];
         naturalStages = new byte[checked(map.Width * map.Height)];
         weatherRegions.Clear();
+        townBorderTiles.Clear();
+        householdPropertyTiles.Clear();
         QueueRedraw();
     }
 
@@ -69,6 +76,21 @@ public partial class WorldTerrainLayer : Control
         if (next.Count == townBorderTiles.Count && next.SetEquals(townBorderTiles)) return;
         townBorderTiles.Clear();
         townBorderTiles.UnionWith(next);
+        QueueRedraw();
+    }
+
+    public void SetHouseholdProperties(IReadOnlyList<OwnerWorldPlacedBuilding> buildings)
+    {
+        ArgumentNullException.ThrowIfNull(buildings);
+        var next = new Dictionary<Vector2I, string>();
+        foreach (var building in buildings.Where(item => item.HouseholdId is not null))
+            for (var y = 0; y < building.Height; y++)
+                for (var x = 0; x < building.Width; x++)
+                    next[new Vector2I(building.Position.X + x, building.Position.Y + y)] = building.HouseholdId!;
+        if (next.Count == householdPropertyTiles.Count && next.All(entry =>
+                householdPropertyTiles.TryGetValue(entry.Key, out var owner) && owner == entry.Value)) return;
+        householdPropertyTiles.Clear();
+        foreach (var entry in next) householdPropertyTiles.Add(entry.Key, entry.Value);
         QueueRedraw();
     }
 
@@ -289,6 +311,7 @@ public partial class WorldTerrainLayer : Control
                     DrawNaturalObject(new Vector2(x * stride, y * stride), naturalObjects[index], naturalStages[index]);
             }
         DrawPrecipitation(bounds, stride);
+        DrawHouseholdProperties(bounds, stride);
         DrawTownBorders(bounds, stride);
         if (hoveredTile is { } hover && tileSize > 0 &&
             hover.Y >= bounds.Top && hover.Y < bounds.Top + bounds.Height)
@@ -526,6 +549,33 @@ public partial class WorldTerrainLayer : Control
     }
 
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;
+
+    private void DrawHouseholdProperties((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || householdPropertyTiles.Count == 0 || tileSize <= 0) return;
+        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            {
+                var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
+                if (!householdPropertyTiles.TryGetValue(new Vector2I(canonicalX, y), out var householdId)) continue;
+                var color = HouseholdPropertyColors[HouseholdColorIndex(householdId)];
+                var tile = new Rect2(new Vector2(x * stride, y * stride), new Vector2(tileSize, tileSize));
+                DrawRect(tile, new Color(color.R, color.G, color.B, 0.22f));
+                DrawRect(tile, new Color(color.R, color.G, color.B, 0.88f), filled: false,
+                    width: Math.Clamp(tileSize / 24f, 1f, 3f));
+            }
+    }
+
+    private static int HouseholdColorIndex(string householdId)
+    {
+        uint hash = 2166136261;
+        foreach (var character in householdId)
+        {
+            hash ^= character;
+            hash = unchecked(hash * 16777619);
+        }
+        return (int)(hash % HouseholdPropertyColors.Length);
+    }
 
     private void DrawTownBorders((int Left, int Top, int Width, int Height) bounds, int stride)
     {
