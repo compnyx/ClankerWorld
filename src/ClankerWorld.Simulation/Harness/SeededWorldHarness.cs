@@ -1194,7 +1194,7 @@ public static class MapAcceptance
                     }) ||
                 resource.NaturalObjectKind is { } naturalObjectKind &&
                     !IsValidNaturalObjectKind(resource.Kind, resource.TreeKind, naturalObjectKind)) ||
-            map.Resources.Where(resource => resource.TreeKind is not null)
+            map.Resources.Where(resource => resource.TreeKind is not null || resource.NaturalObjectKind is not null)
                 .GroupBy(resource => resource.Position).Any(group => group.Count() > 1))
         {
             return MapValidationResult.Invalid("Resource placements are invalid.");

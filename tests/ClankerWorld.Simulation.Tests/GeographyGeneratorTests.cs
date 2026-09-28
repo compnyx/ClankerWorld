@@ -42,7 +42,9 @@ public sealed class GeographyGeneratorTests
         }
         var forest = map.Tiles.First(tile => map.VegetationAt(tile.Position) == VegetationCover.Forest &&
             map.SurfaceAt(tile.Position) != SurfaceKind.FertileSoil);
-        Assert.True(map.SurfaceAt(forest.Position) is SurfaceKind.Grass or SurfaceKind.ForestFloor);
+        // A coastal forest tile can carry a beach surface while its
+        // independent vegetation fact remains Forest.
+        Assert.True(map.SurfaceAt(forest.Position) is SurfaceKind.Grass or SurfaceKind.ForestFloor or SurfaceKind.Sand);
         Assert.Equal(VegetationCover.Forest, map.VegetationAt(forest.Position));
         var river = map.Tiles.First(tile => map.HydrologyAt(tile.Position) == WaterKind.River);
         Assert.Equal(SurfaceKind.Water, map.SurfaceAt(river.Position));
@@ -180,6 +182,29 @@ public sealed class GeographyGeneratorTests
         using var restored = PrivateWorldRuntime.Restore(oldState);
         Assert.Equal(oldMap.ManifestDigest, restored.ExportState().Map.ManifestDigest);
         Assert.All(restored.ExportState().Map.Resources, resource => Assert.Null(resource.NaturalObjectKind));
+    }
+
+    [Fact]
+    public void VisibleNaturalObjectsCannotOverlapTreesOrEachOther()
+    {
+        var options = new GeographyOptions("natural-roster-visible-occupancy", WorldSizePreset.Small,
+            ResourceAbundance: ResourceAbundance.Abundant);
+        var map = GeneratedCampMapGenerator.Generate(options);
+        var visibleObjects = map.Resources.Where(resource =>
+            resource.TreeKind is not null || resource.NaturalObjectKind is not null).ToArray();
+        Assert.Equal(visibleObjects.Length, visibleObjects.Select(resource => resource.Position).Distinct().Count());
+
+        var tree = visibleObjects.First(resource => resource.TreeKind is not null);
+        var overlappingForage = new MapResource("invalid-overlap-forage", "food", tree.Position, true,
+            NaturalObjectKind: "berry_bush");
+        var invalidMap = map with
+        {
+            Resources = map.Resources.Append(overlappingForage).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        invalidMap = invalidMap with { ManifestDigest = MapManifestCodec.Digest(invalidMap) };
+
+        Assert.False(MapAcceptance.Validate(invalidMap, allowEmptyCamp: true).IsValid);
     }
 
     [Theory]
