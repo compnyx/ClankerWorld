@@ -25,8 +25,7 @@ public sealed partial class PrivateWorldRuntime
 
     private bool HasParenthoodDecision(string actor) => ReadyForLesson(actor) &&
         (inhabitants.Values.Any(person => person.Parenthood is { Stage: "requested" } plan && plan.PartnerId == actor) ||
-         ChildrenNeedingCare(actor).Any(child => child.HungerBasisPoints < 7_000 ||
-             child.Survival is { WarmthBasisPoints: < 6_000 }));
+         ChildrenNeedingCare(actor).Any());
 
     private IEnumerable<PlaytestInhabitantState> ChildrenNeedingCare(string actor) => inhabitants.Values.Where(person =>
         society.Checkpoint.GetInhabitant(person.InhabitantId).AgeBand == SocietyAgeBand.Infant &&

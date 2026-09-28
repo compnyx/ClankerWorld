@@ -21,14 +21,16 @@ the resolution evidence below.
 
 ## September playtest reports and confirmed product gaps
 
-- **Disconnected-land agent placement broke observation — fixed in the
-  repository, pending deployment and player verification:** after adding an
+- **Disconnected-land agent placement broke observation — deployed on
+  2026-09-28, pending player verification:** after adding an
   adult on land with no foot route to the camp's berry patch, route preview
   threw during every reconnect. The preview now reports no reachable food route
   without taking down the world view. The client also accepts the host's pause
   receipt when leaving for the Main Menu, even if the subsequent refresh fails.
   The deployment gate additionally caught and repaired an old generated-map
-  compatibility rejection before the live service was changed.
+  compatibility rejection before the live service was changed. The live save
+  migrated from schema 17 to 20 with its tick, population and map identity
+  preserved.
 - **Final zoom-out cap needs playtest selection:** the client can now zoom to
   8 px terrain tiles (roughly 50% wider coverage than the old 12 px minimum on
   a 256-tile-wide map). Confirm that tile readability and frame cost are right
