@@ -246,11 +246,19 @@ public static class WeatherRules
         ArgumentOutOfRangeException.ThrowIfNegative(position.Y);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(mapHeight);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(position.Y, mapHeight, nameof(position));
-        if (mapHeight <= RegionSize) return state.Climate.Weather;
-        var day = WorldCalendarRules.FromTick(state.WorldTick, state.Config).DayIndex;
-        return WeatherForRegion(state.WorldSeed, day, state.Climate.Season, state.Config,
+        var calendar = WorldCalendarRules.FromTick(state.WorldTick, state.Config);
+        var weather = mapHeight <= RegionSize ? state.Climate.Weather : WeatherForRegion(state.WorldSeed,
+            calendar.DayIndex, state.Climate.Season, state.Config,
             position.X / RegionSize, position.Y / RegionSize, (mapHeight + RegionSize - 1) / RegionSize,
             climate);
+        // A daily roll can select a storm, but the severe event itself must
+        // end within three quarters of that saved world's day. The remaining
+        // quarter stays wet without continuing the storm. Round down so short
+        // fixture days never exceed the same three-quarter limit.
+        var severeTicks = (int)((long)state.Config.TicksPerDay * 3 / 4);
+        return weather == WeatherKind.Storm && calendar.TickOfDay >= severeTicks
+            ? WeatherKind.Rain
+            : weather;
     }
 
     /// <summary>

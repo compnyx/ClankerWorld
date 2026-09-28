@@ -30,6 +30,29 @@ public sealed class WorldSystemsContractTests
         Assert.Equal(SeasonKind.Summer, WorldCalendarRules.FromTick(summerTick, config).Season);
     }
 
+    [Theory]
+    [InlineData(5)]
+    [InlineData(8)]
+    public void SevereStormEndsWithinThreeQuartersOfEachSavedWorldDay(int ticksPerDay)
+    {
+        var config = SmallConfig() with
+        {
+            TicksPerDay = ticksPerDay,
+            WeatherProfiles = Enum.GetValues<SeasonKind>()
+                .Select(season => new WeatherProfile(season, 0, 0, 0, 1, 0)).ToArray(),
+        };
+        var state = WorldSystemsRules.CreateGenesis("storm-duration", config);
+        var position = new GridPoint(20, 20);
+        for (var tick = 0; tick < 2 * config.TicksPerDay; tick++)
+        {
+            var expected = tick % config.TicksPerDay < 3 * config.TicksPerDay / 4
+                ? WeatherKind.Storm : WeatherKind.Rain;
+            Assert.Equal(expected, WeatherRules.At(state, position, 128));
+            Assert.Equal(expected, WeatherRules.At(state, position, 32));
+            if (tick < 2 * config.TicksPerDay - 1) state = WorldSystemsRules.AdvanceOneTick(state);
+        }
+    }
+
     [Fact]
     public void RecentRainRaisesLocalSoilMoistureWhileDryDaysDepleteIt()
     {

@@ -809,8 +809,9 @@ now have hunger, warmth/exposure and illness, weather-protective shelter,
 weather responses, and a `safe_idle` fallback. Energy and sleep are removed.
 Hunger and urgent exposure can pause projects or restrict available adult actions.
 Generated-world weather is currently chosen per **32×32-tile region per world
-day**, so a severe result can occupy a whole nominal six-real-minute day in a
-new world; successive severe days can extend the interruption.
+day**. A storm roll now lasts at most three-quarters of that saved world's day,
+then becomes ordinary rain for the remaining quarter. The regional weather
+transition model and natural/House shelter rules are not finished.
 The current candidate list includes a bounded local curiosity outing. It now
 records visited terrain/resource sites in the explorer's own ledger, creates a
 bounded physical map/record artifact on return, and can share or trade that
