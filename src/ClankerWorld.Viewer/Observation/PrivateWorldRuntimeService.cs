@@ -1,4 +1,5 @@
 using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.Society;
 using ClankerWorld.Viewer.Control;
 
 namespace ClankerWorld.Viewer.Observation;
@@ -38,6 +39,11 @@ public sealed partial class PrivateWorldRuntimeService(
         Message = "estate_will tick={WorldTick} estate={EstateId} deceased={DeceasedId} outcome={Outcome} reason={Reason}")]
     private static partial void LogEstateWill(ILogger logger, long worldTick, string estateId, string deceasedId, string outcome, string reason);
 
+    [LoggerMessage(EventId = 2220, Level = LogLevel.Information,
+        Message = "agent_belief_transition tick={WorldTick} owner={OwnerId} belief={BeliefId} outcome={Outcome} provenance={Provenance} confidence_basis_points={ConfidenceBasisPoints}")]
+    private static partial void LogAgentBeliefTransition(ILogger logger, long worldTick, string ownerId,
+        string beliefId, string outcome, SocietyBeliefProvenance provenance, int confidenceBasisPoints);
+
     [LoggerMessage(EventId = 2253, Level = LogLevel.Information,
         Message = "autosave outcome=created save={SaveId} tick={WorldTick}")]
     private static partial void LogAutosaveCreated(ILogger logger, string saveId, long worldTick);
@@ -45,6 +51,25 @@ public sealed partial class PrivateWorldRuntimeService(
     [LoggerMessage(EventId = 2254, Level = LogLevel.Warning,
         Message = "autosave outcome=failed reason={Reason} tick={WorldTick}")]
     private static partial void LogAutosaveFailed(ILogger logger, string reason, long worldTick);
+
+    public override Task StartAsync(CancellationToken cancellationToken)
+    {
+        runtime.AgentBeliefChanged += OnAgentBeliefChanged;
+        return base.StartAsync(cancellationToken);
+    }
+
+    public override Task StopAsync(CancellationToken cancellationToken)
+    {
+        runtime.AgentBeliefChanged -= OnAgentBeliefChanged;
+        return base.StopAsync(cancellationToken);
+    }
+
+    private void OnAgentBeliefChanged(PrivateWorldBeliefTransition transition)
+    {
+        if (logger is null) return;
+        LogAgentBeliefTransition(logger, transition.WorldTick, transition.OwnerId, transition.BeliefId,
+            transition.Outcome, transition.Provenance, transition.ConfidenceBasisPoints);
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

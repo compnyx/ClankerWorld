@@ -72,6 +72,17 @@ public sealed record OwnerWorldInhabitantRelationship(
 
 public sealed record OwnerWorldPrivateThought(long WorldTick, string Text);
 public sealed record OwnerWorldAgentMemory(long WorldTick, string SubjectId, string SubjectName, string Summary, string Visibility);
+public sealed record OwnerWorldAgentBelief(
+    long WorldTick,
+    string Statement,
+    string Provenance,
+    int ConfidenceBasisPoints,
+    string? SourceAgentId,
+    string? SourceAgentName,
+    long? SourceEventId,
+    string? AboutInhabitantId,
+    bool IsCorrected,
+    long? CorrectedTick);
 public sealed record OwnerWorldCalendarPace(int TicksPerDay, int DaysPerYear);
 public sealed record OwnerFounderSetup(int Required, int Placed, bool Started);
 
@@ -102,6 +113,8 @@ public sealed record OwnerWorldInhabitant(
     public IReadOnlyList<OwnerWorldPrivateThought> RecentPrivateThoughts { get; init; } = [];
 
     public IReadOnlyList<OwnerWorldAgentMemory> RecentMemories { get; init; } = [];
+
+    public IReadOnlyList<OwnerWorldAgentBelief> RecentBeliefs { get; init; } = [];
 }
 
 public sealed record OwnerWorldProject(string Label, string Stage, int WorkDone, int WorkRequired, string? Blocker, long StartedTick);

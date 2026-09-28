@@ -3727,10 +3727,34 @@ public partial class Main : Control
             ? thoughtHeading + "\nNone recorded yet."
             : thoughtHeading + "\n" + string.Join("\n", inhabitant.RecentPrivateThoughts
                 .Reverse().Select(thought => $"{DisplayWorldClock(thought.WorldTick)}  {thought.Text}"));
-        memoryHistory.Text = inhabitant.RecentMemories.Count == 0
-            ? "No saved memories for this agent yet."
-            : string.Join("\n\n", inhabitant.RecentMemories.Select(memory =>
-                $"{DisplayWorldClock(memory.WorldTick)} · {Pretty(memory.Visibility)} · about {memory.SubjectName}\n{memory.Summary}"));
+        var memoryRows = new List<(long WorldTick, int Kind, string Text)>();
+        memoryRows.AddRange(inhabitant.RecentBeliefs.Select(belief =>
+        {
+            var evidence = belief.Provenance switch
+            {
+                "firsthand" => "witnessed",
+                "hearsay" when belief.SourceAgentName is { } source => $"heard from {source}",
+                "hearsay" => "heard from someone",
+                _ => "inferred",
+            };
+            var subject = belief.AboutInhabitantId is { } subjectId
+                ? snapshot.Inhabitants.FirstOrDefault(person => person.Id == subjectId)?.DisplayName
+                : null;
+            var context = $"Belief · {evidence} · confidence {belief.ConfidenceBasisPoints / 100}%" +
+                (subject is null ? "" : $" · about {subject}") +
+                (belief.SourceEventId is { } sourceEvent ? $" · event #{sourceEvent}" : "") +
+                (belief.IsCorrected
+                    ? $" · corrected{(belief.CorrectedTick is { } correctedTick ? $" at {DisplayWorldClock(correctedTick)}" : "")}" : "");
+            return (belief.WorldTick, 0,
+                $"{DisplayWorldClock(belief.WorldTick)} · {context}\n{belief.Statement}");
+        }));
+        memoryRows.AddRange(inhabitant.RecentMemories.Select(memory =>
+            (memory.WorldTick, 1,
+                $"{DisplayWorldClock(memory.WorldTick)} · {Pretty(memory.Visibility)} · about {memory.SubjectName}\n{memory.Summary}")));
+        memoryHistory.Text = memoryRows.Count == 0
+            ? "No saved memories or beliefs for this agent yet."
+            : string.Join("\n\n", memoryRows.OrderByDescending(item => item.WorldTick)
+                .ThenBy(item => item.Kind).Select(item => item.Text));
         inhabitantSocialDetails.TooltipText = decision is null ? "" :
             $"Last accepted decision\nRole: {decision.Role ?? "not reported"}\nModel: {decision.Model ?? "not reported"}\nConfidence: {decision.Confidence:P0}\n" +
             $"Latency: {decision.LatencyMilliseconds?.ToString(CultureInfo.CurrentCulture) ?? "—"} ms\n" +

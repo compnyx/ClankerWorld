@@ -89,7 +89,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 19;
+    public const int StateSchemaVersion = 20;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -1455,6 +1455,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     public void Validate()
     {
         SocietyFixture.Validate(society.Checkpoint);
+        ValidateBeliefEventSources(society.Checkpoint.Beliefs ?? [], events, eventHistoryFloor);
         society.Validate();
         contentRegistry.Validate();
         worldContent.Validate();
@@ -3145,6 +3146,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             throw new InvalidDataException("The private-world runtime state schema or seed is invalid.");
         }
+        if (state.SchemaVersion < 20 && state.Society.Society.Beliefs is { Count: > 0 })
+            throw new InvalidDataException("Agent belief history requires private-world schema 20.");
         if (state.JevPolicyRevision < 0 || state.JevEnabled is null && state.JevPolicyRevision != 0 ||
             state.SchemaVersion < 15 && (state.JevEnabled is not null || state.JevPolicyRevision != 0))
             throw new InvalidDataException("The saved Jev routing policy is invalid.");
@@ -3171,6 +3174,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
 
         using var society = SocietyWorldRuntime.Restore(state.Society);
+        ValidateBeliefEventSources(state.Society.Society.Beliefs ?? [], state.Events, state.EventHistoryFloor);
         ValidateSurvival(state);
         ValidateCouncil(state);
         ValidateLessons(state);

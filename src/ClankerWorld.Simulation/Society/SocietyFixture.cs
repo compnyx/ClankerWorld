@@ -408,6 +408,70 @@ public static partial class SocietyFixture
         return Commit(next, "social_memory_recorded", memory.Id, memory.Id);
     }
 
+    /// <summary>
+    /// Adds an agent-owned belief without appending to the authoritative event
+    /// history. The public event stream remains a record of world outcomes.
+    /// </summary>
+    public static SocietyCheckpoint RecordAgentBelief(
+        SocietyCheckpoint checkpoint,
+        SocietyAgentBelief belief)
+    {
+        Validate(checkpoint);
+        ArgumentNullException.ThrowIfNull(belief);
+        var normalized = NormalizeBelief(belief);
+        EnsureActive(checkpoint, normalized.OwnerId);
+        ValidateBeliefInput(checkpoint, normalized, allowSupersedes: false);
+        if ((checkpoint.Beliefs ?? []).Any(item => item.Id == normalized.Id))
+            throw new InvalidOperationException("The agent belief ID is already used.");
+
+        return checkpoint with
+        {
+            Beliefs = (checkpoint.Beliefs ?? []).Append(normalized)
+                .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
+        };
+    }
+
+    /// <summary>
+    /// Keeps an agent's earlier belief as corrected history and records the
+    /// replacement. This changes neither simulation facts nor public events.
+    /// </summary>
+    public static SocietyCheckpoint CorrectAgentBelief(
+        SocietyCheckpoint checkpoint,
+        string ownerId,
+        string beliefId,
+        SocietyAgentBelief correction)
+    {
+        Validate(checkpoint);
+        var owner = NormalizeRequiredText(ownerId, nameof(ownerId));
+        var targetId = NormalizeRequiredText(beliefId, nameof(beliefId));
+        EnsureActive(checkpoint, owner);
+        ArgumentNullException.ThrowIfNull(correction);
+        var beliefs = checkpoint.Beliefs ?? [];
+        var previous = beliefs.SingleOrDefault(item => item.Id == targetId)
+            ?? throw new InvalidOperationException("The belief to correct does not exist.");
+        if (previous.OwnerId != owner || correction.OwnerId != owner)
+            throw new InvalidOperationException("An agent can correct only their own belief.");
+        if (previous.SupersededByBeliefId is not null)
+            throw new InvalidOperationException("The belief has already been corrected.");
+        if (correction.Id == previous.Id || beliefs.Any(item => item.Id == correction.Id))
+            throw new InvalidOperationException("The correction must use a new belief ID.");
+
+        var replacement = NormalizeBelief(correction) with
+        {
+            FormedTick = checkpoint.WorldTick,
+            SupersedesBeliefId = previous.Id,
+            SupersededByBeliefId = null,
+            SupersededTick = null,
+        };
+        ValidateBeliefInput(checkpoint, replacement, allowSupersedes: true);
+        var revised = beliefs.Select(item => item.Id == previous.Id
+                ? item with { SupersededByBeliefId = replacement.Id, SupersededTick = checkpoint.WorldTick }
+                : item)
+            .Append(replacement)
+            .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
+        return checkpoint with { Beliefs = revised };
+    }
+
     public static SocietyOperationResult CreateOrganization(
         SocietyCheckpoint checkpoint,
         string organizationId,
@@ -853,6 +917,7 @@ public static partial class SocietyFixture
         EnsureCanonicalIds(checkpoint.Relationships.Select(item => item.Id), "relationships");
         EnsureCanonicalIds(checkpoint.Organizations.Select(item => item.Id), "organizations");
         EnsureCanonicalIds(checkpoint.Memories.Select(item => item.Id), "memories");
+        ValidateAgentBeliefs(checkpoint);
         EnsureCanonicalIds(checkpoint.Estates.Select(item => item.Id), "estates");
         EnsureCanonicalIds(checkpoint.Births.Select(item => item.RequestId), "births");
         foreach (var estate in checkpoint.Estates)
@@ -913,6 +978,87 @@ public static partial class SocietyFixture
             previousTick = societyEvent.WorldTick;
         }
     }
+
+    private static void ValidateAgentBeliefs(SocietyCheckpoint checkpoint)
+    {
+        var beliefs = checkpoint.Beliefs ?? [];
+        EnsureCanonicalIds(beliefs.Select(item => item.Id), "agent beliefs");
+        var byId = beliefs.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        foreach (var belief in beliefs)
+        {
+            ValidateBeliefInput(checkpoint, belief, allowSupersedes: true);
+            if (belief.SupersedesBeliefId is { } priorId)
+            {
+                if (!byId.TryGetValue(priorId, out var prior) || prior.OwnerId != belief.OwnerId ||
+                    prior.SupersededByBeliefId != belief.Id || prior.SupersededTick != belief.FormedTick ||
+                    prior.FormedTick > belief.FormedTick)
+                    throw new InvalidDataException("An agent belief correction has no matching owner-private predecessor.");
+            }
+
+            if ((belief.SupersededByBeliefId is null) != (belief.SupersededTick is null))
+                throw new InvalidDataException("An agent belief correction link is incomplete.");
+            if (belief.SupersededByBeliefId is { } replacementId &&
+                (!byId.TryGetValue(replacementId, out var replacement) || replacement.OwnerId != belief.OwnerId ||
+                 replacement.SupersedesBeliefId != belief.Id || replacement.FormedTick != belief.SupersededTick))
+                throw new InvalidDataException("An agent belief correction link is inconsistent.");
+        }
+    }
+
+    private static void ValidateBeliefInput(
+        SocietyCheckpoint checkpoint,
+        SocietyAgentBelief belief,
+        bool allowSupersedes)
+    {
+        if (!IsCanonicalBoundedText(belief.Id, 128) || !IsCanonicalBoundedText(belief.OwnerId, 128) ||
+            !IsCanonicalBoundedText(belief.Statement, 512) ||
+            belief.Statement.Any(char.IsControl) || !Enum.IsDefined(belief.Provenance) ||
+            belief.ConfidenceBasisPoints is < 0 or > 10_000 || belief.FormedTick < 0 ||
+            belief.FormedTick > checkpoint.WorldTick || belief.SourceEventId is <= 0 ||
+            belief.SupersededTick is < 0 || belief.SupersededTick > checkpoint.WorldTick ||
+            belief.SupersededByBeliefId is { } superseding && !IsCanonicalBoundedText(superseding, 128) ||
+            belief.SupersedesBeliefId is { } superseded && !IsCanonicalBoundedText(superseded, 128))
+            throw new InvalidDataException("An agent belief has invalid bounded fields.");
+
+        if (!checkpoint.Inhabitants.Any(item => item.Id == belief.OwnerId) ||
+            belief.SourceAgentId is { } sourceAgent && !checkpoint.Inhabitants.Any(item => item.Id == sourceAgent) ||
+            belief.AboutInhabitantId is { } subject && !checkpoint.Inhabitants.Any(item => item.Id == subject))
+            throw new InvalidDataException("An agent belief references an unknown inhabitant.");
+
+        if ((belief.Provenance == SocietyBeliefProvenance.Hearsay &&
+             (belief.SourceAgentId is null || belief.SourceAgentId == belief.OwnerId)) ||
+            (belief.Provenance == SocietyBeliefProvenance.Firsthand &&
+             belief.SourceAgentId is not null && belief.SourceAgentId != belief.OwnerId))
+            throw new InvalidDataException("An agent belief's provenance does not match its witness or reporter.");
+
+        if ((!allowSupersedes && (belief.SupersedesBeliefId is not null ||
+                                  belief.SupersededByBeliefId is not null || belief.SupersededTick is not null)) ||
+            belief.SupersededByBeliefId is null && belief.SupersededTick is not null)
+            throw new InvalidDataException("Only a correction may link a belief to its predecessor.");
+    }
+
+    private static SocietyAgentBelief NormalizeBelief(SocietyAgentBelief belief) => belief with
+    {
+        Id = NormalizeRequiredText(belief.Id, nameof(belief.Id)),
+        OwnerId = NormalizeRequiredText(belief.OwnerId, nameof(belief.OwnerId)),
+        Statement = NormalizeBeliefStatement(belief.Statement),
+        SourceAgentId = NormalizeOptionalText(belief.SourceAgentId),
+        AboutInhabitantId = NormalizeOptionalText(belief.AboutInhabitantId),
+        SupersedesBeliefId = NormalizeOptionalText(belief.SupersedesBeliefId),
+        SupersededByBeliefId = NormalizeOptionalText(belief.SupersededByBeliefId),
+    };
+
+    private static string NormalizeBeliefStatement(string statement)
+    {
+        ArgumentNullException.ThrowIfNull(statement);
+        var normalized = statement.Trim();
+        if (normalized.Length is 0 or > 512 || normalized.Any(char.IsControl))
+            throw new ArgumentOutOfRangeException(nameof(statement), "A belief must be bounded single-line text.");
+        return normalized;
+    }
+
+    private static bool IsCanonicalBoundedText(string? value, int maximumLength) =>
+        value is { Length: > 0 } && value.Length <= maximumLength &&
+        value == value.Trim() && !value.Any(char.IsControl);
 
     private static SocietyOperationResult Kill(
         SocietyCheckpoint checkpoint,

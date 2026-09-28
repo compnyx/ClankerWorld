@@ -77,6 +77,17 @@ public sealed record ViewerInhabitantRelationship(
 
 public sealed record ViewerPrivateThought(long WorldTick, string Text);
 public sealed record ViewerAgentMemory(long WorldTick, string SubjectId, string SubjectName, string Summary, string Visibility);
+public sealed record ViewerAgentBelief(
+    long WorldTick,
+    string Statement,
+    string Provenance,
+    int ConfidenceBasisPoints,
+    string? SourceAgentId,
+    string? SourceAgentName,
+    long? SourceEventId,
+    string? AboutInhabitantId,
+    bool IsCorrected,
+    long? CorrectedTick);
 public sealed record ViewerCalendarPace(int TicksPerDay, int DaysPerYear);
 
 /// <summary>
@@ -110,6 +121,8 @@ public sealed record ViewerInhabitant(
     public IReadOnlyList<ViewerPrivateThought> RecentPrivateThoughts { get; init; } = [];
 
     public IReadOnlyList<ViewerAgentMemory> RecentMemories { get; init; } = [];
+
+    public IReadOnlyList<ViewerAgentBelief> RecentBeliefs { get; init; } = [];
 }
 
 public sealed record ViewerProject(string Label, string Stage, int WorkDone, int WorkRequired, string? Blocker, long StartedTick);

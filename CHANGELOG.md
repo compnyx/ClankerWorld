@@ -13,6 +13,10 @@ release yet.
   or give the whole estate to a living agent. Invalid, unavailable, timed-out or
   interrupted choices use the household default. The result survives saves and
   appears on the deceased agent card and in the Event Log.
+- Agent memory inspection can distinguish owner-private beliefs from social
+  memories, showing firsthand/hearsay/inference provenance, confidence, and
+  retained correction history. Beliefs stay out of the public event log;
+  schema-19 private saves remain loadable and migrate to schema 20.
 
 ### Fixed
 

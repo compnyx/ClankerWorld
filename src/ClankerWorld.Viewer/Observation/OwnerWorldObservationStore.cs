@@ -569,6 +569,7 @@ public sealed class OwnerWorldObservationStore
             RecentPrivateThoughts = (physical.RecentThoughts ?? [])
                 .Select(thought => new ViewerPrivateThought(thought.WorldTick, thought.Text)).ToArray(),
             RecentMemories = MemoriesFor(state, inhabitant.Id),
+            RecentBeliefs = BeliefsFor(state, inhabitant.Id),
             Project = physical.Project is { } project
                 ? new ViewerProject(project.Label, project.Stage, project.WorkDone, 10, project.Blocker, project.StartedTick)
                 : null,
@@ -638,6 +639,7 @@ public sealed class OwnerWorldObservationStore
             RecentPrivateThoughts = (lastPhysical.RecentThoughts ?? [])
                 .Select(thought => new ViewerPrivateThought(thought.WorldTick, thought.Text)).ToArray(),
             RecentMemories = MemoriesFor(state, inhabitant.Id),
+            RecentBeliefs = BeliefsFor(state, inhabitant.Id),
             Proficiency = lastPhysical.Proficiency is { } practice
                 ? new ViewerProficiency(practice.Building, practice.Farming, practice.Crafting) : null,
             SocialStanding = SocialStandingFor(state, inhabitant.Id, lastPhysical),
@@ -656,6 +658,27 @@ public sealed class OwnerWorldObservationStore
                 state.Society.Society.Inhabitants.FirstOrDefault(person => person.Id == memory.SubjectId)?.Name ?? memory.SubjectId,
                 memory.Summary,
                 memory.Visibility))
+            .ToArray();
+
+    private static ViewerAgentBelief[] BeliefsFor(PrivateWorldRuntimeState state, string ownerId) =>
+        (state.Society.Society.Beliefs ?? [])
+            .Where(belief => belief.OwnerId == ownerId)
+            .OrderByDescending(belief => belief.FormedTick)
+            .ThenBy(belief => belief.Id, StringComparer.Ordinal)
+            .Take(16)
+            .Select(belief => new ViewerAgentBelief(
+                belief.FormedTick,
+                belief.Statement,
+                belief.Provenance.ToString().ToLowerInvariant(),
+                belief.ConfidenceBasisPoints,
+                belief.SourceAgentId,
+                belief.SourceAgentId is { } sourceId
+                    ? state.Society.Society.Inhabitants.FirstOrDefault(person => person.Id == sourceId)?.Name ?? sourceId
+                    : null,
+                belief.SourceEventId,
+                belief.AboutInhabitantId,
+                belief.SupersededByBeliefId is not null,
+                belief.SupersededTick))
             .ToArray();
 
     private static ViewerSocialStanding[] SocialStandingFor(

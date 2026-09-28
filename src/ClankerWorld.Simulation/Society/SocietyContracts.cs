@@ -241,6 +241,34 @@ public sealed record SocietySocialMemory(
     long SourceTick,
     long? TombstonedTick = null);
 
+/// <summary>The evidence basis for an agent-owned account, not a world fact.</summary>
+public enum SocietyBeliefProvenance
+{
+    Firsthand,
+    Hearsay,
+    Inference,
+}
+
+/// <summary>
+/// A bounded, owner-private claim about what happened. Correction links retain
+/// the earlier belief for inspection; neither record is an authoritative event.
+/// </summary>
+/// <param name="SourceAgentId">The reporter for hearsay; firsthand evidence is owned by the witness.</param>
+/// <param name="SourceEventId">An optional reference to an authoritative world-event ID behind the account.</param>
+public sealed record SocietyAgentBelief(
+    string Id,
+    string OwnerId,
+    string Statement,
+    SocietyBeliefProvenance Provenance,
+    int ConfidenceBasisPoints,
+    long FormedTick,
+    string? SourceAgentId = null,
+    long? SourceEventId = null,
+    string? AboutInhabitantId = null,
+    string? SupersedesBeliefId = null,
+    string? SupersededByBeliefId = null,
+    long? SupersededTick = null);
+
 public sealed record SocietyBirthRequest(
     string Id,
     int Revision,
@@ -300,6 +328,9 @@ public sealed record SocietyCheckpoint(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long EventHistoryFloor = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SocietyLifeClock? LifeClock = null)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<SocietyAgentBelief>? Beliefs { get; init; }
+
     public long LifeTickAt(long worldTick) => LifeClock?.At(worldTick) ?? worldTick;
 
     public int AgeAt(SocietyInhabitant inhabitant, long worldTick) =>

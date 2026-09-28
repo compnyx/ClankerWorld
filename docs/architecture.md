@@ -186,9 +186,13 @@ Jev-assisted memory compaction is not implemented yet.
   are not hidden model reasoning, public dialogue, or knowledge transferred to
   another agent. The owner can inspect up to 16 recent, non-tombstoned social
   memories per agent, including private records and deceased profiles; this is
-  distinct from public dialogue and the authoritative event log. Belief
-  uncertainty, broad episodic recall and Jev-assisted compaction are not yet
-  implemented.
+  distinct from public dialogue and the authoritative event log. A separate
+  owner-private belief ledger stores bounded statements with firsthand,
+  hearsay, or inference provenance and confidence. Corrections retain the old
+  belief as superseded history without appending a public event or changing
+  world facts; the owner inspection projection shows that evidence and status.
+  Beliefs are not yet generated from conversations or shared automatically,
+  and broad episodic recall and Jev-assisted compaction remain unimplemented.
 - Live physical actors remain separate from saved deceased records. On death,
   the runtime archives the last physical state and frozen age alongside the
   society death record, then removes the actor from active movement and work.
