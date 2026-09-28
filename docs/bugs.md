@@ -68,12 +68,15 @@ the resolution evidence below.
   elevation inspection. Check the reported world's seed/map before calling
   this an absence or changing thresholds.
 - **Agent-chosen names feel too similar — playtest report, cause not proven:**
-  the current model prompt gives each unnamed agent the same short naming
-  instruction and no world culture, existing-name context or uniqueness rule.
-  This plausibly narrows variety, but actual outputs and models are needed to
-  distinguish prompt effects from repetition by a particular provider. The
-  intended naming flow keeps self-chosen full names without sending the whole
-  existing-name list to the model, and rejects a taken full name for retry.
+  the provider prompt now asks for a full name with a given name and
+  family/surname, with a middle name optional, matching the accepted name
+  format. World-specific cultural context remains undecided, and the whole
+  existing-name list is intentionally not sent to the model. The accepted goal
+  is exact full-name rejection while allowing similar-but-distinct names. The
+  runtime only trims chosen names and rejects empty, control-character or over-48-character
+  values; it does not reject duplicate full names or implement explicit
+  collision retry/fallback. Exact-comparison normalization and retry/fallback
+  details remain unresolved before implementation.
 
 ## Original reports and resolution evidence
 

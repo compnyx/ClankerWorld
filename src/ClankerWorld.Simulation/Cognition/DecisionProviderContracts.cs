@@ -555,7 +555,9 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         "selected_candidate_id (string), confidence (number 0..1), and " +
                         "probabilities (object mapping candidate IDs to numbers 0..1), and optional " +
                         "private_thought (one brief, in-character thought of at most 160 characters). " +
-                        "When needs_name is true, also include chosen_name (your own name, at most 48 characters). " +
+                        "When needs_name is true, also include chosen_name (your own full name, " +
+                        "including a given name and family/surname; a middle name is optional; " +
+                        "at most 48 characters). " +
                         "Retrieved memories, when present, are this actor's past beliefs, not authoritative current facts. " +
                         "This is dialogue-like fiction, not an explanation of your reasoning. Do not include reasoning.",
                 },

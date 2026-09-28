@@ -18,6 +18,8 @@ release yet.
 
 - Main Menu Settings now accepts clicks while keeping the title backdrop visible;
   Back returns to the Main Menu instead of leaving the game apparently frozen.
+- New agents' personal models are now asked to choose a full name with a family
+  name; a middle name is optional.
 - Turning Jev off now keeps agents' saved social memories useful in personal-model decisions. Each agent receives only a small, relevant set of its own non-forgotten memories; provider failures do not add or share memories.
 - Generated Small/Medium maps now keep climate, elevation, water, surface and
   vegetation cover distinct through saves, previews and owner observations.
