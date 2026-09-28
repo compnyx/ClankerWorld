@@ -335,7 +335,7 @@ public sealed partial class PrivateWorldRuntime
         GridPoint position;
         if (building is not null)
         {
-            var layout = CreateTownLayoutContext(inhabitantId);
+            var layout = CreateTownLayoutContext(inhabitantId, selection.SitePosition);
             if (selection.SitePosition is { } selectedSite)
             {
                 if (!TownLayoutService.TryEvaluateConstructionSite(layout, building, selectedSite, out _))

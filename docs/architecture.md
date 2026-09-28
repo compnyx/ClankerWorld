@@ -298,7 +298,8 @@ capture or generated narrative summaries.
 - Site scope deliberately follows the current #165 geometry/membership model:
   a resident's single saved Town rectangle plus its one-tile margin; no wrap-
   seam extension, ownership-claim graph or second-Town conflict check exists.
-  Legacy worlds with no saved Town retain map-wide site eligibility. Material
+  Legacy worlds with no saved Town offer a bounded set of nearby reachable
+  sites; an already-saved distant choice still receives an exact route check. Material
   proximity and related-building purpose are ranked only from current map
   resources and placed definitions; absent future claims/Towns are not inferred.
 - The current content path accepts bounded, validated data-only designs.

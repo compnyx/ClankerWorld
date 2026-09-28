@@ -18,13 +18,14 @@ public sealed partial class PrivateWorldRuntime
         if (ownedCount >= AgentKnowledgeRules.MaximumFactsPerAgent)
             return false;
 
-        var tile = map.Tiles.First(item => item.Position == position);
+        if (map.TerrainKindAt(position) is not { } terrain)
+            return false;
         var resourcesAtTile = map.Resources.Where(item => item.Position == position)
             .Select(item => item.Kind).Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal).Take(AgentKnowledgeRules.MaximumResourceKindsPerFact).ToArray();
         var fact = new AgentKnowledgeFact(
             KnowledgeFactId(actor, position), actor, actor, position,
-            tile.Terrain.ToString(), resourcesAtTile, WorldTick, "firsthand");
+            terrain.ToString(), resourcesAtTile, WorldTick, "firsthand");
         knowledge = knowledge with
         {
             Facts = knowledge.Facts.Append(fact).ToArray(),

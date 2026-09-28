@@ -1827,7 +1827,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
     }
 
-    private TownLayoutContext CreateTownLayoutContext(string actor)
+    private TownLayoutContext CreateTownLayoutContext(string actor, GridPoint? selectedSite = null)
     {
         var origin = inhabitants[actor].Position;
         var town = towns.SingleOrDefault(item => item.ResidentIds.Contains(actor, StringComparer.Ordinal));
@@ -1853,35 +1853,51 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             map,
             town,
             occupied,
-            FindUnoccupiedFootCosts(actor, origin, town, occupied),
+            FindUnoccupiedFootCosts(actor, origin, town, occupied, selectedSite),
             resourcesForLayout,
             buildingsForLayout);
     }
 
     private Dictionary<GridPoint, int> FindUnoccupiedFootCosts(
         string inhabitantId, GridPoint origin, TownRuntimeState? town,
-        HashSet<GridPoint> occupiedSites)
+        HashSet<GridPoint> occupiedSites, GridPoint? selectedSite)
     {
         var occupied = inhabitants.Values
             .Where(item => item.InhabitantId != inhabitantId)
             .Select(item => item.Position)
             .ToHashSet();
-        // Only construction anchors need a cost. Stop Dijkstra once all
-        // potentially buildable anchors are settled instead of exploring the
-        // entire (possibly 512x256) world for each Town decision.
-        var pendingAnchors = TownLayoutContext.CandidateBounds(map, town)
+        // A Town has bounded construction anchors. Legacy worlds without a
+        // Town consider the nearest 32 viable anchors; an already chosen site
+        // remains a mandatory route target, however far away it was saved.
+        var pendingAnchors = town is null ? null : TownLayoutContext.CandidateBounds(map, town)
             .Where(point => map.IsBuildable(point) && !occupiedSites.Contains(point))
             .ToHashSet();
         var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
         var best = new Dictionary<GridPoint, int> { [origin] = 0 };
+        var settled = new Dictionary<GridPoint, int>();
+        var viableLegacyAnchors = 0;
+        var selectedSiteReached = selectedSite is null ||
+            pendingAnchors is not null && !pendingAnchors.Contains(selectedSite.Value);
         var order = 0;
         open.Enqueue(origin, (0, origin.Y, origin.X, order++));
         while (open.TryDequeue(out var current, out var priority))
         {
             if (priority.Cost != best[current])
                 continue;
-            pendingAnchors.Remove(current);
-            if (pendingAnchors.Count == 0)
+            settled[current] = priority.Cost;
+            if (current == selectedSite)
+                selectedSiteReached = true;
+            if (pendingAnchors is null)
+            {
+                if (map.IsBuildable(current) && !occupiedSites.Contains(current))
+                    viableLegacyAnchors++;
+            }
+            else
+            {
+                pendingAnchors.Remove(current);
+            }
+            if (selectedSiteReached && (pendingAnchors?.Count == 0 ||
+                pendingAnchors is null && viableLegacyAnchors >= 32))
                 break;
             foreach (var next in map.FootNeighbors(current))
             {
@@ -1899,7 +1915,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
         }
 
-        return best;
+        return settled;
     }
 
     private bool TryFindRecipeSite(
@@ -2895,7 +2911,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         if (selection.IsBuilding)
         {
             var definition = worldContent.Buildings.SingleOrDefault(item => item.CanonicalId == selection.DefinitionId);
-            var layout = CreateTownLayoutContext(inhabitantId);
+            var layout = CreateTownLayoutContext(inhabitantId, selection.SitePosition);
             TownConstructionSiteCandidate? rankedSite = null;
             if (definition is not null)
             {

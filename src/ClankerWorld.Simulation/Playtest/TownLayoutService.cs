@@ -64,7 +64,9 @@ public sealed class TownLayoutContext
             throw new ArgumentException("Reachable site costs must be non-negative map positions.", nameof(reachableFootCosts));
         Resources = resources.ToArray();
         Buildings = buildings.ToArray();
-        CandidateAnchors = CandidateBounds(map, town);
+        CandidateAnchors = town is null
+            ? ReachableFootCosts.Keys.OrderBy(point => point.Y).ThenBy(point => point.X).ToArray()
+            : CandidateBounds(map, town);
     }
 
     public SeededMap Map { get; }
