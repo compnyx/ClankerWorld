@@ -88,6 +88,13 @@ the resolution evidence below.
 
 ## Original reports and resolution evidence
 
+- **New World preview HTTP 409 — fixed in server build, paired retry pending:**
+  preview was rejected when the previously selected world was not paused,
+  even though generating the preview does not change that world. The preview
+  pause gate is removed; Create World still asks the host to pause before it
+  switches worlds. A signed HTTP regression covers preview from a running
+  world and confirms no world/catalog mutation. Computment's Windows retry
+  remains the final live check.
 - **Main Menu Settings clicks blocked — fixed in repository build, laptop check
   pending:** the title overlay stayed visible above Settings in input order,
   swallowing clicks even though the Settings panel drew in front. It now passes

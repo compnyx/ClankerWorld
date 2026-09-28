@@ -14,6 +14,43 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed partial class ViewerHttpTests
 {
     [Fact]
+    public async Task SignedNewWorldPreviewWorksWhileCurrentWorldIsRunningWithoutChangingIt()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-running-preview-");
+        try
+        {
+            using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            using var host = new ViewerWebApplicationFactory(directory.FullName, privateWorld: true);
+            using var client = host.CreateClient();
+            var device = await StartAndActivateAsync(host, client, key);
+            var runtime = host.Services.GetRequiredService<PrivateWorldRuntime>();
+            Assert.False(runtime.Society.IsPaused);
+            var before = runtime.ExportState();
+            var options = new OwnerWorldCreationAction("New World", "running-preview-seed",
+                "Medium", 45, true, "Balanced", "Temperate", true, "Normal");
+
+            using var previewed = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/worlds/preview", options,
+                OwnerHttpBinding.WorldCreationPayload(options));
+            Assert.Equal(HttpStatusCode.OK, previewed.StatusCode);
+            var preview = (await previewed.Content.ReadFromJsonAsync<ViewerWorldPreview>())!;
+            Assert.Equal(512, preview.Terrain.Width);
+            Assert.Equal(256, preview.Terrain.Height);
+            Assert.Equal(before.Society.Society.WorldId, runtime.Society.WorldId);
+            Assert.Equal(before.Society.Society.WorldTick, runtime.WorldTick);
+            Assert.False(runtime.Society.IsPaused);
+            Assert.Single(host.Services.GetRequiredService<WorldCatalogStore>().Capture().Worlds);
+
+            using var refusedCreation = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/worlds/create", options,
+                OwnerHttpBinding.WorldCreationPayload(options));
+            Assert.Equal(HttpStatusCode.Conflict, refusedCreation.StatusCode);
+            Assert.Single(host.Services.GetRequiredService<WorldCatalogStore>().Capture().Worlds);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public async Task SignedWorldCreationAndSelectionKeepTwoIndependentPausedWorldsAcrossRestart()
     {
         var directory = Directory.CreateTempSubdirectory("clankerworld-world-catalog-");

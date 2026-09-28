@@ -120,6 +120,9 @@ release yet.
 
 ### Fixed
 
+- New World map preview no longer fails with HTTP 409 when the previously
+  selected world is running. Preview leaves that world untouched; creating or
+  selecting a different world still pauses it first.
 - Regional storms now end within three-quarters of a game day, becoming rain
   for the rest of that day. The world, inspected weather and resumed saves use
   the same transition, so severe exposure cannot persist through a full day.

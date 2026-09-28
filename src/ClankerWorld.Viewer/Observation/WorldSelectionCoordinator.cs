@@ -74,7 +74,9 @@ public sealed class WorldSelectionCoordinator(
             throw new ArgumentException("Only Small and Medium are playable yet.", nameof(geography));
         lock (gate)
         {
-            RequirePaused();
+            // Preview is read-only. The title screen can preview a new map while
+            // the currently selected world is running or waiting for a client;
+            // Create and Select still require a confirmed pause.
             var map = GeneratedCampMapGenerator.Generate(geography);
             var camp = map.GetObject("storage").Position;
             WorldSelectionTelemetry.Previewed(logger, map.Width, map.Height);
