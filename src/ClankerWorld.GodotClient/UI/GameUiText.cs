@@ -14,7 +14,7 @@ public static class GameUiText
 
     public static string ResourceTooltip(OwnerWorldResource resource)
     {
-        var title = resource.Kind switch
+        var title = NaturalObjectName(resource.NaturalObjectKind) ?? resource.Kind switch
         {
             "construction" => "Wild timber",
             "food" => "Wild food",
@@ -28,6 +28,22 @@ public static class GameUiText
                 : "Renewable — regrowth details unavailable from this host.";
         return title + (stock.Length == 0 ? "" : " · " + stock) + "\n" + HumanizeIdentifier(resource.State) + "\n" + renewal;
     }
+
+    private static string? NaturalObjectName(string? value) => value switch
+    {
+        "berry_bush" => "Berry bush",
+        "wild_greens" => "Wild greens",
+        "fiber_plant" => "Fiber plant",
+        "reeds" => "Reeds",
+        "stone_outcrop" => "Stone outcrop",
+        "iron_outcrop" => "Iron outcrop",
+        "gold_outcrop" => "Gold outcrop",
+        "diamond_outcrop" => "Diamond outcrop",
+        "clay_bank" => "Clay bank",
+        "wild_seed_patch" => "Wild seed patch",
+        "fertile_soil" => "Fertile soil",
+        _ => null,
+    };
 
     public static string FormatWorldClock(long worldTick, bool useTwelveHourClock = false,
         OwnerWorldCalendarPace? calendarPace = null, string dateFormat = "dmy")

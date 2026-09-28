@@ -34,9 +34,34 @@ public sealed partial class PrivateWorldRuntime
         }
         if (generated.ManifestDigest == state.Map.ManifestDigest)
             return true;
-        var previousTrees = generated with
+        var withoutNaturalDetails = generated with
+        {
+            Resources = generated.Resources.Select(resource => resource with { NaturalObjectKind = null }).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        withoutNaturalDetails = withoutNaturalDetails with
+        {
+            ManifestDigest = MapManifestCodec.Digest(withoutNaturalDetails),
+        };
+        var withoutGeology = generated with
         {
             Resources = generated.Resources.Where(resource =>
+                !resource.Id.StartsWith("geology-", StringComparison.Ordinal)).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        withoutGeology = withoutGeology with { ManifestDigest = MapManifestCodec.Digest(withoutGeology) };
+        var legacyNaturalDetails = withoutGeology with
+        {
+            Resources = withoutGeology.Resources.Select(resource => resource with { NaturalObjectKind = null }).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        legacyNaturalDetails = legacyNaturalDetails with
+        {
+            ManifestDigest = MapManifestCodec.Digest(legacyNaturalDetails),
+        };
+        var previousTrees = legacyNaturalDetails with
+        {
+            Resources = legacyNaturalDetails.Resources.Where(resource =>
                 !resource.Id.StartsWith("orchard-", StringComparison.Ordinal)).ToArray(),
             ManifestDigest = string.Empty,
         };
@@ -51,7 +76,8 @@ public sealed partial class PrivateWorldRuntime
         {
             ManifestDigest = MapManifestCodec.Digest(previousVegetation),
         };
-        foreach (var baseline in new[] { generated, previousTrees, previousVegetation })
+        foreach (var baseline in new[]
+                 { generated, withoutNaturalDetails, withoutGeology, legacyNaturalDetails, previousTrees, previousVegetation })
         {
             if (SavedMapMatchesBaseline(state, baseline)) return true;
         }

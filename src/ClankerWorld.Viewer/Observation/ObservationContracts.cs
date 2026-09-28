@@ -31,7 +31,7 @@ public sealed record ViewerMapObject(string Id, string Kind, ViewerPosition Posi
 public sealed record ViewerResource(string Id, string Kind, ViewerPosition Position, bool IsRenewable, string State,
     int? Quantity = null, int? Capacity = null, int? RegenerationAmount = null,
     int? RegenerationIntervalDays = null, string? RegenerationSeason = null, string? TreeKind = null,
-    bool IsPlanted = false, string? TreeStage = null);
+    bool IsPlanted = false, string? TreeStage = null, string? NaturalObjectKind = null);
 
 public sealed record ViewerActor(
     string Id,

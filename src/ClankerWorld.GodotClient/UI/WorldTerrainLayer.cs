@@ -14,6 +14,8 @@ public partial class WorldTerrainLayer : Control
     private Vector2I? hoveredTile;
     private Vector2I? selectedTile;
     private byte[] trees = [];
+    private byte[] naturalObjects = [];
+    private byte[] naturalStages = [];
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
 
@@ -34,9 +36,11 @@ public partial class WorldTerrainLayer : Control
         var image = Image.CreateEmpty(map.Width, map.Height, false, Image.Format.Rgba8);
         for (var y = 0; y < map.Height; y++)
             for (var x = 0; x < map.Width; x++)
-                image.SetPixel(x, y, map.DisplayColorAt(x, y));
+                image.SetPixel(x, y, map.PaletteColorAt(x, y));
         paletteTexture = ImageTexture.CreateFromImage(image);
         trees = new byte[checked(map.Width * map.Height)];
+        naturalObjects = new byte[checked(map.Width * map.Height)];
+        naturalStages = new byte[checked(map.Width * map.Height)];
         weatherRegions.Clear();
         QueueRedraw();
     }
@@ -133,6 +137,77 @@ public partial class WorldTerrainLayer : Control
         };
     }
 
+    public string? NaturalObjectNameAt(int x, int y)
+    {
+        if (world is null || x < 0 || y < 0 || x >= world.Width || y >= world.Height) return null;
+        return naturalObjects[y * world.Width + x] switch
+        {
+            1 => "Berry bush",
+            2 => "Wild greens",
+            3 => "Fiber plant",
+            4 => "Reeds",
+            5 => "Stone outcrop",
+            6 => "Wild seed patch",
+            7 => "Fertile soil",
+            8 => "Iron outcrop",
+            9 => "Gold outcrop",
+            10 => "Diamond outcrop",
+            11 => "Clay bank",
+            _ => null,
+        };
+    }
+
+    public string? NaturalObjectStageAt(int x, int y)
+    {
+        if (world is null || x < 0 || y < 0 || x >= world.Width || y >= world.Height) return null;
+        return naturalStages[y * world.Width + x] switch
+        {
+            1 => "depleted",
+            2 => "regrowing",
+            _ => NaturalObjectNameAt(x, y) is null ? null : "available",
+        };
+    }
+
+    public void SetNaturalObjects(IReadOnlyList<OwnerWorldResource> resources)
+    {
+        if (world is null) return;
+        ArgumentNullException.ThrowIfNull(resources);
+        var next = new byte[checked(world.Width * world.Height)];
+        var stages = new byte[next.Length];
+        foreach (var resource in resources)
+        {
+            var kind = resource.NaturalObjectKind switch
+            {
+                "berry_bush" => (byte)1,
+                "wild_greens" => (byte)2,
+                "fiber_plant" => (byte)3,
+                "reeds" => (byte)4,
+                "stone_outcrop" => (byte)5,
+                "wild_seed_patch" => (byte)6,
+                "fertile_soil" => (byte)7,
+                "iron_outcrop" => (byte)8,
+                "gold_outcrop" => (byte)9,
+                "diamond_outcrop" => (byte)10,
+                "clay_bank" => (byte)11,
+                _ => (byte)0,
+            };
+            if (kind == 0) continue;
+            var x = resource.Position.X;
+            var y = resource.Position.Y;
+            if (x < 0 || x >= world.Width || y < 0 || y >= world.Height) continue;
+            var index = y * world.Width + x;
+            if (trees[index] != 0 || next[index] != 0)
+                throw new InvalidDataException("Generated natural objects cannot overlap another tree or natural object.");
+            next[index] = kind;
+            stages[index] = resource.Quantity == 0 || resource.State != "available"
+                ? resource.IsRenewable ? (byte)2 : (byte)1
+                : (byte)0;
+        }
+        naturalObjects = next;
+        naturalStages = stages;
+        QueueRedraw();
+    }
+
     public void SetHoveredTile(Vector2I? tile)
     {
         if (hoveredTile == tile) return;
@@ -178,7 +253,6 @@ public partial class WorldTerrainLayer : Control
             for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
             {
                 var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
-                var kind = world.At(mapX, y);
                 var position = new Vector2(x * stride, y * stride);
                 DrawRect(new Rect2(position, new Vector2(tileSize, tileSize)), world.DisplayColorAt(mapX, y));
                 if (tileSize >= 28 && world.DisplayMarkerAt(mapX, y) is { } marker)
@@ -189,6 +263,7 @@ public partial class WorldTerrainLayer : Control
             }
         }
         DrawWeatherClouds(bounds, stride);
+        DrawSurfaceDetails(bounds, stride);
         // Trees are objects, not baked ground colors: keep them visible both
         // above full-size tiles and above the small-tile palette cache.
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
@@ -196,6 +271,10 @@ public partial class WorldTerrainLayer : Control
             {
                 var tree = trees[y * world.Width + (wrapsEastWest ? Mod(x, world.Width) : x)];
                 if (tree != 0) DrawTree(new Vector2(x * stride, y * stride), tree);
+                var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
+                var index = y * world.Width + mapX;
+                if (naturalObjects[index] != 0)
+                    DrawNaturalObject(new Vector2(x * stride, y * stride), naturalObjects[index], naturalStages[index]);
             }
         DrawPrecipitation(bounds, stride);
         if (hoveredTile is { } hover && tileSize > 0 &&
@@ -221,6 +300,216 @@ public partial class WorldTerrainLayer : Control
                     new Color("FFD166"), filled: false, width: tileSize >= 12 ? 3 : 2);
             }
         }
+    }
+
+    private void DrawSurfaceDetails((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || tileSize <= 0) return;
+        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            {
+                var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
+                var surface = world.RenderSurfaceAt(mapX, y);
+                var variant = world.SurfaceVariantAt(mapX, y);
+                var hash = unchecked((uint)(mapX * 73856093) ^ (uint)(y * 19349663) ^ (uint)(surface * 83492791));
+                var position = new Vector2(x * stride, y * stride);
+                DrawSurfaceTexture(position, mapX, y, surface, variant, hash);
+                DrawSurfaceTransitions(position, mapX, y);
+            }
+    }
+
+    private void DrawSurfaceTexture(Vector2 position, int x, int y, byte surface, byte variant, uint hash)
+    {
+        var point = new Vector2(tileSize * (0.18f + ((hash >> 4) % 5) * 0.13f),
+            tileSize * (0.2f + ((hash >> 9) % 5) * 0.12f));
+        var accent = variant == 0 ? new Color(0.13f, 0.17f, 0.10f, 0.20f) :
+            new Color(0.92f, 0.91f, 0.77f, 0.18f);
+        var unit = Math.Max(1f, tileSize / 20f);
+        if (surface == 4)
+        {
+            DrawLine(position + new Vector2(tileSize * 0.24f, tileSize * 0.56f),
+                position + new Vector2(tileSize * 0.66f, tileSize * 0.50f), new Color("A4C8D2", 0.22f), unit);
+            return;
+        }
+        if (tileSize < 12)
+        {
+            if (variant == 0)
+                DrawRect(new Rect2(position + point, new Vector2(1, 1)), accent);
+            return;
+        }
+
+        switch (surface)
+        {
+            case 0: // meadow
+            case 5: // forest floor
+                DrawRect(new Rect2(position + point, new Vector2(unit, unit * 2)), accent);
+                DrawRect(new Rect2(position + point + new Vector2(unit, unit), new Vector2(unit, unit)), accent);
+                break;
+            case 1: // sand / beach
+                DrawCircle(position + point, unit, accent);
+                DrawCircle(position + new Vector2(tileSize * 0.74f, tileSize * 0.73f), unit * 0.65f,
+                    new Color("E5D2A3", 0.25f));
+                break;
+            case 2: // rocky upland
+                DrawRect(new Rect2(position + point, new Vector2(unit * 2.1f, unit)), new Color("3C3D3A", 0.3f));
+                DrawRect(new Rect2(position + new Vector2(tileSize * 0.65f, tileSize * 0.68f),
+                    new Vector2(unit * 1.5f, unit)), new Color("C0B9AA", 0.28f));
+                break;
+            case 3: // snow/tundra
+                DrawCircle(position + point, unit, new Color("FFFFFF", 0.35f));
+                DrawCircle(position + new Vector2(tileSize * 0.72f, tileSize * 0.76f), unit * 0.7f,
+                    new Color("90A4A5", 0.18f));
+                break;
+            case 6: // dry scrub
+                DrawCircle(position + point, unit * 0.9f, new Color("564D34", 0.28f));
+                if (world?.VegetationAt(x, y) == 5)
+                    DrawPricklyPlant(position + new Vector2(tileSize * 0.65f, tileSize * 0.58f), unit);
+                break;
+            case 7: // fertile soil
+                DrawLine(position + new Vector2(tileSize * 0.20f, tileSize * 0.72f),
+                    position + new Vector2(tileSize * 0.78f, tileSize * 0.67f), new Color("C6A66B", 0.34f), unit);
+                DrawLine(position + new Vector2(tileSize * 0.25f, tileSize * 0.83f),
+                    position + new Vector2(tileSize * 0.73f, tileSize * 0.78f), new Color("483A2E", 0.28f), unit);
+                break;
+        }
+    }
+
+    private void DrawSurfaceTransitions(Vector2 position, int x, int y)
+    {
+        if (world is null || tileSize < 14) return;
+        var waterEdges = world.WaterEdgeMaskAt(x, y, wrapsEastWest);
+        var surfaceEdges = world.SurfaceBoundaryMaskAt(x, y, wrapsEastWest);
+        if ((waterEdges | surfaceEdges) == 0) return;
+        var width = Math.Max(1f, tileSize / 18f);
+        for (var side = 0; side < 4; side++)
+        {
+            var bit = (byte)(1 << side);
+            if (((waterEdges | surfaceEdges) & bit) == 0) continue;
+            var start = side switch
+            {
+                0 => new Vector2(tileSize * 0.15f, tileSize * 0.08f),
+                1 => new Vector2(tileSize * 0.91f, tileSize * 0.16f),
+                2 => new Vector2(tileSize * 0.13f, tileSize * 0.91f),
+                _ => new Vector2(tileSize * 0.08f, tileSize * 0.18f),
+            };
+            var end = side switch
+            {
+                0 => new Vector2(tileSize * 0.79f, tileSize * 0.08f),
+                1 => new Vector2(tileSize * 0.91f, tileSize * 0.77f),
+                2 => new Vector2(tileSize * 0.78f, tileSize * 0.91f),
+                _ => new Vector2(tileSize * 0.08f, tileSize * 0.8f),
+            };
+            var color = (waterEdges & bit) != 0 ? new Color("D7C69B", 0.74f) :
+                new Color("E7E2CD", 0.46f);
+            DrawLine(position + start, position + end, color, width);
+        }
+    }
+
+    private void DrawPricklyPlant(Vector2 center, float unit)
+    {
+        var green = new Color("61794B", 0.78f);
+        DrawLine(center + new Vector2(0, unit * 2), center - new Vector2(0, unit * 2), green, unit * 1.4f);
+        DrawLine(center + new Vector2(-unit * 1.8f, unit), center - new Vector2(-unit * 1.4f, unit), green, unit);
+        DrawLine(center + new Vector2(unit * 1.8f, unit * 1.4f), center - new Vector2(unit * 1.6f, unit * 0.6f), green, unit);
+    }
+
+    private void DrawNaturalObject(Vector2 position, byte kind, byte stage)
+    {
+        var center = position + new Vector2(tileSize * 0.5f, tileSize * 0.56f);
+        var scale = Math.Max(1f, tileSize / 24f);
+        if (stage == 1)
+        {
+            DrawCircle(center, Math.Max(2f, tileSize * 0.18f), new Color("77766D", 0.78f));
+            DrawCircle(center, Math.Max(1f, tileSize * 0.1f), new Color("A69A81", 0.72f));
+            return;
+        }
+        if (stage == 2)
+        {
+            DrawCircle(center, Math.Max(1.5f, tileSize * 0.10f), new Color("658451", 0.74f));
+            return;
+        }
+        switch (kind)
+        {
+            case 1: // berry bush
+                DrawCircle(center, tileSize * 0.24f, new Color("426744"));
+                DrawCircle(center + new Vector2(-tileSize * 0.11f, -tileSize * 0.05f), tileSize * 0.14f, new Color("629052"));
+                DrawCircle(center + new Vector2(tileSize * 0.10f, -tileSize * 0.10f), tileSize * 0.035f * scale, new Color("C4564B"));
+                DrawCircle(center + new Vector2(tileSize * 0.15f, tileSize * 0.02f), tileSize * 0.035f * scale, new Color("C4564B"));
+                break;
+            case 2: // wild greens
+                DrawLeaf(center + new Vector2(-tileSize * 0.12f, 0), tileSize * 0.21f, new Color("587D48"));
+                DrawLeaf(center + new Vector2(tileSize * 0.10f, -tileSize * 0.03f), tileSize * 0.19f, new Color("749653"));
+                break;
+            case 3: // fiber plant
+            case 4: // reeds
+                var stemColor = kind == 4 ? new Color("887D49") : new Color("748953");
+                for (var stem = -1; stem <= 1; stem++)
+                {
+                    var basePoint = center + new Vector2(stem * tileSize * 0.09f, tileSize * 0.12f);
+                    DrawLine(basePoint, basePoint + new Vector2(stem * -scale, -tileSize * 0.32f), stemColor, scale);
+                }
+                break;
+            case 5: // stone outcrop
+                DrawCircle(center + new Vector2(-tileSize * 0.08f, tileSize * 0.01f), tileSize * 0.19f, new Color("77776F"));
+                DrawCircle(center + new Vector2(tileSize * 0.08f, -tileSize * 0.04f), tileSize * 0.15f, new Color("A29E91"));
+                DrawLine(center + new Vector2(-tileSize * 0.12f, -tileSize * 0.05f),
+                    center + new Vector2(tileSize * 0.02f, -tileSize * 0.15f), new Color("D1CCC0", 0.8f), scale);
+                break;
+            case 8: // iron outcrop
+                DrawCircle(center + new Vector2(-tileSize * 0.08f, tileSize * 0.01f), tileSize * 0.19f, new Color("676A68"));
+                DrawCircle(center + new Vector2(tileSize * 0.08f, -tileSize * 0.04f), tileSize * 0.15f, new Color("93918A"));
+                DrawLine(center + new Vector2(-tileSize * 0.12f, -tileSize * 0.03f),
+                    center + new Vector2(-tileSize * 0.01f, -tileSize * 0.14f), new Color("AA7658"), scale * 1.2f);
+                DrawLine(center + new Vector2(tileSize * 0.02f, tileSize * 0.02f),
+                    center + new Vector2(tileSize * 0.15f, -tileSize * 0.09f), new Color("B7805B"), scale);
+                break;
+            case 9: // gold outcrop
+                DrawCircle(center + new Vector2(-tileSize * 0.08f, tileSize * 0.01f), tileSize * 0.19f, new Color("6D6B5E"));
+                DrawCircle(center + new Vector2(tileSize * 0.08f, -tileSize * 0.04f), tileSize * 0.15f, new Color("8C8875"));
+                DrawCircle(center + new Vector2(-tileSize * 0.10f, -tileSize * 0.05f), scale * 1.5f, new Color("E2C35E"));
+                DrawCircle(center + new Vector2(tileSize * 0.05f, -tileSize * 0.11f), scale * 1.3f, new Color("F1D878"));
+                DrawCircle(center + new Vector2(tileSize * 0.13f, tileSize * 0.04f), scale, new Color("D8B64F"));
+                break;
+            case 10: // diamond outcrop
+                DrawCircle(center + new Vector2(-tileSize * 0.07f, tileSize * 0.03f), tileSize * 0.18f, new Color("686F72"));
+                DrawLine(center + new Vector2(-tileSize * 0.05f, 0),
+                    center + new Vector2(0, -tileSize * 0.18f), new Color("A8E1E4"), scale * 1.5f);
+                DrawLine(center + new Vector2(0, -tileSize * 0.18f),
+                    center + new Vector2(tileSize * 0.09f, 0), new Color("E5FFFF"), scale * 1.5f);
+                DrawLine(center + new Vector2(tileSize * 0.09f, 0),
+                    center + new Vector2(0, tileSize * 0.09f), new Color("84C8D0"), scale * 1.5f);
+                DrawLine(center + new Vector2(0, tileSize * 0.09f),
+                    center + new Vector2(-tileSize * 0.05f, 0), new Color("B6F1EF"), scale * 1.5f);
+                break;
+            case 11: // clay bank
+                DrawCircle(center, tileSize * 0.20f, new Color("946A4E"));
+                DrawLine(center + new Vector2(-tileSize * 0.13f, -tileSize * 0.04f),
+                    center + new Vector2(tileSize * 0.12f, -tileSize * 0.07f), new Color("D1A37A"), scale * 1.2f);
+                DrawLine(center + new Vector2(-tileSize * 0.10f, tileSize * 0.04f),
+                    center + new Vector2(tileSize * 0.15f, tileSize * 0.01f), new Color("684B3C"), scale);
+                break;
+            case 6: // wild seed patch
+                for (var stem = -1; stem <= 1; stem++)
+                {
+                    var basePoint = center + new Vector2(stem * tileSize * 0.1f, tileSize * 0.1f);
+                    DrawLine(basePoint, basePoint + new Vector2(0, -tileSize * 0.22f), new Color("907F43"), scale);
+                    DrawCircle(basePoint + new Vector2(0, -tileSize * 0.24f), scale * 1.5f, new Color("C3AE65"));
+                }
+                break;
+            case 7: // fertile soil site
+                DrawCircle(center, tileSize * 0.19f, new Color("5A4635", 0.78f));
+                DrawLine(center + new Vector2(-tileSize * 0.12f, -tileSize * 0.03f),
+                    center + new Vector2(tileSize * 0.11f, -tileSize * 0.07f), new Color("B69B69"), scale);
+                break;
+        }
+    }
+
+    private void DrawLeaf(Vector2 center, float radius, Color color)
+    {
+        DrawCircle(center, Math.Max(1f, radius * 0.68f), color);
+        DrawLine(center + new Vector2(-radius * 0.4f, radius * 0.4f),
+            center + new Vector2(radius * 0.4f, -radius * 0.4f), new Color("B6C583", 0.78f),
+            Math.Max(1f, radius * 0.12f));
     }
 
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;

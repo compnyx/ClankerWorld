@@ -40,8 +40,9 @@ public sealed class GeographyGeneratorTests
             Assert.Equal(source.Elevation, map.ElevationAt(tile.Position));
             Assert.Equal(source.Water, map.HydrologyAt(tile.Position));
         }
-        var forest = map.Tiles.First(tile => map.VegetationAt(tile.Position) == VegetationCover.Forest);
-        Assert.Equal(SurfaceKind.Grass, map.SurfaceAt(forest.Position));
+        var forest = map.Tiles.First(tile => map.VegetationAt(tile.Position) == VegetationCover.Forest &&
+            map.SurfaceAt(tile.Position) != SurfaceKind.FertileSoil);
+        Assert.True(map.SurfaceAt(forest.Position) is SurfaceKind.Grass or SurfaceKind.ForestFloor);
         Assert.Equal(VegetationCover.Forest, map.VegetationAt(forest.Position));
         var river = map.Tiles.First(tile => map.HydrologyAt(tile.Position) == WaterKind.River);
         Assert.Equal(SurfaceKind.Water, map.SurfaceAt(river.Position));
@@ -65,6 +66,120 @@ public sealed class GeographyGeneratorTests
         Assert.Equal(map.HydrologyKinds, Convert.FromBase64String(layers.Hydrology));
         Assert.Equal(map.SurfaceKinds, Convert.FromBase64String(layers.Surface));
         Assert.Equal(map.VegetationKinds, Convert.FromBase64String(layers.Vegetation));
+        Assert.Equal("map-layers-v2", layers.Encoding);
+    }
+
+    [Fact]
+    public void NaturalSurfacesAndObjectFamiliesAreDistinctDeterministicFacts()
+    {
+        var options = new GeographyOptions("river-world-a", WorldSizePreset.Small,
+            ResourceAbundance: ResourceAbundance.Abundant);
+        var first = GeneratedCampMapGenerator.Generate(options);
+        var second = GeneratedCampMapGenerator.Generate(options);
+        var coldMap = GeneratedCampMapGenerator.Generate(options with
+        {
+            Seed = "natural-roster-cold",
+            ClimateMode = ClimateMode.Uniform,
+            SelectedClimate = ClimateZone.Polar,
+            LatitudeCooling = false,
+        });
+        var dryMap = GeneratedCampMapGenerator.Generate(options with
+        {
+            Seed = "natural-roster-dry",
+            ClimateMode = ClimateMode.Uniform,
+            SelectedClimate = ClimateZone.Dry,
+            LatitudeCooling = false,
+        });
+        var surfaces = first.SurfaceKinds!.Concat(coldMap.SurfaceKinds!)
+            .Select(value => (SurfaceKind)value).ToHashSet();
+        var vegetation = first.VegetationKinds!.Concat(dryMap.VegetationKinds!)
+            .Select(value => (VegetationCover)value).ToHashSet();
+        var naturalObjects = first.Resources.Where(resource => resource.NaturalObjectKind is not null).ToArray();
+
+        Assert.Contains(SurfaceKind.Grass, surfaces);
+        Assert.Contains(SurfaceKind.ForestFloor, surfaces);
+        Assert.Contains(SurfaceKind.Sand, surfaces);
+        Assert.Contains(SurfaceKind.DryScrub, surfaces);
+        Assert.Contains(SurfaceKind.Rock, surfaces);
+        Assert.Contains(SurfaceKind.Snow, surfaces);
+        Assert.Contains(SurfaceKind.FertileSoil, surfaces);
+        Assert.Contains(VegetationCover.Cactus, vegetation);
+        Assert.NotEmpty(naturalObjects);
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "berry_bush");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "wild_greens");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "fiber_plant");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "reeds");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "stone_outcrop");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "iron_outcrop");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "gold_outcrop");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "diamond_outcrop");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "clay_bank");
+        Assert.Contains(naturalObjects, resource => resource.NaturalObjectKind == "wild_seed_patch");
+        Assert.All(naturalObjects, resource => Assert.Null(resource.TreeKind));
+        Assert.Equal(naturalObjects.Length, naturalObjects.Select(resource => resource.Position).Distinct().Count());
+        var resourceSoilSites = naturalObjects.Where(resource => resource.NaturalObjectKind == "fertile_soil")
+            .Select(resource => resource.Position).ToHashSet();
+        var markedSoilTiles = first.Tiles.Where(tile => first.SurfaceAt(tile.Position) == SurfaceKind.FertileSoil)
+            .Select(tile => tile.Position).ToHashSet();
+        Assert.Equal(resourceSoilSites, markedSoilTiles);
+        Assert.All(naturalObjects.Where(resource => resource.NaturalObjectKind is
+            "iron_outcrop" or "gold_outcrop" or "diamond_outcrop"), resource =>
+        {
+            Assert.Equal(TerrainKind.Mountain, first.Tiles.Single(tile => tile.Position == resource.Position).Terrain);
+            Assert.False(first.IsBuildable(resource.Position));
+            Assert.True(first.IsPassable(resource.Position));
+        });
+        Assert.All(naturalObjects.Where(resource => resource.NaturalObjectKind == "clay_bank"), resource =>
+            Assert.Equal("clay", resource.Kind));
+        Assert.Equal(first.SurfaceKinds, second.SurfaceKinds);
+        Assert.Equal(first.VegetationKinds, second.VegetationKinds);
+        Assert.Equal(first.Resources, second.Resources);
+        Assert.Equal(first.ManifestDigest, second.ManifestDigest);
+        Assert.True(MapAcceptance.Validate(first, allowEmptyCamp: true).IsValid);
+
+        var trees = first.Resources.Where(resource => resource.TreeKind is not null).ToArray();
+        Assert.Equal(trees.Length, trees.Select(resource => resource.Position).Distinct().Count());
+        Assert.All(first.Tiles.Where(tile => tile.Terrain is TerrainKind.Mountain or TerrainKind.Peak),
+            tile => Assert.False(first.IsBuildable(tile.Position)));
+    }
+
+    [Fact]
+    public void SavesWithoutNaturalObjectDetailsRemainLoadable()
+    {
+        var options = new GeographyOptions("natural-roster-old-save", WorldSizePreset.Small);
+        using var world = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var state = world.ExportState();
+        var oldMap = state.Map with
+        {
+            Resources = state.Map.Resources
+                .Where(resource => !resource.Id.StartsWith("geology-", StringComparison.Ordinal))
+                .Select(resource => resource with { NaturalObjectKind = null }).ToArray(),
+            ManifestDigest = string.Empty,
+        };
+        oldMap = oldMap with { ManifestDigest = MapManifestCodec.Digest(oldMap) };
+        var oldIds = oldMap.Resources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
+        var oldWorldSystems = state.WorldSystems! with
+        {
+            Ecology = state.WorldSystems.Ecology with
+            {
+                Resources = state.WorldSystems.Ecology.Resources.Where(resource => oldIds.Contains(resource.Id)).ToArray(),
+            },
+            Chunks = state.WorldSystems.Chunks.Select(chunk => ChunkManifestCodec.WithDigest(chunk with
+            {
+                Resources = chunk.Resources.Where(resource => oldIds.Contains(resource.ResourceId)).ToArray(),
+            })).ToArray(),
+        };
+        var oldState = state with
+        {
+            Map = oldMap,
+            Resources = state.Resources.Where(resource => oldIds.Contains(resource.ResourceId)).ToArray(),
+            WorldSystems = oldWorldSystems,
+        };
+
+        using var restored = PrivateWorldRuntime.Restore(oldState);
+        Assert.Equal(oldMap.ManifestDigest, restored.ExportState().Map.ManifestDigest);
+        Assert.All(restored.ExportState().Map.Resources, resource => Assert.Null(resource.NaturalObjectKind));
     }
 
     [Theory]
@@ -258,8 +373,11 @@ public sealed class GeographyGeneratorTests
         var current = world.ExportState();
         var originalResources = current.Map.Resources
             .Where(resource => !resource.Id.StartsWith("orchard-", StringComparison.Ordinal) &&
+                !resource.Id.StartsWith("geology-", StringComparison.Ordinal) &&
                 (retainsWoodlandTrees || !resource.Id.StartsWith("tree-", StringComparison.Ordinal)))
-            .Select(resource => retainsWoodlandTrees ? resource : resource with { TreeKind = null }).ToArray();
+            .Select(resource => (retainsWoodlandTrees ? resource : resource with { TreeKind = null })
+                with
+            { NaturalObjectKind = null }).ToArray();
         var oldIds = originalResources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
         var oldMap = current.Map with { Resources = originalResources, ManifestDigest = string.Empty };
         oldMap = oldMap with { ManifestDigest = MapManifestCodec.Digest(oldMap) };

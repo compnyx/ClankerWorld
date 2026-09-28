@@ -11,6 +11,19 @@ release yet.
 - Game Settings now offers a locally saved UI Scale from 100% to 200%, making
   controls and text easier to read without changing the selected map render
   resolution or terrain detail.
+- Generated Small/Medium worlds now visibly distinguish grass, forest floor,
+  beach sand, dry scrub, rocky upland, snow and saved fertile-land sites, with
+  subtle deterministic ground variants and readable coast/surface edges. Dry
+  climates can show cactus cover. Natural sites now include berry bushes, wild
+  greens, fiber plants/reeds, stone and iron/gold/diamond outcrops, clay banks,
+  orchard trees and woodland trees; each retains an inspectable object kind and
+  resource state, and trees remain separate objects with at most one tree per
+  tile. Mineral outcrops and clay banks are finite, inspectable deposits only—
+  recipes and processing are not included. Fertile-soil ground marks an actual
+  saved fertile-land site; it does not represent a general fertility estimate.
+  The new terrain and object marks are code-drawn prototypes rather than final
+  production textures/sprites. Existing generated saves without the new natural
+  object details and geology sites remain loadable.
 - After an agent dies, their assigned personal model can make one bounded final
   choice to leave frozen personal belongings on the household inheritance path
   or give the whole estate to a living agent. Invalid, unavailable, timed-out or

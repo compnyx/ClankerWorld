@@ -636,6 +636,32 @@ public partial class Main : Control
                 Math.Abs(renderedSurface.G - expectedSurface.G) > 0.001f ||
                 Math.Abs(renderedSurface.B - expectedSurface.B) > 0.001f)
                 throw new InvalidOperationException("The rendered map must use its separate surface and vegetation layers.");
+            if (terrainMap is null || terrainMap.SurfaceVariantAt(0, 0) == terrainMap.SurfaceVariantAt(1, 0) ||
+                terrainMap.PaletteColorAt(0, 0) == terrainMap.PaletteColorAt(1, 0))
+                throw new InvalidOperationException("Equal ground surfaces must receive stable, subtle texture variants.");
+            var testHydrology = new byte[16];
+            var testSurfaces = Enumerable.Repeat((byte)0, 16).ToArray();
+            testHydrology[6] = 3;
+            testSurfaces[6] = 4;
+            var testLayers = new OwnerWorldPackedMapLayers(4, 4, "map-layers-v2",
+                Convert.ToBase64String(Enumerable.Repeat((byte)2, 16).ToArray()),
+                Convert.ToBase64String(Enumerable.Repeat((byte)123, 16).ToArray()),
+                Convert.ToBase64String(testHydrology), Convert.ToBase64String(testSurfaces),
+                Convert.ToBase64String(Enumerable.Repeat((byte)1, 16).ToArray()));
+            var transitionMap = WorldTerrainMap.FromTiles(sample.Tiles, 4, 4, testLayers);
+            if ((transitionMap.WaterEdgeMaskAt(1, 1, false) & 2) == 0 ||
+                (transitionMap.SurfaceBoundaryMaskAt(1, 1, false) & 2) == 0)
+                throw new InvalidOperationException("Generated water and ground changes must expose functional tile-edge transitions.");
+            testHydrology[3] = 1;
+            testSurfaces[3] = 4;
+            var seamLayers = testLayers with
+            {
+                Hydrology = Convert.ToBase64String(testHydrology),
+                Surface = Convert.ToBase64String(testSurfaces),
+            };
+            var seamMap = WorldTerrainMap.FromTiles(sample.Tiles, 4, 4, seamLayers);
+            if ((seamMap.WaterEdgeMaskAt(0, 0, true) & 8) == 0)
+                throw new InvalidOperationException("Water-edge transitions must continue across an enabled world seam.");
             var marker = mapObjectVisuals["resource:wood"];
             var identity = marker.GetInstanceId();
             var entered = false;
@@ -660,6 +686,53 @@ public partial class Main : Control
             RenderMap(sample with { Resources = [sampleResource, sampleTree with { Quantity = 0, State = "depleted", IsPlanted = true }] });
             if (terrainLayer.TreeStageAt(3, 1) != "sapling")
                 throw new InvalidOperationException("Replanted trees must become visible saplings.");
+            var sampleNaturalObject = new OwnerWorldResource("sample-berry-bush", "food", new(0, 2), true,
+                "available", 4, 8, NaturalObjectKind: "berry_bush");
+            RenderMap(sample with { Resources = [sampleResource, sampleNaturalObject] });
+            if (terrainLayer.NaturalObjectNameAt(0, 2) != "Berry bush" ||
+                terrainLayer.NaturalObjectStageAt(0, 2) != "available" || mapObjectVisuals.ContainsKey("resource:sample-berry-bush") == false)
+                throw new InvalidOperationException("Natural food patches must draw and remain inspectable as distinct objects.");
+            RenderMap(sample with { Resources = [sampleResource, sampleNaturalObject with { Quantity = 0, State = "depleted" }] });
+            if (terrainLayer.NaturalObjectStageAt(0, 2) != "regrowing")
+                throw new InvalidOperationException("Renewable natural patches must render their depleted/regrowing transition.");
+            var naturalRoster = new[]
+            {
+                sampleNaturalObject,
+                new OwnerWorldResource("sample-wild-greens", "food", new(1, 0), true, "available", 4, 8,
+                    NaturalObjectKind: "wild_greens"),
+                new OwnerWorldResource("sample-fiber", "fiber", new(2, 0), true, "available", 4, 8,
+                    NaturalObjectKind: "fiber_plant"),
+                new OwnerWorldResource("sample-reeds", "fiber", new(3, 0), true, "available", 4, 8,
+                    NaturalObjectKind: "reeds"),
+                new OwnerWorldResource("sample-stone", "stone", new(0, 1), false, "available", 3, 3,
+                    NaturalObjectKind: "stone_outcrop"),
+                new OwnerWorldResource("sample-iron", "iron_ore", new(1, 2), false, "available", 3, 3,
+                    NaturalObjectKind: "iron_outcrop"),
+                new OwnerWorldResource("sample-gold", "gold_ore", new(2, 2), false, "available", 3, 3,
+                    NaturalObjectKind: "gold_outcrop"),
+                new OwnerWorldResource("sample-diamond", "diamond", new(3, 2), false, "available", 3, 3,
+                    NaturalObjectKind: "diamond_outcrop"),
+                new OwnerWorldResource("sample-clay", "clay", new(0, 3), false, "available", 3, 3,
+                    NaturalObjectKind: "clay_bank"),
+                new OwnerWorldResource("sample-seed-patch", "seed", new(1, 3), true, "available", 4, 8,
+                    NaturalObjectKind: "wild_seed_patch"),
+                new OwnerWorldResource("sample-fertile-soil", "fertile_land", new(2, 3), false, "available", 1, 1,
+                    NaturalObjectKind: "fertile_soil"),
+            };
+            var expectedNaturalNames = new[]
+            {
+                "Berry bush", "Wild greens", "Fiber plant", "Reeds", "Stone outcrop", "Iron outcrop",
+                "Gold outcrop", "Diamond outcrop", "Clay bank", "Wild seed patch", "Fertile soil",
+            };
+            RenderMap(sample with { Resources = [sampleResource, .. naturalRoster] });
+            foreach (var (resource, expectedName) in naturalRoster.Zip(expectedNaturalNames))
+            {
+                if (terrainLayer.NaturalObjectNameAt(resource.Position.X, resource.Position.Y) != expectedName ||
+                    terrainLayer.NaturalObjectStageAt(resource.Position.X, resource.Position.Y) != "available" ||
+                    !mapObjectVisuals.TryGetValue("resource:" + resource.Id, out var resourceVisual) ||
+                    !resourceVisual.TooltipText.Contains(expectedName, StringComparison.Ordinal))
+                    throw new InvalidOperationException($"The {expectedName} natural object must draw as a distinct inspectable map site.");
+            }
             var sampleOrchard = new OwnerWorldResource("sample-orchard", "fruit", new(2, 1), true,
                 "available", 1, 1, 1, 3, "spring", "orchard", TreeStage: "fruiting");
             RenderMap(sample with { Resources = [sampleResource, sampleTree, sampleOrchard] });
@@ -3676,6 +3749,7 @@ public partial class Main : Control
             worldOverview.SetWorld(terrainMap);
         }
         terrainLayer.SetTrees(snapshot.Resources);
+        terrainLayer.SetNaturalObjects(snapshot.Resources);
         terrainLayer.SetWeatherRegions(snapshot.WeatherRegionSize, snapshot.WeatherRegions);
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
@@ -3694,8 +3768,8 @@ public partial class Main : Control
             AddMapObjectVisual(
                 "resource:" + resource.Id,
                 resource.Position,
-                ResourceGlyph(resource.Kind),
-                ResourceMarker(resource.Kind) + (resource.Quantity is null ? "" : " " + GameUiText.ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity)),
+                ResourceGlyph(resource.Kind, resource.NaturalObjectKind),
+                ResourceMarker(resource.Kind, resource.NaturalObjectKind) + (resource.Quantity is null ? "" : " " + GameUiText.ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity)),
                 GameUiText.ResourceTooltip(resource));
         }
 
@@ -4584,7 +4658,7 @@ public partial class Main : Control
             .Concat(snapshot.Resources.Where(item => item.Position.X == tile.X && item.Position.Y == tile.Y)
                 .Select(item => item.TreeKind is { } tree
                     ? $"{Pretty(tree)} tree · {Pretty(item.TreeStage ?? item.State)}"
-                    : $"{Pretty(item.Kind)} site" +
+                    : $"{WorldTerrainMap.NaturalObjectName(item.NaturalObjectKind) ?? Pretty(item.Kind) + " site"}" +
                         (item.Quantity is { } quantity ? $" · {quantity} available" : string.Empty)))
             .Concat(snapshot.PlacedBuildings.Where(item =>
                     tile.X >= item.Position.X && tile.X < item.Position.X + item.Width &&
@@ -4963,6 +5037,22 @@ public partial class Main : Control
         _ => "○",
     };
 
+    private static string ResourceMarker(string kind, string? naturalObjectKind) => naturalObjectKind switch
+    {
+        "berry_bush" => "BERRIES",
+        "wild_greens" => "GREENS",
+        "fiber_plant" => "FIBER",
+        "reeds" => "REEDS",
+        "stone_outcrop" => "STONE",
+        "iron_outcrop" => "IRON",
+        "gold_outcrop" => "GOLD",
+        "diamond_outcrop" => "DIAMOND",
+        "clay_bank" => "CLAY",
+        "wild_seed_patch" => "SEEDS",
+        "fertile_soil" => "SOIL",
+        _ => ResourceMarker(kind),
+    };
+
     private static string ResourceMarker(string kind) => kind switch
     {
         "food" => "FOOD",
@@ -4971,6 +5061,22 @@ public partial class Main : Control
         "fiber" => "FIBER",
         "seed" => "SEEDS",
         _ => ShortMarker(kind),
+    };
+
+    private static string ResourceGlyph(string kind, string? naturalObjectKind) => naturalObjectKind switch
+    {
+        "berry_bush" => "●",
+        "wild_greens" => "❧",
+        "fiber_plant" => "♧",
+        "reeds" => "≋",
+        "stone_outcrop" => "⬟",
+        "iron_outcrop" => "⬣",
+        "gold_outcrop" => "◆",
+        "diamond_outcrop" => "◇",
+        "clay_bank" => "▰",
+        "wild_seed_patch" => "✦",
+        "fertile_soil" => "▤",
+        _ => ResourceGlyph(kind),
     };
 
     private static string ResourceGlyph(string kind) => kind switch

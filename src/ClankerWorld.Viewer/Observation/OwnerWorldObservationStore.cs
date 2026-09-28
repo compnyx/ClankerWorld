@@ -262,7 +262,8 @@ public sealed class OwnerWorldObservationStore
                     ecology?.GetValueOrDefault(resource.Id)?.RegenerationSeason.ToString().ToLowerInvariant(),
                     resource.TreeKind,
                     ecology?.GetValueOrDefault(resource.Id)?.IsPlanted ?? false,
-                    TreeStageFor(resource.TreeKind, ecology?.GetValueOrDefault(resource.Id))))
+                    TreeStageFor(resource.TreeKind, ecology?.GetValueOrDefault(resource.Id)),
+                    resource.NaturalObjectKind))
                 .ToArray(),
             actor,
             latestEventId)
@@ -419,7 +420,7 @@ public sealed class OwnerWorldObservationStore
         if (map.ClimateZones is not { } climate || map.ElevationLevels is not { } elevation ||
             map.HydrologyKinds is not { } hydrology || map.SurfaceKinds is not { } surface ||
             map.VegetationKinds is not { } vegetation) return null;
-        return new ViewerPackedMapLayers(map.Width, map.Height, "map-layers-v1",
+        return new ViewerPackedMapLayers(map.Width, map.Height, "map-layers-v2",
             Convert.ToBase64String(climate), Convert.ToBase64String(elevation),
             Convert.ToBase64String(hydrology), Convert.ToBase64String(surface),
             Convert.ToBase64String(vegetation));

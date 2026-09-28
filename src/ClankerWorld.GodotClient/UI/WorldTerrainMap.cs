@@ -92,6 +92,68 @@ public sealed class WorldTerrainMap
     public byte? SurfaceAt(int x, int y) => LayerAt(surface, x, y);
     public byte? VegetationAt(int x, int y) => LayerAt(vegetation, x, y);
 
+    /// <summary>Render-only legacy projection; inspection keeps missing layer facts unavailable.</summary>
+    public byte RenderSurfaceAt(int x, int y) => SurfaceAt(x, y) ?? At(x, y) switch
+    {
+        1 => 0, // meadow
+        2 or 4 or 5 or 6 => 4, // water, river, lake, ocean
+        3 or 10 => 2, // mountain, peak
+        7 => 1, // sand
+        8 => 5, // forest floor
+        9 => 3, // snow
+        _ => 0,
+    };
+
+    /// <summary>A stable two-pattern texture choice derived only from saved map-layer facts.</summary>
+    public byte SurfaceVariantAt(int x, int y)
+    {
+        var index = y * Width + x;
+        if (!HasMapLayers) return (byte)((x * 17 + y * 31) & 1);
+        var hash = unchecked((uint)(x * 73856093) ^ (uint)(y * 19349663) ^
+            (uint)(surface![index] * 83492791) ^ (uint)(vegetation![index] * 2654435761u) ^
+            (uint)(climate![index] * 2246822519u) ^ (uint)(elevation![index] * 3266489917u) ^
+            (uint)(hydrology![index] * 668265263u));
+        return (byte)(hash & 1);
+    }
+
+    public Color PaletteColorAt(int x, int y)
+    {
+        var color = DisplayColorAt(x, y);
+        var adjustment = SurfaceVariantAt(x, y) == 0 ? -0.025f : 0.025f;
+        return new Color(Mathf.Clamp(color.R + adjustment, 0, 1),
+            Mathf.Clamp(color.G + adjustment, 0, 1), Mathf.Clamp(color.B + adjustment, 0, 1), color.A);
+    }
+
+    /// <summary>Bit mask of cardinal edges where land meets generated water; N/E/S/W are bits 1/2/4/8.</summary>
+    public byte WaterEdgeMaskAt(int x, int y, bool wrapsEastWest)
+    {
+        if (!HasMapLayers || HydrologyAt(x, y) is not 0) return 0;
+        return EdgeMask(x, y, wrapsEastWest,
+            (nx, ny) => HydrologyAt(nx, ny) is { } value && value != 0);
+    }
+
+    /// <summary>Bit mask where a neighboring ground surface differs, for broken natural transition edges.</summary>
+    public byte SurfaceBoundaryMaskAt(int x, int y, bool wrapsEastWest)
+    {
+        if (!HasMapLayers || SurfaceAt(x, y) is not { } current || current == 4) return 0;
+        return EdgeMask(x, y, wrapsEastWest,
+            (nx, ny) => SurfaceAt(nx, ny) is { } adjacent && adjacent != current);
+    }
+
+    private byte EdgeMask(int x, int y, bool wrapsEastWest, Func<int, int, bool> isEdge)
+    {
+        byte mask = 0;
+        if (y > 0 && isEdge(x, y - 1)) mask |= 1;
+        var east = x + 1;
+        if (east == Width && wrapsEastWest) east = 0;
+        if (east < Width && isEdge(east, y)) mask |= 2;
+        if (y + 1 < Height && isEdge(x, y + 1)) mask |= 4;
+        var west = x - 1;
+        if (west < 0 && wrapsEastWest) west = Width - 1;
+        if (west >= 0 && isEdge(west, y)) mask |= 8;
+        return mask;
+    }
+
     /// <summary>Render independent surface/cover facts, falling back to the v1 projection for old maps.</summary>
     public Color DisplayColorAt(int x, int y)
     {
@@ -114,6 +176,9 @@ public sealed class WorldTerrainMap
             2 => new Color("756D68"),
             3 => new Color("CCD7D1"),
             4 => new Color("4B7FA7"),
+            5 => new Color("4D684A"),
+            6 => new Color("8F8159"),
+            7 => new Color("735F45"),
             _ => new Color("9B5463"),
         };
         if (elevation![index] >= 245) ground = new Color("AEB2B0");
@@ -122,10 +187,13 @@ public sealed class WorldTerrainMap
         return vegetation![index] switch
         {
             2 when surface[index] == 0 => new Color("426D4B"),
+            2 when surface[index] == 5 => new Color("3F5D42"),
             3 when surface[index] == 0 => new Color("988857"),
+            3 when surface[index] == 6 => new Color("897A51"),
             4 when surface[index] == 0 => new Color("869586"),
             3 when surface[index] == 1 => new Color("AA985F"),
             4 when surface[index] == 3 => new Color("D6DDD4"),
+            5 when surface[index] is 1 or 6 => new Color("907D57"),
             _ => ground,
         };
     }
@@ -153,14 +221,15 @@ public sealed class WorldTerrainMap
         OwnerWorldPackedMapLayers? layers)
     {
         if (layers is null) return new WorldTerrainMap(width, height, terrain);
-        if (layers.Width != width || layers.Height != height || layers.Encoding != "map-layers-v1")
+        if (layers.Width != width || layers.Height != height ||
+            layers.Encoding is not ("map-layers-v1" or "map-layers-v2"))
             throw new InvalidDataException("The packed world map layers have an unsupported encoding or dimensions.");
         var length = checked(width * height);
         var climate = DecodeLayer(layers.Climate, length, 5, "climate");
         var elevation = DecodeLayer(layers.Elevation, length, null, "elevation");
         var hydrology = DecodeLayer(layers.Hydrology, length, 3, "hydrology");
-        var surface = DecodeLayer(layers.Surface, length, 4, "surface");
-        var vegetation = DecodeLayer(layers.Vegetation, length, 4, "vegetation");
+        var surface = DecodeLayer(layers.Surface, length, 7, "surface");
+        var vegetation = DecodeLayer(layers.Vegetation, length, 5, "vegetation");
         return new WorldTerrainMap(width, height, terrain, climate, elevation, hydrology, surface, vegetation);
     }
 
@@ -204,6 +273,9 @@ public sealed class WorldTerrainMap
         2 => "Rock",
         3 => "Snow",
         4 => "Water",
+        5 => "Forest floor",
+        6 => "Dry scrub",
+        7 => "Fertile soil",
         _ => null,
     };
 
@@ -223,6 +295,23 @@ public sealed class WorldTerrainMap
         2 => "Forest",
         3 => "Scrub",
         4 => "Tundra",
+        5 => "Cactus",
+        _ => null,
+    };
+
+    public static string? NaturalObjectName(string? value) => value switch
+    {
+        "berry_bush" => "Berry bush",
+        "wild_greens" => "Wild greens",
+        "fiber_plant" => "Fiber plant",
+        "reeds" => "Reeds",
+        "stone_outcrop" => "Stone outcrop",
+        "iron_outcrop" => "Iron outcrop",
+        "gold_outcrop" => "Gold outcrop",
+        "diamond_outcrop" => "Diamond outcrop",
+        "clay_bank" => "Clay bank",
+        "wild_seed_patch" => "Wild seed patch",
+        "fertile_soil" => "Fertile soil",
         _ => null,
     };
 
