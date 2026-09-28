@@ -109,6 +109,7 @@ public sealed class TownRuntimeTests
             world.StartWorld();
             Assert.True(world.StageStarterContent());
             Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+            Assert.Empty(world.RoadTiles);
 
             var definition = world.WorldContent.Buildings.Single(item => item.Tags.Contains("shelter", StringComparer.Ordinal));
             var town = Assert.Single(world.Towns);
@@ -135,18 +136,26 @@ public sealed class TownRuntimeTests
             Assert.True(grownTown.BorderTiles.Count > town.BorderTiles.Count);
             Assert.Contains(world.ExportState().Events, item => item.Kind == "town_building_assigned");
             Assert.Contains(world.ExportState().Events, item => item.Kind == "town_border_expanded");
+            Assert.NotEmpty(world.RoadTiles);
+            Assert.Contains(position, world.RoadTiles);
+            Assert.All(world.RoadTiles, point => Assert.True(map.IsBuildable(point)));
+            Assert.Contains(world.ExportState().Events, item => item.Kind == "town_road_generated");
 
             var snapshot = new OwnerWorldObservationStore(world).GetSnapshot();
             var projectedTown = Assert.Single(snapshot.Towns);
             Assert.Equal(grownTown.BorderTiles.Select(point => (point.X, point.Y)),
                 projectedTown.BorderTiles.Select(point => (point.X, point.Y)));
             Assert.Contains(placed.InstanceId, projectedTown.AssignedBuildingIds);
+            Assert.Equal(world.RoadTiles.Select(point => (point.X, point.Y)),
+                snapshot.RoadTiles.Select(point => (point.X, point.Y)));
             Assert.Equal(TownBorderRules.FirstTownId,
                 Assert.Single(snapshot.PlacedBuildings, item => item.InstanceId == placed.InstanceId).TownId);
             var godotSnapshot = JsonSerializer.Deserialize<GodotOwnerWorldSnapshot>(
                 JsonSerializer.Serialize(snapshot, GodotJsonOptions), GodotJsonOptions);
             var godotTown = Assert.Single(godotSnapshot!.Towns);
             Assert.Contains(placed.InstanceId, godotTown.AssignedBuildingIds);
+            Assert.Equal(world.RoadTiles.Select(point => (point.X, point.Y)),
+                godotSnapshot.RoadTiles.Select(point => (point.X, point.Y)));
             Assert.Equal(TownBorderRules.FirstTownId,
                 Assert.Single(godotSnapshot.PlacedBuildings, item => item.InstanceId == placed.InstanceId).TownId);
 
@@ -155,8 +164,24 @@ public sealed class TownRuntimeTests
             var restoredTown = Assert.Single(reloaded.Towns);
             Assert.Equal(grownTown.BorderTiles, restoredTown.BorderTiles);
             Assert.Equal(grownTown.AssignedBuildingIds, restoredTown.AssignedBuildingIds);
+            Assert.Equal(world.RoadTiles, reloaded.RoadTiles);
             Assert.Equal(TownBorderRules.FirstTownId,
                 Assert.Single(reloaded.WorldSimulation.Buildings, item => item.InstanceId == placed.InstanceId).TownId);
+            var invalidRoads = reloaded.ExportState() with
+            {
+                RoadTiles = reloaded.RoadTiles.Append(reloaded.RoadTiles[0]).ToArray(),
+            };
+            Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(invalidRoads));
+            Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(reloaded.ExportState() with
+            {
+                RoadTiles = null,
+            }));
+            using var beforeRoadSchema = PrivateWorldRuntime.Restore(reloaded.ExportState() with
+            {
+                SchemaVersion = 23,
+                RoadTiles = null,
+            });
+            Assert.Empty(beforeRoadSchema.RoadTiles);
         }
         finally
         {

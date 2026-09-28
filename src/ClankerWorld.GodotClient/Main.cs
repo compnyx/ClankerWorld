@@ -3949,6 +3949,8 @@ public partial class Main : Control
         terrainLayer.SetTrees(snapshot.Resources);
         terrainLayer.SetNaturalObjects(snapshot.Resources);
         terrainLayer.SetWeatherRegions(snapshot.WeatherRegionSize, snapshot.WeatherRegions);
+        terrainLayer.SetRoads(snapshot.RoadTiles);
+        worldOverview.SetRoads(snapshot.RoadTiles);
         ApplyMapFilters(snapshot);
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
@@ -4161,6 +4163,7 @@ public partial class Main : Control
             $"Living agents: {LivingPopulation(snapshot)}\n" +
             $"Map: {width} × {height} tiles\n" +
             $"Buildings: {snapshot.PlacedBuildings.Count}\n" +
+            $"Road tiles: {snapshot.RoadTiles.Count}\n" +
             townInfo + "\n" +
             $"Resource sites: {snapshot.Resources.Count}\n" +
             $"Season and weather at camera: {localWeather}" +
@@ -4937,6 +4940,7 @@ public partial class Main : Control
             $"Fertility: unavailable\n" +
             $"Town border: {(town?.Name ?? "none established")}\n" +
             $"Household property: {propertyName}\n" +
+            $"Road: {(snapshot.RoadTiles.Any(point => point.X == tile.X && point.Y == tile.Y) ? "generated" : "none")}\n" +
             $"Objects: {(objects.Length == 0 ? "none observed" : string.Join(", ", objects))}";
     }
 

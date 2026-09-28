@@ -8,6 +8,13 @@ release yet.
 
 ### Added
 
+- Town-assigned building placement now generates world-owned Road tiles along a
+  bounded legal dry-land route to the camp or existing Road network. Roads are
+  visible in the world and overview, named in tile inspection, survive reload,
+  and give a provisional route/diagonal-travel advantage; ordinary walking does
+  not paint Roads. A building with no legal dry route stays unconnected. Initial
+  Town layout, river bridges, inter-Town links and final Road-speed rules remain
+  unfinished.
 - Members helping another person in their own household with a project now
   deliver carried materials at their shared House. The contribution becomes
   household stock there only on arrival and survives save/reload. A helper

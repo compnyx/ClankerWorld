@@ -19,6 +19,7 @@ public partial class WorldTerrainLayer : Control
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
     private readonly HashSet<Vector2I> townBorderTiles = [];
+    private readonly HashSet<Vector2I> roadTiles = [];
     private readonly Dictionary<Vector2I, string> householdPropertyTiles = [];
     private static readonly Color[] HouseholdPropertyColors =
     [
@@ -49,6 +50,7 @@ public partial class WorldTerrainLayer : Control
         naturalStages = new byte[checked(map.Width * map.Height)];
         weatherRegions.Clear();
         townBorderTiles.Clear();
+        roadTiles.Clear();
         householdPropertyTiles.Clear();
         QueueRedraw();
     }
@@ -76,6 +78,16 @@ public partial class WorldTerrainLayer : Control
         if (next.Count == townBorderTiles.Count && next.SetEquals(townBorderTiles)) return;
         townBorderTiles.Clear();
         townBorderTiles.UnionWith(next);
+        QueueRedraw();
+    }
+
+    public void SetRoads(IReadOnlyList<OwnerWorldPosition> roads)
+    {
+        ArgumentNullException.ThrowIfNull(roads);
+        var next = roads.Select(point => new Vector2I(point.X, point.Y)).ToHashSet();
+        if (next.Count == roadTiles.Count && next.SetEquals(roadTiles)) return;
+        roadTiles.Clear();
+        roadTiles.UnionWith(next);
         QueueRedraw();
     }
 
@@ -298,6 +310,7 @@ public partial class WorldTerrainLayer : Control
         }
         DrawWeatherClouds(bounds, stride);
         DrawSurfaceDetails(bounds, stride);
+        DrawRoads(bounds, stride);
         // Trees are objects, not baked ground colors: keep them visible both
         // above full-size tiles and above the small-tile palette cache.
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
@@ -598,6 +611,32 @@ public partial class WorldTerrainLayer : Control
         bool ContainsTownTile(int x, int y) => y >= 0 && y < world.Height &&
             (wrapsEastWest ? townBorderTiles.Contains(new Vector2I(Mod(x, world.Width), y)) :
                 x >= 0 && x < world.Width && townBorderTiles.Contains(new Vector2I(x, y)));
+    }
+
+    private void DrawRoads((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || roadTiles.Count == 0 || tileSize <= 0) return;
+        var color = new Color("BDA681");
+        var width = Math.Clamp(tileSize / 3f, 2f, 9f);
+        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            {
+                var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
+                if (!roadTiles.Contains(new Vector2I(mapX, y))) continue;
+                var center = new Vector2(x * stride + tileSize / 2f, y * stride + tileSize / 2f);
+                DrawRect(new Rect2(center - new Vector2(width / 2f, width / 2f),
+                    new Vector2(width, width)), color);
+                foreach (var (dx, dy) in new (int X, int Y)[] { (1, 0), (0, 1), (1, 1), (1, -1) })
+                {
+                    var nextX = x + dx;
+                    var nextY = y + dy;
+                    if (nextY < 0 || nextY >= world.Height ||
+                        !wrapsEastWest && (nextX < 0 || nextX >= world.Width) ||
+                        !roadTiles.Contains(new Vector2I(wrapsEastWest ? Mod(nextX, world.Width) : nextX, nextY)))
+                        continue;
+                    DrawLine(center, center + new Vector2(dx * stride, dy * stride), color, width);
+                }
+            }
     }
 
     private void DrawWeatherClouds((int Left, int Top, int Width, int Height) bounds, int stride)

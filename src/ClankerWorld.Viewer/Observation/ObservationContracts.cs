@@ -288,6 +288,7 @@ public sealed record ViewerWorldSnapshot(
     public bool? JevEnabled { get; init; }
     public ViewerFounderSetup? FounderSetup { get; init; }
     public IReadOnlyList<ViewerTown> Towns { get; init; } = [];
+    public IReadOnlyList<ViewerPosition> RoadTiles { get; init; } = [];
     public int WeatherRegionSize { get; init; } = 32;
     public IReadOnlyList<ViewerWeatherRegion> WeatherRegions { get; init; } = [];
     /// <summary>

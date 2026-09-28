@@ -36,15 +36,13 @@ the resolution evidence below.
   a 256-tile-wide map). Confirm that tile readability and frame cost are right
   on the player's target hardware before treating this as the final cap.
 - **Bridges absent — current capability gap:**
-  agents can now cross one-tile-wide river tiles on foot at half dry-ground
-  speed; wider river sections remain impassable, and no Road or bridge system
-  exists yet. Sufficiently used crossings can
-  automatically gain bridges. Town-generated Roads, not walking alone, serve
-  building placement and automatic links between Towns when a legal land route
-  exists. Bridges need spacing against redundant crossings on the same river,
-  without blocking needed crossings on a separate nearby stream.
-  Exact routes, bridge radius and
-  materials remain open.
+  agents can cross one-tile-wide river tiles on foot at half dry-ground speed;
+  wider river sections remain impassable. Town-assigned building placement now
+  lays a provisional dry-land Road connection, but the initial Town layout,
+  inter-Town links, traffic-triggered bridges and Road-generated bridges are
+  missing. Walking alone does not paint Roads. A legal bridge should not block
+  a needed crossing over a separate nearby stream; exact routes, bridge radius,
+  speed and materials remain open.
 - **Agents rarely pursue non-survival activity — playtest report, partly
   addressed:** stable adults now have a bounded local curiosity outing that
   remembers visited tiles and returns; whether that feels sufficiently useful

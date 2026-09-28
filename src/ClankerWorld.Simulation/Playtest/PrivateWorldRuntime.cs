@@ -73,7 +73,8 @@ public sealed record PrivateWorldRuntimeState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FounderSetupState? FounderSetup = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GeographyOptions? Geography = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TownRuntimeState>? Towns = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PrivateWorldKnowledgeState? Knowledge = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PrivateWorldKnowledgeState? Knowledge = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<GridPoint>? RoadTiles = null);
 
 public sealed record PrivateWorldStepResult(
     bool Advanced,
@@ -94,7 +95,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 23;
+    public const int StateSchemaVersion = 24;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -138,6 +139,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private long jevPolicyRevision;
     private FounderSetupState? founderSetup;
     private List<TownRuntimeState> towns = [];
+    private HashSet<GridPoint> roadTiles = [];
     private long nextInstructionSequence = 1;
     private readonly Dictionary<string, PendingHostedDecision> pendingHosted = new(StringComparer.Ordinal);
     private readonly List<PrivateWorldMemoryCompactionTransition> memoryCompactionTransitions = [];
@@ -247,6 +249,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     public IReadOnlyList<TownRuntimeState> Towns => towns
         .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
 
+    public IReadOnlyList<GridPoint> RoadTiles => roadTiles.OrderBy(item => item.Y).ThenBy(item => item.X).ToArray();
+
     public WorldContentSimulationState WorldSimulation => worldSimulation;
 
     public WorldAssetReservationLedgerState AssetReservations => assetReservations.ExportState();
@@ -334,6 +338,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             ? WorldContentSimulationState.Empty
             : state.WorldSimulation with { CropBuilds = state.WorldSimulation.CropBuilds ?? [] };
         runtime.towns = (state.Towns ?? MigrateTowns(state)).OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
+        runtime.roadTiles = (state.RoadTiles ?? []).ToHashSet();
         runtime.assetReservations = WorldAssetReservationLedger.Restore(state.AssetReservations);
         runtime.survivalState = state.Survival;
         runtime.council = state.Council;
@@ -621,6 +626,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         jevPolicyRevision = proposed.jevPolicyRevision;
         founderSetup = proposed.founderSetup;
         towns = proposed.towns;
+        roadTiles = proposed.roadTiles;
         nextInstructionSequence = proposed.nextInstructionSequence;
     }
 
@@ -1600,6 +1606,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
         ValidateFounderSetup(founderSetup, society.Checkpoint);
         ValidateTowns(towns, map, founderSetup, society.Checkpoint, worldSimulation, worldContent);
+        ValidateRoads(RoadTiles, map, founderSetup);
         ValidateDeceasedArchive(deceasedInhabitants.Values, society.Checkpoint, map, checkpointSchemaVersion);
         AgentKnowledgeRules.Validate(knowledge, map, society.Checkpoint, WorldTick, checkpointSchemaVersion);
 
@@ -1686,6 +1693,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         AppendEvent("town_building_assigned", $"{town.Id}:{building.InstanceId}:buildings:{updated.AssignedBuildingIds.Count}");
         if (!town.BorderTiles.SequenceEqual(border))
             AppendEvent("town_border_expanded", $"{town.Id}:{building.InstanceId}:tiles:{border.Count}");
+        GenerateRoadToBuilding(building);
     }
 
     private void SetTown(TownRuntimeState updated)
@@ -1824,7 +1832,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations.ExportState(), eventHistoryFloor, historyArchiveHead, survivalState, council,
         deceasedInhabitants.Count == 0 ? null : deceasedInhabitants.Values.OrderBy(item => item.InhabitantId, StringComparer.Ordinal).ToArray(),
         jevPolicyRevision == 0 && jevEnabled ? null : jevEnabled, jevPolicyRevision, founderSetup,
-        geographyOptions, towns.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), knowledge);
+        geographyOptions, towns.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), knowledge,
+        RoadTiles);
 
     public DeclarativeWorldContentState WorldContent => worldContent;
 
@@ -1967,7 +1976,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                      occupied.Contains(new GridPoint(current.X, next.Y))))
                     continue;
 
-                var cost = checked(priority.Cost + map.FootStepCost(current, next));
+                var cost = checked(priority.Cost + RoadStepCost(current, next));
                 if (best.TryGetValue(next, out var previous) && previous <= cost)
                     continue;
                 best[next] = cost;
@@ -3108,7 +3117,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             Position = next,
             MoveWaitTicks = 0,
-            TravelCooldownTicks = (map.FootStepCost(state.Position, next) + 99) / 100 - 1 +
+            TravelCooldownTicks = (RoadStepCost(state.Position, next) + 99) / 100 - 1 +
                 SettlementIllnessRules.TravelDelayTicks(state.Survival?.IllnessBasisPoints ?? 0),
         };
         AppendEvent("inhabitant_moved", $"{inhabitantId}:{state.Position.X},{state.Position.Y}->{next.X},{next.Y}:{reason}");
@@ -3162,7 +3171,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     continue;
                 }
 
-                var cost = checked(priority.Cost + map.FootStepCost(current, next));
+                var cost = checked(priority.Cost + RoadStepCost(current, next));
                 if (best.TryGetValue(next, out var previous) && previous <= cost)
                     continue;
                 best[next] = cost;
@@ -3632,6 +3641,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             throw new InvalidDataException("Agent belief history requires private-world schema 20.");
         if (state.SchemaVersion < 22 && state.Society.Society.MemoryCompactions is { Count: > 0 })
             throw new InvalidDataException("Agent memory compaction indexes require private-world schema 22.");
+        if (state.SchemaVersion < 24 && state.RoadTiles is { Count: > 0 })
+            throw new InvalidDataException("Generated Roads require private-world schema 24.");
         if (state.JevPolicyRevision < 0 || state.JevEnabled is null && state.JevPolicyRevision != 0 ||
             state.SchemaVersion < 15 && (state.JevEnabled is not null || state.JevPolicyRevision != 0))
             throw new InvalidDataException("The saved Jev routing policy is invalid.");
@@ -3646,6 +3657,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             throw new InvalidDataException("Private-world schema 21 requires authoritative Town state.");
         if (state.SchemaVersion >= 23 && state.Knowledge is null)
             throw new InvalidDataException("Private-world schema 23 requires agent map-knowledge state.");
+        if (state.SchemaVersion >= 24 && state.RoadTiles is null)
+            throw new InvalidDataException("Private-world schema 24 requires authoritative Road state.");
         var hasArchivedEvents = state.EventHistoryFloor > 0 || state.Society.Society.EventHistoryFloor > 0 ||
             state.Society.Society.Inventory.EventHistoryFloor > 0 || state.Society.Cognition.EventHistoryFloor > 0 ||
             state.Society.Cognition.Runtimes.Any(runtime => runtime.EventHistoryFloor > 0);
@@ -3721,6 +3734,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 throw new InvalidDataException("A House references a missing household.");
             ValidateTowns(state.Towns ?? MigrateTowns(state), state.Map, state.FounderSetup,
                 state.Society.Society, state.WorldSimulation, state.WorldContent);
+            ValidateRoads(state.RoadTiles ?? [], state.Map, state.FounderSetup);
         }
 
         if (state.AssetReservations is not null)

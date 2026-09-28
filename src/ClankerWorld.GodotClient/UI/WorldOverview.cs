@@ -12,6 +12,7 @@ public partial class WorldOverview : Control
     private int mapWidth;
     private int mapHeight;
     private Rect2 visibleTiles;
+    private readonly HashSet<Vector2I> roadTiles = [];
     private bool dragging;
     private Vector2 dragOffset;
 
@@ -35,6 +36,7 @@ public partial class WorldOverview : Control
     {
         mapWidth = world.Width;
         mapHeight = world.Height;
+        roadTiles.Clear();
         // The overview is data art, not a second sprite set. Each atlas pixel
         // summarizes its part of the world, so redraw cost is bounded by the
         // atlas resolution instead of millions of canvas rectangles.
@@ -81,6 +83,16 @@ public partial class WorldOverview : Control
         QueueRedraw();
     }
 
+    public void SetRoads(IReadOnlyList<OwnerWorldPosition> roads)
+    {
+        ArgumentNullException.ThrowIfNull(roads);
+        var next = roads.Select(point => new Vector2I(point.X, point.Y)).ToHashSet();
+        if (next.Count == roadTiles.Count && next.SetEquals(roadTiles)) return;
+        roadTiles.Clear();
+        roadTiles.UnionWith(next);
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
         DrawRect(new Rect2(Vector2.Zero, Size), new Color("101A1E"));
@@ -92,6 +104,15 @@ public partial class WorldOverview : Control
         var atlas = AtlasRect();
         DrawRect(atlas, new Color("273A3D"));
         if (atlasTexture is not null) DrawTextureRect(atlasTexture, atlas, tile: false);
+
+        var roadColor = new Color("D9BC87");
+        foreach (var tile in roadTiles)
+        {
+            var center = atlas.Position + new Vector2(
+                (tile.X + 0.5f) * atlas.Size.X / mapWidth,
+                (tile.Y + 0.5f) * atlas.Size.Y / mapHeight);
+            DrawRect(new Rect2(center - Vector2.One, Vector2.One * 2), roadColor);
+        }
 
         DrawRect(atlas, new Color("AFC4BA"), filled: false, width: 1);
         if (MarkerTile is { } markerTile)

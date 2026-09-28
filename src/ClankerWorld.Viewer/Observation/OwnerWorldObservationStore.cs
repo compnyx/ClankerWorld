@@ -297,6 +297,8 @@ public sealed class OwnerWorldObservationStore
                     item.BorderTiles.OrderBy(point => point.Y).ThenBy(point => point.X)
                         .Select(ToPosition).ToArray()))
                 .ToArray(),
+            RoadTiles = (state.RoadTiles ?? []).OrderBy(point => point.Y).ThenBy(point => point.X)
+                .Select(ToPosition).ToArray(),
             WeatherRegions = state.WorldSystems is { } weatherSystems
                 ? CreateWeatherRegions(weatherSystems, map)
                 : [],

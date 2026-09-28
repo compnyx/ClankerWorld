@@ -209,7 +209,14 @@ Regional storm rolls now become ordinary rain after at most three-quarters of
 the saved world day, consistently for survival, crop work, owner observations
 and save/reload. Weather still rolls by day. Away from buildings, an agent can
 now seek nearby forest or a standing tree in a storm; cover reduces exposure
-at the agent's actual tile. A first 1×1 House design now has saved household
+at the agent's actual tile. A Town-assigned building can now lay persistent,
+world-owned Road tiles along a bounded dry-land route to the camp or existing
+Road network. Roads appear in the world/overview and tile inspection, bias foot
+routing and remove a diagonal wait tick where both tiles have Road. The current
+70% step-cost factor is provisional; ordinary walking never creates Roads.
+Unroutable buildings remain disconnected rather than painting Roads over water
+or mountains. Starter layout Roads, inter-Town links and bridges remain absent.
+A first 1×1 House design now has saved household
 ownership and only its household receives nearby refuge and house-fire warmth;
 its construction consumes that household's materials rather than the prototype
 camp stockpile. House cooking now reserves only ingredients stored at that

@@ -283,6 +283,7 @@ public sealed record OwnerWorldSnapshot(
     public bool? JevEnabled { get; init; }
     public OwnerFounderSetup? FounderSetup { get; init; }
     public IReadOnlyList<OwnerWorldTown> Towns { get; init; } = [];
+    public IReadOnlyList<OwnerWorldPosition> RoadTiles { get; init; } = [];
     public int WeatherRegionSize { get; init; } = 32;
     public IReadOnlyList<OwnerWeatherRegion> WeatherRegions { get; init; } = [];
     public IReadOnlyList<OwnerWorldInhabitant> Inhabitants { get; init; } = [];
