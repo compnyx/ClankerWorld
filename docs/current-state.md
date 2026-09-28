@@ -225,10 +225,13 @@ Adults with more than one personally carried food serving and sufficient
 fullness can also take a bounded surplus load to their own House, keeping one
 serving; that food becomes household stock only on arrival and remains located
 there after reload. A resident without a House has no such deposit route.
+Members gathering materials for their own household project deliver carried
+inputs at their House tile; only then does the material become household stock
+stored there. Projects without a member-accessible House retain the camp route.
 The current four-unit load is a prototype rule, not an accepted carrying
 capacity. House access requires recorded household membership even when an
 unassigned resident can still use the old camp fallback.
-Other material-gathering and production paths do not yet physically deliver
+Other gathering, helper and production paths do not yet physically deliver
 goods to House storage. Legacy Shelters remain loadable. Houses are not yet
 guaranteed at world start; expansion and guest entry are unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities

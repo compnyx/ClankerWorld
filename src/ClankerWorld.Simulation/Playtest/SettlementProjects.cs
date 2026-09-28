@@ -456,16 +456,20 @@ public sealed partial class PrivateWorldRuntime
             lot.ItemKind == input.ResourceId && AvailableLotQuantity(lot) > 0);
         if (carried is not null && constructionOwner != inhabitantId)
         {
-            var camp = map.GetObject("storage").Position;
+            var house = society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId == constructionOwner
+                ? HouseForHousehold(constructionOwner) : null;
+            var store = house?.Position ?? map.GetObject("storage").Position;
+            var interactionRange = house is null ? ResourceInteractionRange : 0;
             SetProject(inhabitantId, project with { Stage = "delivering", Blocker = $"Taking {input.ResourceId} to household storage" });
-            if (!IsWithinInteractionRange(state.Position, camp, ResourceInteractionRange))
+            if (!IsWithinInteractionRange(state.Position, store, interactionRange))
             {
-                MoveToward(inhabitantId, inhabitants[inhabitantId], camp, "deliver", ResourceInteractionRange);
+                MoveToward(inhabitantId, inhabitants[inhabitantId], store, "deliver", interactionRange);
                 return;
             }
             ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory,
                 $"project-delivery:{WorldTick}:{inhabitantId}", inhabitantId, constructionOwner, carried.Id,
-                Math.Min(input.Amount, AvailableLotQuantity(carried)), "project_contribution"));
+                Math.Min(input.Amount, AvailableLotQuantity(carried)), "project_contribution",
+                house?.InstanceId));
             AppendEvent("project_material_delivered", $"{inhabitantId}:{input.ResourceId}");
             return;
         }

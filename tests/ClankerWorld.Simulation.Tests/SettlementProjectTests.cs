@@ -9,6 +9,74 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class SettlementProjectTests
 {
     [Fact]
+    public async Task CarriedHouseholdProjectWoodIsDeliveredAtHomeBeforeItBecomesStoredStock()
+    {
+        using var seed = new PrivateWorldRuntime("project-material-home", _ => new IdleProvider());
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 6; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+
+        var state = seed.ExportState();
+        var actor = state.Society.Society.Inhabitants[0].Id;
+        var homeSite = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+            state.Map.IsBuildable(point) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.Position == point));
+        var house = seed.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        var placed = seed.PlaceBuilding("project-home", house.CanonicalId, homeSite, "household:camp-alpha");
+        Assert.True(placed.Applied, placed.Failure);
+        state = seed.ExportState();
+        var buildSite = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+            point != homeSite && state.Map.IsBuildable(point) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.Position == point));
+        var inventory = state.Society.Society.Inventory with
+        {
+            Lots = state.Society.Society.Inventory.Lots.Where(lot =>
+                lot.OwnerId != "household:camp-alpha" || lot.ItemKind != "wood").ToArray(),
+        };
+        state = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == actor
+                ? person with
+                {
+                    Position = state.Map.GetObject("storage").Position,
+                    HungerBasisPoints = 9_000,
+                    Project = new SettlementProject(
+                        TownConstructionCandidateIds.Building(house.CanonicalId, buildSite),
+                        house.DisplayName, seed.WorldTick, "acquiring", LastTransitionTick: seed.WorldTick),
+                } : person).ToArray(),
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Inventory = InventoryFixture.AddLot(inventory, "personal-project-wood", "wood", actor, 4),
+                },
+            },
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+        for (var tick = 0; tick < 20 && !world.ExportState().Events.Any(item =>
+                 item.Kind == "project_material_delivered" && item.Detail == actor + ":wood"); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        var delivery = world.ExportState().Events.Single(item =>
+            item.Kind == "project_material_delivered" && item.Detail == actor + ":wood");
+        Assert.Equal(homeSite, delivery.Position);
+        Assert.Contains(world.Society.Inventory.Lots, lot => lot.OwnerId == "household:camp-alpha" &&
+            lot.ItemKind == "wood" && lot.Quantity == 4 && lot.StorageBuildingId == "project-home");
+        Assert.Contains(new OwnerWorldObservationStore(world).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "project-home").StoredItems!,
+            item => item.Kind == "wood" && item.Quantity == 4);
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Contains(restored.Society.Inventory.Lots, lot => lot.OwnerId == "household:camp-alpha" &&
+            lot.ItemKind == "wood" && lot.Quantity == 4 && lot.StorageBuildingId == "project-home");
+    }
+
+    [Fact]
     public async Task FinishedWorkBuildsAtTheCurrentValidSiteInsteadOfRetargetingAnEarlierTile()
     {
         using var seed = new PrivateWorldRuntime("stable-project-site", _ => new IdleProvider());
