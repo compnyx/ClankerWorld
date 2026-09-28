@@ -31,6 +31,7 @@ public sealed class HouseContentTests
         var beta = state.Society.Society.Inhabitants.First(person => person.HouseholdId == "household:camp-beta").Id;
         var site = state.Map.Tiles.Select(tile => tile.Position).First(point =>
             state.Map.IsBuildable(point) &&
+            state.Map.FootDistance(point, state.Map.GetObject("storage").Position) >= 3 &&
             !state.Map.CampObjects.Any(item => item.Position == point) &&
             !state.Map.Resources.Any(item => item.Position == point) &&
             !state.Inhabitants.Any(person => person.InhabitantId != beta && person.Position == point));
@@ -64,6 +65,58 @@ public sealed class HouseContentTests
         Assert.Equal(betaWood - 1, HouseholdQuantity(resumed, "household:camp-beta", "wood"));
         Assert.Equal(WorldProductionJobState.Completed,
             resumed.WorldSimulation.ProductionJobs.Single(job => job.JobId == started.JobId).State);
+        var cookedLotId = $"{started.JobId}:output:00";
+        Assert.Equal("meal-home-beta", resumed.Society.Inventory.GetLot(cookedLotId).StorageBuildingId);
+        var projected = new OwnerWorldObservationStore(resumed).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "meal-home-beta");
+        Assert.Contains(projected.StoredItems!, item => item.Kind == "food" && item.Quantity == 4);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var client = JsonSerializer.Deserialize<ClankerWorld.GodotClient.UI.OwnerWorldPlacedBuilding>(
+            JsonSerializer.Serialize(projected, options), options)!;
+        Assert.Contains(client.StoredItems!, item => item.Kind == "food" && item.Quantity == 4);
+
+        var finished = resumed.ExportState();
+        var invalid = finished with
+        {
+            Society = finished.Society with
+            {
+                Society = finished.Society.Society with
+                {
+                    Inventory = finished.Society.Society.Inventory with
+                    {
+                        Lots = finished.Society.Society.Inventory.Lots.Select(lot => lot.Id == cookedLotId
+                            ? lot with { StorageBuildingId = "missing-house" } : lot).ToArray(),
+                    },
+                },
+            },
+        };
+        Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(invalid));
+
+        var otherBeta = finished.Society.Society.Inhabitants.First(person =>
+            person.HouseholdId == "household:camp-beta" && person.Id != beta).Id;
+        var houseApproach = finished.Map.FootNeighbors(site).First(point =>
+            finished.Inhabitants.All(person => person.InhabitantId == beta || person.Position != point));
+        var pickupState = finished with
+        {
+            Inhabitants = finished.Inhabitants.Select(person => person.InhabitantId == beta
+                ? person with { Position = houseApproach, HungerBasisPoints = 2_000 }
+                : person.InhabitantId == otherBeta ? person with { Position = site }
+                : person).ToArray(),
+        };
+        using var pickup = PrivateWorldRuntime.Restore(pickupState,
+            _ => new PreferredCandidateProvider("collect_shared_food"));
+        for (var tick = 0; tick < 40 && !pickup.ExportState().Events.Any(item =>
+                 item.Kind == "household_food_collected" && item.Detail.StartsWith(beta + ":", StringComparison.Ordinal)); tick++)
+            Assert.True((await pickup.AdvanceOneTickAsync()).Advanced);
+        var pickupEvents = pickup.ExportState().Events;
+        var collection = pickupEvents.FirstOrDefault(item =>
+            item.Kind == "household_food_collected" && item.Detail.StartsWith(beta + ":", StringComparison.Ordinal));
+        Assert.NotNull(collection);
+        Assert.NotNull(collection.Position);
+        Assert.Equal(site, collection.Position!.Value);
+        Assert.Equal(site, pickup.Inhabitants.Single(person => person.InhabitantId == otherBeta).Position);
+        Assert.Contains(pickup.Society.Inventory.Lots, lot => lot.OwnerId == beta &&
+            lot.ProvenanceLotId == cookedLotId && lot.StorageBuildingId is null);
     }
 
     [Fact]
@@ -199,5 +252,22 @@ public sealed class HouseContentTests
                 request.Observation.ObservationDigest, "safe_idle", 1,
                 request.Observation.Candidates.ToDictionary(candidate => candidate.Id,
                     candidate => candidate.Id == "safe_idle" ? 1d : 0d)));
+    }
+
+    private sealed class PreferredCandidateProvider(string candidateId) : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var selected = request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id == candidateId) ??
+                request.Observation.Candidates.Single(candidate => candidate.Id == "safe_idle");
+            return ValueTask.FromResult(new CognitionDecisionResponse(request.RequestId,
+                request.Observation.InhabitantId, Kind, ProviderEpoch, request.Observation.RunEpoch,
+                request.Observation.DecisionGeneration, request.Observation.ObservationDigest, selected.Id, 1,
+                request.Observation.Candidates.ToDictionary(candidate => candidate.Id,
+                    candidate => candidate.Id == selected.Id ? 1d : 0d)));
+        }
     }
 }

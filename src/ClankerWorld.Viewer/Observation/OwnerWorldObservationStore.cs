@@ -399,7 +399,8 @@ public sealed class OwnerWorldObservationStore
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Width ?? 1,
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Height ?? 1,
                     item.TownId,
-                    item.HouseholdId))
+                    item.HouseholdId,
+                    item.HouseholdId is null ? null : InventoryFor(state, item.HouseholdId, item.InstanceId)))
                 .ToArray() ?? [],
             ProductionJobs = jobs
                 .OrderBy(item => item.JobId, StringComparer.Ordinal)
@@ -819,8 +820,10 @@ public sealed class OwnerWorldObservationStore
 
     private static ViewerInventoryEntry[] InventoryFor(
         PrivateWorldRuntimeState state,
-        string ownerId) => state.Society.Society.Inventory.Lots
-        .Where(lot => lot.OwnerId == ownerId && lot.Quantity > 0)
+        string ownerId,
+        string? storageBuildingId = null) => state.Society.Society.Inventory.Lots
+        .Where(lot => lot.OwnerId == ownerId && lot.Quantity > 0 &&
+            (storageBuildingId is null || lot.StorageBuildingId == storageBuildingId))
         .GroupBy(lot => lot.ItemKind, StringComparer.Ordinal)
         .OrderBy(group => group.Key, StringComparer.Ordinal)
         .Select(group => new ViewerInventoryEntry(group.Key, group.Sum(lot => lot.Quantity)))

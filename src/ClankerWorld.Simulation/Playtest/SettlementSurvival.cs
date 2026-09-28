@@ -101,7 +101,8 @@ public sealed partial class PrivateWorldRuntime
         .Where(building => building.HouseholdId is null || building.HouseholdId == HouseholdFor(actor));
 
     private bool NearShelter(string actor, GridPoint point) => AccessibleShelters(actor).Any(building =>
-        IsWithinInteractionRange(point, building.Position, ResourceInteractionRange));
+        IsWithinInteractionRange(point, building.Position,
+            building.HouseholdId is null ? ResourceInteractionRange : 0));
 
     private bool NaturalStormCover(GridPoint point) =>
         map.VegetationAt(point) == VegetationCover.Forest ||
@@ -181,7 +182,8 @@ public sealed partial class PrivateWorldRuntime
             var protection = (HasCarriedItem(person.InhabitantId, "clothing") ? 35 : 0) +
                 (NearShelter(person.InhabitantId, person.Position) || naturalCover ? 45 : 0);
             var heat = AccessibleHeatingBuildings(person.InhabitantId).Any(building => IsFireLit(building) &&
-                IsWithinInteractionRange(person.Position, building.Position, 2)) ? 90 : 0;
+                IsWithinInteractionRange(person.Position, building.Position,
+                    building.HouseholdId is null ? 2 : 0)) ? 90 : 0;
             var loss = Math.Max(0, WeatherExposure(person.Position) - protection);
             var warmth = Math.Clamp(old.WarmthBasisPoints - loss + heat + (loss == 0 ? 20 : 0), 0, 10_000);
             var illnessChange = warmth < 2_500 || person.HungerBasisPoints < 500
@@ -228,10 +230,11 @@ public sealed partial class PrivateWorldRuntime
         {
             return;
         }
-        var storage = map.GetObject("storage").Position;
-        if (!IsWithinInteractionRange(person.Position, storage, ResourceInteractionRange))
+        var storage = HouseholdStockPosition(item);
+        var interactionRange = HouseholdStockInteractionRange(item);
+        if (!IsWithinInteractionRange(person.Position, storage, interactionRange))
         {
-            MoveToward(actor, person, storage, "equipment", ResourceInteractionRange);
+            MoveToward(actor, person, storage, "equipment", interactionRange);
             return;
         }
         ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory, $"equipment:{WorldTick}:{actor}:{kind}",
@@ -258,9 +261,10 @@ public sealed partial class PrivateWorldRuntime
             }
             return;
         }
-        if (!IsWithinInteractionRange(person.Position, building.Position, ResourceInteractionRange))
+        var interactionRange = building.HouseholdId is null ? ResourceInteractionRange : 0;
+        if (!IsWithinInteractionRange(person.Position, building.Position, interactionRange))
         {
-            MoveToward(actor, person, building.Position, "fuel_fire", ResourceInteractionRange);
+            MoveToward(actor, person, building.Position, "fuel_fire", interactionRange);
             return;
         }
         var fuel = society.Checkpoint.Inventory.Lots.First(lot => lot.OwnerId == actor && lot.ItemKind == "wood" && AvailableLotQuantity(lot) > 0);
@@ -282,9 +286,11 @@ public sealed partial class PrivateWorldRuntime
             if (person.Position != coverPoint)
                 MoveToward(actor, person, coverPoint, "storm_cover");
         }
-        else if (destination is not null && !IsWithinInteractionRange(person.Position, destination.Position, ResourceInteractionRange))
+        else if (destination is not null && !IsWithinInteractionRange(person.Position, destination.Position,
+                     destination.HouseholdId is null ? ResourceInteractionRange : 0))
         {
-            MoveToward(actor, person, destination.Position, "warmth", ResourceInteractionRange);
+            MoveToward(actor, person, destination.Position, "warmth",
+                destination.HouseholdId is null ? ResourceInteractionRange : 0);
         }
     }
 

@@ -183,10 +183,11 @@ public sealed partial class PrivateWorldRuntime
         {
             if (PreferredFood(HouseholdFor(actor), actor).FirstOrDefault() is { } sharedFood)
             {
-                var camp = map.GetObject("storage").Position;
-                if (!IsWithinInteractionRange(parent.Position, camp, ResourceInteractionRange))
+                var camp = HouseholdStockPosition(sharedFood);
+                var interactionRange = HouseholdStockInteractionRange(sharedFood);
+                if (!IsWithinInteractionRange(parent.Position, camp, interactionRange))
                 {
-                    MoveToward(actor, parent, camp, "care_food", ResourceInteractionRange);
+                    MoveToward(actor, parent, camp, "care_food", interactionRange);
                     return;
                 }
                 ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory, $"care-food:{WorldTick}:{actor}",

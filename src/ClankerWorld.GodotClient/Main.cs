@@ -3933,10 +3933,13 @@ public partial class Main : Control
             var name = building.DisplayName ?? "Building";
             var assignedTown = snapshot.Towns.FirstOrDefault(item => item.Id == building.TownId)?.Name;
             var household = snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == building.HouseholdId);
+            var stored = building.StoredItems is { Count: > 0 }
+                ? string.Join(" · ", building.StoredItems.Select(item => $"{Pretty(item.Kind)} {item.Quantity}"))
+                : "none recorded";
             AddMapObjectVisual("building:" + building.InstanceId, building.Position, ObjectGlyph(kind), name,
                 $"{name}\nBuilt · {building.Width} × {building.Height} tiles" +
                 (assignedTown is null ? "\nNo Town assignment" : $"\nTown · {assignedTown}") +
-                (household is null ? "" : $"\nHousehold · {household.Name}"),
+                (household is null ? "" : $"\nHousehold · {household.Name}\nStored here · {stored}"),
                 building.Width, building.Height);
         }
 

@@ -42,7 +42,8 @@ public sealed record InventoryLot(
     int ConditionBasisPoints,
     int FreshnessBasisPoints,
     long LastProcessedTick,
-    string? ProvenanceLotId = null);
+    string? ProvenanceLotId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StorageBuildingId = null);
 
 public sealed record InventoryReservation(
     string Id,
@@ -146,7 +147,8 @@ public static class InventoryFixture
         int quantity,
         long? targetTick = null,
         int conditionBasisPoints = 10_000,
-        int freshnessBasisPoints = 10_000)
+        int freshnessBasisPoints = 10_000,
+        string? storageBuildingId = null)
     {
         ValidateCheckpoint(checkpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(lotId);
@@ -171,7 +173,8 @@ public static class InventoryFixture
             quantity,
             conditionBasisPoints,
             freshnessBasisPoints,
-            nextTick);
+            nextTick,
+            StorageBuildingId: storageBuildingId);
         var lots = checkpoint.Lots
             .Append(lot)
             .OrderBy(candidate => candidate.Id, StringComparer.Ordinal)
@@ -324,7 +327,8 @@ public static class InventoryFixture
         string recipientId,
         string lotId,
         int quantity,
-        string purpose)
+        string purpose,
+        string? destinationStorageBuildingId = null)
     {
         ValidateCheckpoint(checkpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(transferId);
@@ -340,7 +344,9 @@ public static class InventoryFixture
         var source = checkpoint.GetLot(lotId);
         EnsureOwnerAndAvailableQuantity(checkpoint, source, senderId, quantity);
         var lots = quantity == source.Quantity
-            ? checkpoint.Lots.Select(lot => lot.Id == source.Id ? lot with { OwnerId = recipientId } : lot)
+            ? checkpoint.Lots.Select(lot => lot.Id == source.Id
+                    ? lot with { OwnerId = recipientId, StorageBuildingId = destinationStorageBuildingId }
+                    : lot)
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray()
             : checkpoint.Lots.Select(lot => lot.Id == source.Id
@@ -352,6 +358,7 @@ public static class InventoryFixture
                     OwnerId = recipientId,
                     Quantity = quantity,
                     ProvenanceLotId = source.Id,
+                    StorageBuildingId = destinationStorageBuildingId,
                 })
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray();
@@ -519,7 +526,8 @@ public static class InventoryFixture
     {
         if (source.Quantity == quantity)
         {
-            return lots.Select(lot => lot.Id == source.Id ? lot with { OwnerId = recipientId } : lot)
+            return lots.Select(lot => lot.Id == source.Id
+                    ? lot with { OwnerId = recipientId, StorageBuildingId = null } : lot)
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal).ToArray();
         }
 
@@ -535,6 +543,7 @@ public static class InventoryFixture
             OwnerId = recipientId,
             Quantity = quantity,
             ProvenanceLotId = source.Id,
+            StorageBuildingId = null,
         };
         return lots.Select(lot => lot.Id == source.Id ? lot with { Quantity = lot.Quantity - quantity } : lot)
             .Append(transferred).OrderBy(lot => lot.Id, StringComparer.Ordinal).ToArray();
@@ -622,6 +631,9 @@ public static class InventoryFixture
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(lot.ItemKind);
             ArgumentException.ThrowIfNullOrWhiteSpace(lot.OwnerId);
+            if (lot.StorageBuildingId is { } storageBuildingId &&
+                (string.IsNullOrWhiteSpace(storageBuildingId) || storageBuildingId != storageBuildingId.Trim()))
+                throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid storage building ID.");
             if (lot.Quantity <= 0 || lot.LastProcessedTick < 0 ||
                 lot.ConditionBasisPoints is < 0 or > 10_000 || lot.FreshnessBasisPoints is < 0 or > 10_000)
             {

@@ -58,7 +58,9 @@ public sealed partial class PrivateWorldRuntime
         }
 
         if (state.HungerBasisPoints >= 6_000 && PreferredFood(actor, actor).Any(lot => AvailableLotQuantity(lot) > 1) &&
-            FindUnoccupiedRoute(actor, state.Position, map.GetObject("storage").Position, ResourceInteractionRange).Count > 0)
+            FindUnoccupiedRoute(actor, state.Position,
+                HouseForHousehold(HouseholdFor(actor))?.Position ?? map.GetObject("storage").Position,
+                HouseForHousehold(HouseholdFor(actor)) is null ? ResourceInteractionRange : 0).Count > 0)
             candidates.Add(new("child_help_food", "Carry one spare food serving back to the household store.", 26));
     }
 
@@ -70,14 +72,17 @@ public sealed partial class PrivateWorldRuntime
             if (state.HungerBasisPoints < 6_000 ||
                 PreferredFood(actor, actor).FirstOrDefault(lot => AvailableLotQuantity(lot) > 1) is not { } lot)
                 return;
-            var store = map.GetObject("storage").Position;
-            if (!IsWithinInteractionRange(state.Position, store, ResourceInteractionRange))
+            var house = HouseForHousehold(HouseholdFor(actor));
+            var store = house?.Position ?? map.GetObject("storage").Position;
+            var interactionRange = house is null ? ResourceInteractionRange : 0;
+            if (!IsWithinInteractionRange(state.Position, store, interactionRange))
             {
-                MoveToward(actor, state, store, "child_help", ResourceInteractionRange);
+                MoveToward(actor, state, store, "child_help", interactionRange);
                 return;
             }
             ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory,
-                $"child-help:{WorldTick}:{actor}", actor, HouseholdFor(actor), lot.Id, 1, "child_household_help"));
+                $"child-help:{WorldTick}:{actor}", actor, HouseholdFor(actor), lot.Id, 1,
+                "child_household_help", house?.InstanceId));
             AppendEvent("child_helped_household", actor);
             return;
         }

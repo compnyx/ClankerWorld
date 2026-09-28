@@ -1525,6 +1525,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations.Validate();
         ValidateAssetReservationsAgainstActivePackages();
         WorldContentSimulationRules.Validate(worldSimulation, worldContent, map, WorldTick);
+        ValidateStorageLocations(society.Checkpoint.Inventory, worldSimulation);
         if (worldSimulation.Buildings.Any(building => building.HouseholdId is { } householdId &&
             !society.Checkpoint.Households.Any(household => household.Id == householdId)))
             throw new InvalidDataException("A House references a missing household.");
@@ -2291,8 +2292,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             ? WeatherRules.SoilMoistureAt(worldSystems, cropSite, map.Height,
                 WeatherRules.RegionClimate(map, cropSite))
             : 35;
-        var productionOwner = worldSimulation.Buildings
-            .FirstOrDefault(building => building.InstanceId == job.BuildingInstanceId)?.HouseholdId ?? HouseholdId;
+        var productionBuilding = worldSimulation.Buildings
+            .FirstOrDefault(building => building.InstanceId == job.BuildingInstanceId);
+        var productionOwner = productionBuilding?.HouseholdId ?? HouseholdId;
         ApplyInventoryTransition(inventory =>
         {
             var current = inventory;
@@ -2310,7 +2312,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     output.ResourceId,
                     productionOwner,
                     CropOutputQuantity(recipe, output, cropWeather, soilMoisture),
-                    targetTick);
+                    targetTick,
+                    storageBuildingId: productionBuilding?.HouseholdId is null ? null : productionBuilding.InstanceId);
             }
 
             return current;
@@ -3056,6 +3059,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             .Where(item => item.InhabitantId != inhabitantId)
             .Select(item => item.Position)
             .ToHashSet();
+        if (interactionRange == 0 && worldSimulation.Buildings.Any(building =>
+                building.Position == destination && building.HouseholdId == HouseholdFor(inhabitantId)))
+            occupied.Remove(destination);
         var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
         var best = new Dictionary<GridPoint, int> { [origin] = 0 };
         var predecessor = new Dictionary<GridPoint, GridPoint>();
@@ -3174,19 +3180,32 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
     private string HouseholdFor(string actor) => society.Checkpoint.GetInhabitant(actor).HouseholdId ?? HouseholdId;
 
-    private InventoryLot? AvailableSharedFood(string actor) => MayCollectSharedFood(actor) ? PreferredFood(HouseholdFor(actor), actor).FirstOrDefault() : null;
+    private PlacedBuilding? HouseForHousehold(string householdId) => worldSimulation.Buildings
+        .Where(building => building.HouseholdId == householdId)
+        .OrderBy(building => building.InstanceId, StringComparer.Ordinal).FirstOrDefault();
+
+    private GridPoint HouseholdStockPosition(InventoryLot lot) => lot.StorageBuildingId is { } buildingId
+        ? worldSimulation.Buildings.Single(building => building.InstanceId == buildingId).Position
+        : map.GetObject("storage").Position;
+
+    private static int HouseholdStockInteractionRange(InventoryLot lot) =>
+        lot.StorageBuildingId is null ? ResourceInteractionRange : 0;
+
+    private InventoryLot? AvailableSharedFood(string actor) => MayCollectSharedFood(actor)
+        ? PreferredFood(HouseholdFor(actor), actor).FirstOrDefault(lot =>
+            FindUnoccupiedRoute(actor, inhabitants[actor].Position, HouseholdStockPosition(lot),
+                HouseholdStockInteractionRange(lot)).Count > 0)
+        : null;
 
     private void CollectSharedFood(string inhabitantId, PlaytestInhabitantState state)
     {
-        var supplyPoint = map.GetObject("storage").Position;
-        if (!IsWithinInteractionRange(state.Position, supplyPoint, ResourceInteractionRange))
-        {
-            MoveToward(inhabitantId, state, supplyPoint, "household_food", ResourceInteractionRange);
-            return;
-        }
-
         if (AvailableSharedFood(inhabitantId) is not { } lot)
+            return;
+        var supplyPoint = HouseholdStockPosition(lot);
+        var interactionRange = HouseholdStockInteractionRange(lot);
+        if (!IsWithinInteractionRange(state.Position, supplyPoint, interactionRange))
         {
+            MoveToward(inhabitantId, state, supplyPoint, "household_food", interactionRange);
             return;
         }
 
@@ -3237,13 +3256,12 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         var foodSource = AvailableFoodSource(state.Position);
         var foodPriority = state.HungerBasisPoints < 2_500 ? 2 : 5;
         var shouldGatherFood = !hasFood && state.HungerBasisPoints < 7_000;
-        if (shouldGatherFood && contentRegistry.ExportState().Packages.Any(package =>
-                package.Manifest.PackageId == StarterContent.PackageId && package.Lifecycle == ContentPackageLifecycle.Active) &&
-            AvailableSharedFood(inhabitantId) is not null &&
-            FindUnoccupiedRoute(inhabitantId, state.Position, map.GetObject("storage").Position, ResourceInteractionRange).Count > 0)
+        var sharedFood = shouldGatherFood ? AvailableSharedFood(inhabitantId) : null;
+        if (sharedFood is not null && contentRegistry.ExportState().Packages.Any(package =>
+                package.Manifest.PackageId == StarterContent.PackageId && package.Lifecycle == ContentPackageLifecycle.Active))
         {
             candidates.Add(new CognitionCandidate("collect_shared_food",
-                "Collect one available household food serving at camp, then eat it.",
+                "Collect one available household food serving from its store, then eat it.",
                 foodPriority - 1, HouseholdId));
         }
         if (shouldGatherFood && foodSource is not null &&
@@ -3496,6 +3514,18 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         events.Add(new PlaytestWorldEvent(nextEventId++, WorldTick, kind, detail, position));
     }
 
+    private static void ValidateStorageLocations(InventoryCheckpoint inventory,
+        WorldContentSimulationState simulation)
+    {
+        var buildings = simulation.Buildings.ToDictionary(item => item.InstanceId, StringComparer.Ordinal);
+        foreach (var lot in inventory.Lots.Where(item => item.StorageBuildingId is not null))
+        {
+            if (!buildings.TryGetValue(lot.StorageBuildingId!, out var building) ||
+                building.HouseholdId is null || building.HouseholdId != lot.OwnerId)
+                throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid House storage location.");
+        }
+    }
+
     internal static void ValidateStateForCodec(PrivateWorldRuntimeState state)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -3594,6 +3624,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 state.WorldContent,
                 state.Map,
                 state.Society.Society.WorldTick);
+            ValidateStorageLocations(state.Society.Society.Inventory, state.WorldSimulation);
             if (state.WorldSimulation.Buildings.Any(building => building.HouseholdId is { } householdId &&
                 !state.Society.Society.Households.Any(household => household.Id == householdId)))
                 throw new InvalidDataException("A House references a missing household.");

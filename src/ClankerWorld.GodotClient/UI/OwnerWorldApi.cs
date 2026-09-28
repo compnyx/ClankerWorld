@@ -230,7 +230,8 @@ public sealed record OwnerWorldPlacedBuilding(
     int Width = 1,
     int Height = 1,
     string? TownId = null,
-    string? HouseholdId = null);
+    string? HouseholdId = null,
+    IReadOnlyList<OwnerWorldInventoryEntry>? StoredItems = null);
 
 public sealed record OwnerWorldProductionJob(
     string JobId,

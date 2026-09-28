@@ -8,6 +8,14 @@ release yet.
 
 ### Added
 
+- Meals finished at a House now record that House as their physical stock
+  location. Its map inspection shows only items actually recorded there, and
+  household members enter the House tile to collect those meals, cook, or take
+  refuge rather than using it from an adjacent tile or the old camp store.
+  Multiple household members can share the House tile without a headcount cap.
+  Children carrying spare food deliver it to their household House when one
+  exists. Invalid or missing storage buildings are rejected on reload; older
+  household stock remains unlocated until a hauling path moves it into a House.
 - Members can now cook a household meal at their own House. The job reserves
   only that household's food and wood and returns the meal to it after save or
   reload; outsiders cannot start the job there. Physical placement of the
