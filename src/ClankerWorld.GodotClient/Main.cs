@@ -3932,9 +3932,11 @@ public partial class Main : Control
                 tags.Any(tag => tag is "warmth" or "cooking") ? "campfire" : "building";
             var name = building.DisplayName ?? "Building";
             var assignedTown = snapshot.Towns.FirstOrDefault(item => item.Id == building.TownId)?.Name;
+            var household = snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == building.HouseholdId);
             AddMapObjectVisual("building:" + building.InstanceId, building.Position, ObjectGlyph(kind), name,
                 $"{name}\nBuilt · {building.Width} × {building.Height} tiles" +
-                (assignedTown is null ? "\nNo Town assignment" : $"\nTown · {assignedTown}"),
+                (assignedTown is null ? "\nNo Town assignment" : $"\nTown · {assignedTown}") +
+                (household is null ? "" : $"\nHousehold · {household.Name}"),
                 building.Width, building.Height);
         }
 

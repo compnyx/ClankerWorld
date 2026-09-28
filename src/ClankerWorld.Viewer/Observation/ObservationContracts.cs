@@ -228,7 +228,8 @@ public sealed record ViewerPlacedBuilding(
     IReadOnlyList<string>? Tags = null,
     int Width = 1,
     int Height = 1,
-    string? TownId = null);
+    string? TownId = null,
+    string? HouseholdId = null);
 
 public sealed record ViewerProductionJob(
     string JobId,

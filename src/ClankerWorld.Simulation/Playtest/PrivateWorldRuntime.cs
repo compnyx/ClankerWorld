@@ -103,6 +103,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private const long CognitionReevaluationIntervalTicks = 30;
     private const int ResourceInteractionRange = 1;
     private const int HarvestFoodYield = 4;
+    private static readonly string LegacyStarterDigest = StarterContent.Create().PackageDigest;
 
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly SemaphoreSlim tickGate = new(1, 1);
@@ -691,6 +692,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var startingEvent = events.Count;
             var targetTick = checked(WorldTick + 1);
             StageSettlementContent();
+            StageHouseContent();
             StageForestryContent();
             var readyPackages = contentRegistry.GetActivationCandidates(targetTick);
             var reservationPreview = WorldAssetReservationLedger.Restore(
@@ -1023,14 +1025,15 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     public BuildingPlacementResult PlaceBuilding(
         string instanceId,
         string definitionId,
-        GridPoint position)
+        GridPoint position,
+        string? householdId = null)
     {
         gate.Wait();
         try
         {
             var definition = worldContent.Buildings.SingleOrDefault(item => item.CanonicalId == definitionId);
             var assignedTown = definition is null ? null : TownForOwnerPlacement(position, definition);
-            return PlaceBuildingCore(instanceId, definitionId, position, "building_placed", assignedTown?.Id);
+            return PlaceBuildingCore(instanceId, definitionId, position, "building_placed", assignedTown?.Id, householdId);
         }
         finally
         {
@@ -1043,7 +1046,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         string definitionId,
         GridPoint position,
         string eventKind,
-        string? assignedTownId = null)
+        string? assignedTownId = null,
+        string? householdId = null)
     {
         try
         {
@@ -1073,6 +1077,12 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 return BuildingPlacementResult.Rejected(normalizedInstanceId, normalizedDefinitionId, position,
                     "The assigned Town does not exist.");
 
+            var isHouse = definition.Tags.Contains("house", StringComparer.Ordinal);
+            if (isHouse != (householdId is not null) ||
+                householdId is not null && !society.Checkpoint.Households.Any(item => item.Id == householdId))
+                return BuildingPlacementResult.Rejected(normalizedInstanceId, normalizedDefinitionId, position,
+                    "A House requires an existing household; other buildings cannot take household ownership.");
+
             if (!CanPlaceBuilding(definition, position, out var placementFailure))
             {
                 return BuildingPlacementResult.Rejected(
@@ -1085,13 +1095,15 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             ApplyInventoryTransition(inventory => ConsumeQuantities(
                 inventory,
                 definition.BuildCosts,
-                $"building:{normalizedInstanceId}"));
+                $"building:{normalizedInstanceId}",
+                householdId ?? HouseholdId));
             var placed = new PlacedBuilding(
                 normalizedInstanceId,
                 definition.CanonicalId,
                 position,
                 WorldTick,
-                assignedTownId);
+                assignedTownId,
+                householdId);
             worldSimulation = new WorldContentSimulationState(
                 worldSimulation.Buildings
                     .Append(placed)
@@ -1102,7 +1114,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 worldSimulation.CropBuilds);
             if (assignedTownId is not null)
                 AssignBuildingToTown(placed, definition);
-            AppendEvent(eventKind, $"{placed.InstanceId}:{placed.DefinitionId}:{position.X},{position.Y}");
+            AppendEvent(eventKind, $"{placed.InstanceId}:{placed.DefinitionId}:{position.X},{position.Y}" +
+                (householdId is null ? string.Empty : $":household={householdId}"));
             return BuildingPlacementResult.Success(placed);
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or KeyNotFoundException)
@@ -1505,6 +1518,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations.Validate();
         ValidateAssetReservationsAgainstActivePackages();
         WorldContentSimulationRules.Validate(worldSimulation, worldContent, map, WorldTick);
+        if (worldSimulation.Buildings.Any(building => building.HouseholdId is { } householdId &&
+            !society.Checkpoint.Households.Any(household => household.Id == householdId)))
+            throw new InvalidDataException("A House references a missing household.");
         var inventoryReservationIds = society.Checkpoint.Inventory.Reservations
             .Select(item => item.Id)
             .ToHashSet(StringComparer.Ordinal);
@@ -1977,13 +1993,13 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         return false;
     }
 
-    private bool HasAvailableQuantities(IReadOnlyList<ContentQuantity> quantities)
+    private bool HasAvailableQuantities(IReadOnlyList<ContentQuantity> quantities, string? ownerId = null)
     {
         var inventory = society.Checkpoint.Inventory;
         foreach (var requested in quantities)
         {
             var available = inventory.Lots
-                .Where(lot => lot.OwnerId == HouseholdId && lot.ItemKind == requested.ResourceId)
+                .Where(lot => lot.OwnerId == (ownerId ?? HouseholdId) && lot.ItemKind == requested.ResourceId)
                 .Sum(AvailableLotQuantity);
             if (available < requested.Amount)
             {
@@ -2056,7 +2072,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private static InventoryCheckpoint ConsumeQuantities(
         InventoryCheckpoint inventory,
         IReadOnlyList<ContentQuantity> quantities,
-        string purpose)
+        string purpose,
+        string ownerId)
     {
         var current = inventory;
         for (var quantityIndex = 0; quantityIndex < quantities.Count; quantityIndex++)
@@ -2064,7 +2081,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var requested = quantities[quantityIndex];
             var remaining = requested.Amount;
             var lots = current.Lots
-                .Where(lot => lot.OwnerId == HouseholdId && lot.ItemKind == requested.ResourceId && lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0)
+                .Where(lot => lot.OwnerId == ownerId && lot.ItemKind == requested.ResourceId && lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0)
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray();
             foreach (var lot in lots)
@@ -2091,7 +2108,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 current = InventoryFixture.Reserve(
                     current,
                     reservationId,
-                    HouseholdId,
+                    ownerId,
                     lot.Id,
                     amount,
                     purpose,
@@ -2945,7 +2962,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 definition.CanonicalId,
                 position,
                 "build_completed",
-                TownForResident(inhabitantId));
+                TownForResident(inhabitantId),
+                definition.Tags.Contains("house", StringComparer.Ordinal) ? HouseholdFor(inhabitantId) : null);
             if (!placement.Applied)
             {
                 AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:{placement.Failure}");
@@ -3286,13 +3304,18 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var layout = CreateTownLayoutContext(inhabitant.Id);
             foreach (var definition in worldContent.Buildings)
             {
+                if (definition.PackageDigest == LegacyStarterDigest && definition.LocalId == "shelter" &&
+                    worldContent.Buildings.Any(building => building.Tags.Contains("house", StringComparer.Ordinal)))
+                    continue;
                 if (NeedsUrgentWarmth(state) && !definition.Tags.Any(tag => tag is "shelter" or "warmth" or "cooking"))
                 {
                     continue;
                 }
                 var instanceId = BuildInstanceId(inhabitant.Id, definition);
+                var constructionOwner = definition.Tags.Contains("house", StringComparer.Ordinal)
+                    ? HouseholdFor(inhabitant.Id) : null;
                 if (worldSimulation.Buildings.Any(item => item.InstanceId == instanceId) ||
-                    !CanAcquireProjectInputs(definition.BuildCosts))
+                    !CanAcquireProjectInputs(definition.BuildCosts, constructionOwner))
                 {
                     continue;
                 }
@@ -3556,6 +3579,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 state.WorldContent,
                 state.Map,
                 state.Society.Society.WorldTick);
+            if (state.WorldSimulation.Buildings.Any(building => building.HouseholdId is { } householdId &&
+                !state.Society.Society.Households.Any(household => household.Id == householdId)))
+                throw new InvalidDataException("A House references a missing household.");
             ValidateTowns(state.Towns ?? MigrateTowns(state), state.Map, state.FounderSetup,
                 state.Society.Society, state.WorldSimulation, state.WorldContent);
         }

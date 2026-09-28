@@ -8,7 +8,8 @@ public sealed record PlacedBuilding(
     string DefinitionId,
     GridPoint Position,
     long PlacedTick,
-    string? TownId = null);
+    string? TownId = null,
+    string? HouseholdId = null);
 
 public enum WorldProductionJobState
 {
@@ -138,6 +139,13 @@ public static class WorldContentSimulationRules
             if (!buildingIds.Add(building.InstanceId) || !buildingDefinitions.TryGetValue(building.DefinitionId, out var definition))
             {
                 throw new InvalidDataException("Placed buildings must have unique IDs and registered definitions.");
+            }
+
+            var isHouse = definition.Tags.Contains("house", StringComparer.Ordinal);
+            if (isHouse != !string.IsNullOrWhiteSpace(building.HouseholdId) ||
+                building.HouseholdId is { } householdId && householdId != householdId.Trim())
+            {
+                throw new InvalidDataException($"Placed building '{building.InstanceId}' has invalid household ownership.");
             }
 
             var existing = state.Buildings

@@ -35,7 +35,7 @@ public sealed partial class PrivateWorldRuntime
             item.State == SocietyRelationshipState.Accepted && item.EffectiveTick <= WorldTick &&
             item.ProposerId == actor && item.TargetId == person.InhabitantId));
 
-    private bool FamilyResourcesReady(string actor) => BuildingsWithTag("shelter").Any() &&
+    private bool FamilyResourcesReady(string actor) => AccessibleShelters(actor).Any() &&
         society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == HouseholdFor(actor) && IsEdibleFood(lot.ItemKind))
             .Sum(AvailableLotQuantity) >= society.Checkpoint.Inhabitants.Count(person => person.HouseholdId == HouseholdFor(actor) &&
                 person.Status == SocietyInhabitantStatus.Active) * 2 + 4 &&
@@ -144,7 +144,7 @@ public sealed partial class PrivateWorldRuntime
             {
                 continue;
             }
-            var shelter = BuildingsWithTag("shelter").First();
+            var shelter = AccessibleShelters(person.InhabitantId).First();
             var site = map.Tiles.Where(tile => map.IsBuildable(tile.Position) &&
                 IsWithinInteractionRange(tile.Position, shelter.Position, ResourceInteractionRange) &&
                 !inhabitants.Values.Any(resident => resident.Position == tile.Position)).Select(tile => (GridPoint?)tile.Position).FirstOrDefault();

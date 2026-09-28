@@ -97,7 +97,10 @@ public sealed partial class PrivateWorldRuntime
     private IEnumerable<PlacedBuilding> BuildingsWithTag(string tag) => worldSimulation.Buildings.Where(building =>
         worldContent.Buildings.Any(definition => definition.CanonicalId == building.DefinitionId && definition.Tags.Contains(tag, StringComparer.Ordinal)));
 
-    private bool NearShelter(GridPoint point) => BuildingsWithTag("shelter").Any(building =>
+    private IEnumerable<PlacedBuilding> AccessibleShelters(string actor) => BuildingsWithTag("shelter")
+        .Where(building => building.HouseholdId is null || building.HouseholdId == HouseholdFor(actor));
+
+    private bool NearShelter(string actor, GridPoint point) => AccessibleShelters(actor).Any(building =>
         IsWithinInteractionRange(point, building.Position, ResourceInteractionRange));
 
     private bool NaturalStormCover(GridPoint point) =>
@@ -136,6 +139,9 @@ public sealed partial class PrivateWorldRuntime
     private IEnumerable<PlacedBuilding> HeatingBuildings() => BuildingsWithTag("cooking").Concat(BuildingsWithTag("warmth"))
         .DistinctBy(building => building.InstanceId);
 
+    private IEnumerable<PlacedBuilding> AccessibleHeatingBuildings(string actor) => HeatingBuildings()
+        .Where(building => building.HouseholdId is null || building.HouseholdId == HouseholdFor(actor));
+
     private void AdvanceSettlementSurvival()
     {
         if (survivalState is null && !contentRegistry.ExportState().Packages.Any(package => package.Manifest.PackageId == SettlementContent.PackageId &&
@@ -161,8 +167,11 @@ public sealed partial class PrivateWorldRuntime
             Fires = survivalState.Fires.Where(fire =>
             fire.FuelUntilTick > WorldTick && existingIds.Contains(fire.BuildingId)).ToArray()
         };
-        var shelteredOwners = BuildingsWithTag("storage").Any()
-            ? society.Checkpoint.Households.Select(household => household.Id).ToHashSet(StringComparer.Ordinal) : null;
+        var sharedStorage = BuildingsWithTag("storage").Any(building => building.HouseholdId is null);
+        var shelteredOwners = sharedStorage
+            ? society.Checkpoint.Households.Select(household => household.Id).ToHashSet(StringComparer.Ordinal)
+            : BuildingsWithTag("storage").Where(building => building.HouseholdId is not null)
+                .Select(building => building.HouseholdId!).ToHashSet(StringComparer.Ordinal);
         ApplyInventoryTransition(inventory => InventoryFixture.ProcessSpoilage(inventory, WorldTick, 4,
             PerishableKinds, shelteredOwners));
         foreach (var person in inhabitants.Values.ToArray())
@@ -170,15 +179,15 @@ public sealed partial class PrivateWorldRuntime
             var old = person.Survival ?? new SurvivalCondition();
             var naturalCover = WeatherAt(person.Position) == WeatherKind.Storm && NaturalStormCover(person.Position);
             var protection = (HasCarriedItem(person.InhabitantId, "clothing") ? 35 : 0) +
-                (NearShelter(person.Position) || naturalCover ? 45 : 0);
-            var heat = HeatingBuildings().Any(building => IsFireLit(building) &&
+                (NearShelter(person.InhabitantId, person.Position) || naturalCover ? 45 : 0);
+            var heat = AccessibleHeatingBuildings(person.InhabitantId).Any(building => IsFireLit(building) &&
                 IsWithinInteractionRange(person.Position, building.Position, 2)) ? 90 : 0;
             var loss = Math.Max(0, WeatherExposure(person.Position) - protection);
             var warmth = Math.Clamp(old.WarmthBasisPoints - loss + heat + (loss == 0 ? 20 : 0), 0, 10_000);
             var illnessChange = warmth < 2_500 || person.HungerBasisPoints < 500
                 ? ExposureIllnessIncreasePerTick
                 : warmth > 6_000 && person.HungerBasisPoints > 3_500
-                    ? -(IllnessRecoveryPerTick + (NearShelter(person.Position) ? ShelteredIllnessRecoveryBonusPerTick : 0))
+                    ? -(IllnessRecoveryPerTick + (NearShelter(person.InhabitantId, person.Position) ? ShelteredIllnessRecoveryBonusPerTick : 0))
                     : 0;
             var illness = Math.Clamp(old.IllnessBasisPoints + illnessChange, 0, 10_000);
             inhabitants[person.InhabitantId] = person with { Survival = old with { WarmthBasisPoints = warmth, IllnessBasisPoints = illness } };
@@ -199,7 +208,7 @@ public sealed partial class PrivateWorldRuntime
         {
             candidates.Add(new CognitionCandidate("wear_clothing", "Collect woven clothing from camp to reduce exposure.", 3));
         }
-        if (AdultResident(actor) && WeatherExposure(person.Position) > 0 && HeatingBuildings().Any(building => !IsFireLit(building)) &&
+        if (AdultResident(actor) && WeatherExposure(person.Position) > 0 && AccessibleHeatingBuildings(actor).Any(building => !IsFireLit(building)) &&
             (SharedItem("wood", actor) is not null || HasCarriedItem(actor, "wood") || MaterialSource("wood") is not null))
         {
             candidates.Add(new CognitionCandidate("tend_fire", "Carry household wood to a hearth and keep the camp warm.", condition.WarmthBasisPoints < 6_000 ? 2 : 4));
@@ -207,7 +216,7 @@ public sealed partial class PrivateWorldRuntime
         var stormCover = WeatherAt(person.Position) == WeatherKind.Storm &&
             NearbyNaturalStormCover(actor, person.Position) is not null;
         if (condition.WarmthBasisPoints < 6_000 &&
-            (HeatingBuildings().Any(IsFireLit) || BuildingsWithTag("shelter").Any() || stormCover))
+            (AccessibleHeatingBuildings(actor).Any(IsFireLit) || AccessibleShelters(actor).Any() || stormCover))
         {
             candidates.Add(new CognitionCandidate("seek_warmth", "Seek a lit hearth, shelter or nearby natural storm cover to reduce exposure.", 3));
         }
@@ -232,7 +241,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void TendFire(string actor, PlaytestInhabitantState person)
     {
-        var building = HeatingBuildings().FirstOrDefault(building => !IsFireLit(building));
+        var building = AccessibleHeatingBuildings(actor).FirstOrDefault(building => !IsFireLit(building));
         if (building is null || survivalState is null)
         {
             return;
@@ -262,7 +271,8 @@ public sealed partial class PrivateWorldRuntime
 
     private void SeekWarmth(string actor, PlaytestInhabitantState person)
     {
-        var destination = HeatingBuildings().FirstOrDefault(IsFireLit) ?? BuildingsWithTag("shelter").FirstOrDefault();
+        var destination = AccessibleHeatingBuildings(actor).FirstOrDefault(IsFireLit) ??
+            AccessibleShelters(actor).FirstOrDefault();
         var cover = WeatherAt(person.Position) == WeatherKind.Storm
             ? NearbyNaturalStormCover(actor, person.Position) : null;
         if (cover is { } coverPoint &&

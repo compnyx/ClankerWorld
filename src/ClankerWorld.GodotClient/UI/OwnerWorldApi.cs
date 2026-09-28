@@ -229,7 +229,8 @@ public sealed record OwnerWorldPlacedBuilding(
     IReadOnlyList<string>? Tags = null,
     int Width = 1,
     int Height = 1,
-    string? TownId = null);
+    string? TownId = null,
+    string? HouseholdId = null);
 
 public sealed record OwnerWorldProductionJob(
     string JobId,

@@ -1,0 +1,143 @@
+using System.Text.Json;
+using System.Globalization;
+using ClankerWorld.Simulation.Cognition;
+using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.World;
+using ClankerWorld.Viewer.Observation;
+
+namespace ClankerWorld.Simulation.Tests;
+
+public sealed class HouseContentTests
+{
+    [Fact]
+    public async Task AnotherHouseholdDoesNotReceiveHouseRefugeInSnow()
+    {
+        using var seed = new PrivateWorldRuntime("house-refuge", _ => new IdleProvider(),
+            startPace: WorldStartPace.FounderSetup);
+        var founderPositions = new[]
+        {
+            new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2),
+        };
+        for (var index = 0; index < founderPositions.Length; index++)
+            seed.PlaceFounder("founder:" + (index + 1).ToString("x32", CultureInfo.InvariantCulture), founderPositions[index]);
+        seed.StartWorld();
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 6; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+
+        var state = seed.ExportState();
+        var alpha = state.Society.Society.Inhabitants.First(person => person.HouseholdId == "household:camp-alpha").Id;
+        var beta = state.Society.Society.Inhabitants.First(person => person.HouseholdId == "household:camp-beta").Id;
+        var site = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+        {
+            var neighbor = point with { X = point.X + 1 };
+            return state.Map.IsBuildable(point) && state.Map.IsPassable(neighbor) &&
+                !state.Map.CampObjects.Any(item => item.Position == point) &&
+                !state.Map.Resources.Any(item => item.Position == point) &&
+                !state.Inhabitants.Any(person => person.InhabitantId != alpha && person.InhabitantId != beta &&
+                    (person.Position == point || person.Position == neighbor));
+        });
+        var house = seed.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        Assert.True(seed.PlaceBuilding("refuge-alpha", house.CanonicalId, site, "household:camp-alpha").Applied);
+        state = seed.ExportState();
+        var snowy = state.WorldSystems!;
+        var profiles = Enum.GetValues<SeasonKind>().Select(season =>
+            new WeatherProfile(season, 0, 0, 0, 0, 1)).ToArray();
+        state = state with
+        {
+            WorldSystems = snowy with
+            {
+                Config = snowy.Config with { WeatherProfiles = profiles },
+                Climate = snowy.Climate with { Weather = WeatherKind.Snow },
+            },
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == alpha
+                ? person with { Position = site, HungerBasisPoints = 9_000, Survival = new SurvivalCondition(5_000) }
+                : person.InhabitantId == beta
+                    ? person with
+                    {
+                        Position = site with { X = site.X + 1 },
+                        HungerBasisPoints = 9_000,
+                        Survival = new SurvivalCondition(5_000)
+                    }
+                    : person).ToArray(),
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+        Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        var protectedWarmth = world.Inhabitants.Single(person => person.InhabitantId == alpha).Survival!.WarmthBasisPoints;
+        var outsiderWarmth = world.Inhabitants.Single(person => person.InhabitantId == beta).Survival!.WarmthBasisPoints;
+        Assert.True(protectedWarmth > outsiderWarmth,
+            $"The owner's refuge should protect only its household: {protectedWarmth} vs {outsiderWarmth}.");
+
+        var beforeAlphaWood = HouseholdWood(world, "household:camp-alpha");
+        var beforeBetaWood = HouseholdWood(world, "household:camp-beta");
+        var map = world.ExportState().Map;
+        var secondSite = map.Tiles.Select(tile => tile.Position).First(point =>
+            map.IsBuildable(point) &&
+            !map.CampObjects.Any(item => item.Position == point) &&
+            !map.Resources.Any(item => item.Position == point) &&
+            !world.WorldSimulation.Buildings.Any(building => building.Position == point));
+        var betaPlacement = world.PlaceBuilding("refuge-beta", house.CanonicalId, secondSite,
+            "household:camp-beta");
+        Assert.True(betaPlacement.Applied, betaPlacement.Failure);
+        Assert.Equal(beforeAlphaWood, HouseholdWood(world, "household:camp-alpha"));
+        Assert.Equal(beforeBetaWood - 8, HouseholdWood(world, "household:camp-beta"));
+    }
+
+    [Fact]
+    public async Task HouseRequiresARealHouseholdAndKeepsItsOwnerAcrossSaveAndOwnerProjection()
+    {
+        using var world = new PrivateWorldRuntime("house-property");
+        Assert.True(world.StageStarterContent());
+        for (var tick = 0; tick < 6; tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        var house = world.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        var state = world.ExportState();
+        var site = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+            state.Map.IsBuildable(point) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.WorldSimulation!.Buildings.Any(item => item.Position == point));
+        Assert.False(world.PlaceBuilding("home-alpha", house.CanonicalId, site).Applied);
+        Assert.False(world.PlaceBuilding("home-alpha", house.CanonicalId, site, "household:unknown").Applied);
+        var placement = world.PlaceBuilding("home-alpha", house.CanonicalId, site, "household:camp-alpha");
+        Assert.True(placement.Applied, placement.Failure);
+
+        var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        using var restored = PrivateWorldRuntime.Restore(saved);
+        var projected = new OwnerWorldObservationStore(restored).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "home-alpha");
+        Assert.Equal("household:camp-alpha", projected.HouseholdId);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var client = JsonSerializer.Deserialize<ClankerWorld.GodotClient.UI.OwnerWorldPlacedBuilding>(
+            JsonSerializer.Serialize(projected, options), options)!;
+        Assert.Equal(projected.HouseholdId, client.HouseholdId);
+
+        var orphaned = saved with
+        {
+            WorldSimulation = saved.WorldSimulation! with
+            {
+                Buildings = saved.WorldSimulation.Buildings.Select(building =>
+                    building.InstanceId == "home-alpha" ? building with { HouseholdId = "household:unknown" } : building).ToArray(),
+            },
+        };
+        Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(orphaned));
+    }
+
+    private static int HouseholdWood(PrivateWorldRuntime world, string householdId) => world.Society.Inventory.Lots
+        .Where(lot => lot.OwnerId == householdId && lot.ItemKind == "wood").Sum(lot => lot.Quantity);
+
+    private sealed class IdleProvider : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default) => ValueTask.FromResult(new CognitionDecisionResponse(
+                request.RequestId, request.Observation.InhabitantId, Kind, ProviderEpoch,
+                request.Observation.RunEpoch, request.Observation.DecisionGeneration,
+                request.Observation.ObservationDigest, "safe_idle", 1,
+                request.Observation.Candidates.ToDictionary(candidate => candidate.Id,
+                    candidate => candidate.Id == "safe_idle" ? 1d : 0d)));
+    }
+}

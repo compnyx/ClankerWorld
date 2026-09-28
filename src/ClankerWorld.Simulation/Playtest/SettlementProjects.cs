@@ -149,6 +149,23 @@ public sealed partial class PrivateWorldRuntime
         AppendEvent("forestry_content_staged", manifest.PackageId);
     }
 
+    private void StageHouseContent()
+    {
+        var packages = contentRegistry.ExportState().Packages;
+        if (packages.Any(package => package.Manifest.PackageId == HouseContent.PackageId) ||
+            !packages.Any(package => package.Manifest.PackageId == SettlementContent.PackageId &&
+                package.Lifecycle == ContentPackageLifecycle.Active))
+            return;
+        var manifest = HouseContent.Create();
+        var resolution = ContentPackageResolver.Resolve(packages.Select(package => package.Manifest).Append(manifest),
+            [manifest.PackageId]);
+        contentRegistry.Propose(manifest, WorldTick);
+        contentRegistry.Validate(manifest.PackageId, resolution, WorldTick);
+        contentRegistry.Approve(manifest.PackageId, WorldTick);
+        contentRegistry.Stage(manifest.PackageId, WorldTick);
+        AppendEvent("house_content_staged", manifest.PackageId);
+    }
+
     private void AddSettlementResources()
     {
         var occupied = map.CampObjects.Select(item => item.Position).Concat(map.Resources.Select(item => item.Position))
@@ -320,10 +337,12 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
-        var missing = inputs.FirstOrDefault(input => !HasAvailableQuantities([input]));
+        var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true
+            ? HouseholdFor(inhabitantId) : HouseholdId;
+        var missing = inputs.FirstOrDefault(input => !HasAvailableQuantities([input], constructionOwner));
         if (missing.Amount > 0)
         {
-            AcquireProjectInput(inhabitantId, state, missing);
+            AcquireProjectInput(inhabitantId, state, missing, constructionOwner);
             return;
         }
         if (survivalState is not null && !HasCarriedItem(inhabitantId, "tool") && SharedItem("tool", inhabitantId) is not null)
@@ -410,7 +429,8 @@ public sealed partial class PrivateWorldRuntime
         }
     }
 
-    private void AcquireProjectInput(string inhabitantId, PlaytestInhabitantState state, ContentQuantity input)
+    private void AcquireProjectInput(string inhabitantId, PlaytestInhabitantState state,
+        ContentQuantity input, string constructionOwner)
     {
         var project = state.Project!;
         var carried = society.Checkpoint.Inventory.Lots.FirstOrDefault(lot => lot.OwnerId == inhabitantId &&
@@ -425,7 +445,7 @@ public sealed partial class PrivateWorldRuntime
                 return;
             }
             ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory,
-                $"project-delivery:{WorldTick}:{inhabitantId}", inhabitantId, HouseholdId, carried.Id,
+                $"project-delivery:{WorldTick}:{inhabitantId}", inhabitantId, constructionOwner, carried.Id,
                 Math.Min(input.Amount, AvailableLotQuantity(carried)), "project_contribution"));
             AppendEvent("project_material_delivered", $"{inhabitantId}:{input.ResourceId}");
             return;
@@ -481,7 +501,7 @@ public sealed partial class PrivateWorldRuntime
             AppendEvent("tree_harvested", $"{inhabitantId}:{source.Id}:{source.TreeKind}:stump");
     }
 
-    private IEnumerable<(string Requester, ContentQuantity Input)> ProjectRequests(string helperId)
+    private IEnumerable<(string Requester, ContentQuantity Input, string OwnerId)> ProjectRequests(string helperId)
     {
         foreach (var person in inhabitants.Values.OrderBy(person => person.InhabitantId, StringComparer.Ordinal))
         {
@@ -494,11 +514,15 @@ public sealed partial class PrivateWorldRuntime
             var inputs = selection.IsBuilding
                 ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.BuildCosts
                 : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.Inputs;
+            var constructionOwner = selection.IsBuilding &&
+                worldContent.Buildings.Any(item => item.CanonicalId == selection.DefinitionId &&
+                    item.Tags.Contains("house", StringComparer.Ordinal))
+                ? HouseholdFor(person.InhabitantId) : HouseholdId;
             foreach (var input in inputs ?? [])
             {
-                if (!HasAvailableQuantities([input]))
+                if (!HasAvailableQuantities([input], constructionOwner))
                 {
-                    yield return (person.InhabitantId, input);
+                    yield return (person.InhabitantId, input, constructionOwner);
                 }
             }
         }
@@ -509,10 +533,11 @@ public sealed partial class PrivateWorldRuntime
         resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
         map.IsReachableFromCampOnFoot(resource.Position));
 
-    private bool CanAcquireProjectInputs(IReadOnlyList<ContentQuantity> inputs) => inputs.All(input =>
+    private bool CanAcquireProjectInputs(IReadOnlyList<ContentQuantity> inputs, string? ownerId = null) => inputs.All(input =>
     {
         var stored = society.Checkpoint.Inventory.Lots.Where(lot => lot.ItemKind == input.ResourceId &&
-                (lot.OwnerId == HouseholdId || inhabitants.ContainsKey(lot.OwnerId)))
+                (lot.OwnerId == (ownerId ?? HouseholdId) || inhabitants.ContainsKey(lot.OwnerId) &&
+                    (ownerId is null || HouseholdFor(lot.OwnerId) == ownerId)))
             .Sum(lot => (long)AvailableLotQuantity(lot));
         var harvestable = worldSystems.Ecology.Resources.Where(resource =>
                 resource.State == EcologyResourceState.Available &&
@@ -561,7 +586,7 @@ public sealed partial class PrivateWorldRuntime
         }
         var quantity = Math.Min(request.Input.Amount, AvailableLotQuantity(carried));
         ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory, $"project-share:{WorldTick}:{helperId}",
-            helperId, HouseholdId, carried.Id, quantity, "project_request_fulfilled"));
+            helperId, request.OwnerId, carried.Id, quantity, "project_request_fulfilled"));
         IncreaseTrust(request.Requester, helperId, 2, "material_help");
         var memoryId = $"project-gratitude:{request.Requester}:{helperId}";
         if (!society.Checkpoint.Memories.Any(memory => memory.Id == memoryId))

@@ -398,7 +398,8 @@ public sealed class OwnerWorldObservationStore
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Tags,
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Width ?? 1,
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Height ?? 1,
-                    item.TownId))
+                    item.TownId,
+                    item.HouseholdId))
                 .ToArray() ?? [],
             ProductionJobs = jobs
                 .OrderBy(item => item.JobId, StringComparer.Ordinal)
