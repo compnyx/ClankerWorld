@@ -16,7 +16,7 @@ public sealed class SettlementProjectTests
         for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
         var state = seed.ExportState();
         var actor = state.Inhabitants[0];
-        var position = state.Map.Tiles.Last(tile => state.Map.IsPassable(tile.Position) &&
+        var position = state.Map.Tiles.Last(tile => state.Map.IsBuildable(tile.Position) &&
             !state.Map.CampObjects.Any(item => item.Position == tile.Position) &&
             !state.Map.Resources.Any(item => item.Position == tile.Position) &&
             !state.Inhabitants.Any(person => person.Position == tile.Position)).Position;
@@ -34,7 +34,8 @@ public sealed class SettlementProjectTests
             {
                 Position = position,
                 HungerBasisPoints = 9_000,
-                Project = new("build:building:" + definition.CanonicalId, definition.DisplayName, seed.WorldTick, "working", 10,
+                Project = new(TownConstructionCandidateIds.Building(definition.CanonicalId, position),
+                    definition.DisplayName, seed.WorldTick, "working", 10,
                     LastTransitionTick: seed.WorldTick),
             } : person).ToArray(),
         };

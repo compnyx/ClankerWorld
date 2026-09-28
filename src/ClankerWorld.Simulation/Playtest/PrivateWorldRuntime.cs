@@ -1846,16 +1846,24 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             map,
             town,
             occupied,
-            FindUnoccupiedFootCosts(actor, origin),
+            FindUnoccupiedFootCosts(actor, origin, town, occupied),
             resourcesForLayout,
             buildingsForLayout);
     }
 
-    private IReadOnlyDictionary<GridPoint, int> FindUnoccupiedFootCosts(string inhabitantId, GridPoint origin)
+    private Dictionary<GridPoint, int> FindUnoccupiedFootCosts(
+        string inhabitantId, GridPoint origin, TownRuntimeState? town,
+        HashSet<GridPoint> occupiedSites)
     {
         var occupied = inhabitants.Values
             .Where(item => item.InhabitantId != inhabitantId)
             .Select(item => item.Position)
+            .ToHashSet();
+        // Only construction anchors need a cost. Stop Dijkstra once all
+        // potentially buildable anchors are settled instead of exploring the
+        // entire (possibly 512x256) world for each Town decision.
+        var pendingAnchors = TownLayoutContext.CandidateBounds(map, town)
+            .Where(point => map.IsBuildable(point) && !occupiedSites.Contains(point))
             .ToHashSet();
         var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
         var best = new Dictionary<GridPoint, int> { [origin] = 0 };
@@ -1865,6 +1873,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             if (priority.Cost != best[current])
                 continue;
+            pendingAnchors.Remove(current);
+            if (pendingAnchors.Count == 0)
+                break;
             foreach (var next in map.FootNeighbors(current))
             {
                 if (occupied.Contains(next) ||
@@ -2877,7 +2888,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 if (selection.SitePosition is { } selectedSite)
                     TownLayoutService.TryEvaluateConstructionSite(layout, definition, selectedSite, out rankedSite);
                 else
-                    rankedSite = TownLayoutService.RankConstructionSites(layout, definition).FirstOrDefault();
+                {
+                    var sites = TownLayoutService.RankConstructionSites(layout, definition);
+                    rankedSite = sites.Count == 0 ? null : sites[0];
+                }
             }
 
             if (definition is null || rankedSite is null)

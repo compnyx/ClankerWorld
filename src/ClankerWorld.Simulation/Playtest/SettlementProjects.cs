@@ -356,14 +356,14 @@ public sealed partial class PrivateWorldRuntime
                 }
                 position = selectedSite;
             }
-            else if (TownLayoutService.RankConstructionSites(layout, building).FirstOrDefault() is { } rankedSite)
+            else if (TownLayoutService.RankConstructionSites(layout, building) is { Count: > 0 } rankedSites)
             {
                 // Older saved projects accepted a building before the chooser
                 // included a site. Preserve them by assigning the current top
                 // legal option once, then persist that exact choice.
-                project = project with { CandidateId = TownConstructionCandidateIds.Building(building.CanonicalId, rankedSite.Position) };
+                project = project with { CandidateId = TownConstructionCandidateIds.Building(building.CanonicalId, rankedSites[0].Position) };
                 SetProject(inhabitantId, project);
-                position = rankedSite.Position;
+                position = rankedSites[0].Position;
             }
             else
             {

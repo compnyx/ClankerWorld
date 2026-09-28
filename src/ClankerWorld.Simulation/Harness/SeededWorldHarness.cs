@@ -207,6 +207,13 @@ public sealed record SeededMap(
     public VegetationCover? VegetationAt(GridPoint point) => LayerAt(VegetationKinds, point) is { } value
         ? (VegetationCover)value : null;
 
+    public TerrainKind? TerrainKindAt(GridPoint point)
+    {
+        if (!Contains(point)) return null;
+        var kind = TerrainAt(point);
+        return kind == byte.MaxValue ? null : (TerrainKind)kind;
+    }
+
     private byte? LayerAt(byte[]? layer, GridPoint point) =>
         Contains(point) && layer?.Length == Width * Height
             ? layer[point.Y * Width + point.X] : null;

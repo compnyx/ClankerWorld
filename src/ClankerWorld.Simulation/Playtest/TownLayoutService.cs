@@ -58,21 +58,18 @@ public sealed class TownLayoutContext
 
         Map = map;
         Town = town;
-        TerrainByPosition = map.Tiles.ToDictionary(item => item.Position, item => item.Terrain);
         OccupiedTiles = occupiedTiles.ToHashSet();
         ReachableFootCosts = reachableFootCosts.ToDictionary(item => item.Key, item => item.Value);
         if (ReachableFootCosts.Any(item => !map.Contains(item.Key) || item.Value < 0))
             throw new ArgumentException("Reachable site costs must be non-negative map positions.", nameof(reachableFootCosts));
         Resources = resources.ToArray();
         Buildings = buildings.ToArray();
-        CandidateAnchors = CandidateBounds(map, town).ToArray();
+        CandidateAnchors = CandidateBounds(map, town);
     }
 
     public SeededMap Map { get; }
 
     public TownRuntimeState? Town { get; }
-
-    public IReadOnlyDictionary<GridPoint, TerrainKind> TerrainByPosition { get; }
 
     public IReadOnlySet<GridPoint> OccupiedTiles { get; }
 
@@ -84,14 +81,14 @@ public sealed class TownLayoutContext
 
     public IReadOnlyList<GridPoint> CandidateAnchors { get; }
 
-    public TerrainKind TerrainAt(GridPoint position) => TerrainByPosition[position];
+    public TerrainKind? TerrainAt(GridPoint position) => Map.TerrainKindAt(position);
 
-    private static IEnumerable<GridPoint> CandidateBounds(SeededMap map, TownRuntimeState? town)
+    internal static IReadOnlyList<GridPoint> CandidateBounds(SeededMap map, TownRuntimeState? town)
     {
         if (town is null)
         {
             return Enumerable.Range(0, map.Height)
-                .SelectMany(y => Enumerable.Range(0, map.Width).Select(x => new GridPoint(x, y)));
+                .SelectMany(y => Enumerable.Range(0, map.Width).Select(x => new GridPoint(x, y))).ToArray();
         }
 
         if (town.BorderTiles.Count == 0)
@@ -102,7 +99,7 @@ public sealed class TownLayoutContext
         var maxX = Math.Min(map.Width - 1, town.BorderTiles.Max(point => point.X) + TownBorderRules.SpareTileMargin);
         var maxY = Math.Min(map.Height - 1, town.BorderTiles.Max(point => point.Y) + TownBorderRules.SpareTileMargin);
         return Enumerable.Range(minY, maxY - minY + 1)
-            .SelectMany(y => Enumerable.Range(minX, maxX - minX + 1).Select(x => new GridPoint(x, y)));
+            .SelectMany(y => Enumerable.Range(minX, maxX - minX + 1).Select(x => new GridPoint(x, y))).ToArray();
     }
 }
 
