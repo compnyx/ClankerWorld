@@ -380,7 +380,7 @@ public sealed partial class PrivateWorldRuntimeService(
 
     private void LogKnowledgeEvent(PlaytestWorldEvent worldEvent)
     {
-        if (logger is null) return;
+        if (logger is null || !logger.IsEnabled(LogLevel.Information)) return;
         var fields = worldEvent.Detail.Split('|');
         var agentId = fields.ElementAtOrDefault(0) ?? "unknown";
         var recipientId = worldEvent.Kind is "agent_knowledge_shared" or "agent_knowledge_artifact_read"
@@ -397,9 +397,14 @@ public sealed partial class PrivateWorldRuntimeService(
             "agent_knowledge_artifact_created" or "agent_knowledge_shared" or "agent_knowledge_artifact_read" => 3,
             _ => 2,
         };
-        _ = int.TryParse(fields.ElementAtOrDefault(factCountIndex), out var factCount);
+        var factCount = 0;
+        if (int.TryParse(fields.ElementAtOrDefault(factCountIndex), out var parsedFactCount) &&
+            parsedFactCount is >= 0 and <= 9)
+        {
+            factCount = parsedFactCount;
+        }
         LogAgentKnowledgeTransition(logger, worldEvent.WorldTick, worldEvent.Kind,
-            agentId, recipientId, artifactId, Math.Clamp(factCount, 0, 9));
+            agentId, recipientId, artifactId, factCount);
     }
 
     [LoggerMessage(EventId = 2212, Level = LogLevel.Information,

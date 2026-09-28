@@ -138,7 +138,7 @@ public sealed class AgentKnowledgeTests
             lot => lot.ItemKind == "field_map" && lot.OwnerId == buyerId);
         Assert.Contains(final.Society.Society.Inventory.Lots,
             lot => lot.ItemKind == "clothing" && lot.OwnerId == sellerId);
-        var learned = Assert.Single(final.Knowledge!.Facts.Where(fact => fact.OwnerId == buyerId));
+        var learned = Assert.Single(final.Knowledge!.Facts, fact => fact.OwnerId == buyerId);
         Assert.Equal(sellerId, learned.DiscovererId);
         Assert.Equal(sellerId, learned.SourceAgentId);
         Assert.Equal("read", learned.Acquisition);
@@ -160,9 +160,12 @@ public sealed class AgentKnowledgeTests
         using var restored21 = PrivateWorldRuntime.Restore(schema21Checkpoint);
         Assert.Empty(restored21.ExportState().Knowledge!.Facts);
         Assert.Empty(restored21.ExportState().Knowledge!.Artifacts);
-        Assert.Equal(schema21Checkpoint.Towns?.Select(town => town.Id),
-            restored21.ExportState().Towns.Select(town => town.Id));
-        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, restored21.ExportState().SchemaVersion);
+        var restored21State = restored21.ExportState();
+        Assert.NotNull(schema21Checkpoint.Towns);
+        Assert.NotNull(restored21State.Towns);
+        Assert.Equal(schema21Checkpoint.Towns!.Select(town => town.Id),
+            restored21State.Towns!.Select(town => town.Id));
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, restored21State.SchemaVersion);
 
         var schema22Checkpoint = seed.ExportState() with { SchemaVersion = 22, Knowledge = null };
         var schema22Society = schema22Checkpoint.Society.Society;
@@ -189,8 +192,10 @@ public sealed class AgentKnowledgeTests
         var migrated22 = restored22.ExportState();
         Assert.Empty(migrated22.Knowledge!.Facts);
         Assert.Empty(migrated22.Knowledge.Artifacts);
-        Assert.Equal(schema22Checkpoint.Towns?.Select(town => town.Id),
-            migrated22.Towns.Select(town => town.Id));
+        Assert.NotNull(schema22Checkpoint.Towns);
+        Assert.NotNull(migrated22.Towns);
+        Assert.Equal(schema22Checkpoint.Towns!.Select(town => town.Id),
+            migrated22.Towns!.Select(town => town.Id));
         Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, migrated22.SchemaVersion);
         Assert.Equal(memory, Assert.Single(migrated22.Society.Society.Memories));
         Assert.Equal(compaction.Sources,

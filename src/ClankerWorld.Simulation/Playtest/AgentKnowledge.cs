@@ -123,7 +123,7 @@ internal static class AgentKnowledgeRules
         AgentKnowledgeFact fact,
         string creatorId,
         long createdTick,
-        IReadOnlySet<string> knownAgents,
+        HashSet<string> knownAgents,
         SeededMap map) =>
         fact is not null && !string.IsNullOrWhiteSpace(fact.Id) && fact.Id.Length <= 160 &&
         fact.OwnerId == creatorId && fact.DiscovererId == creatorId &&

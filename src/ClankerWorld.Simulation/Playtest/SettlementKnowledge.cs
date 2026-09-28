@@ -73,7 +73,7 @@ public sealed partial class PrivateWorldRuntime
         string actor,
         PlaytestInhabitantState person)
     {
-        if (HasUrgentExposure(person))
+        if (NeedsUrgentWarmth(person))
             return;
 
         foreach (var artifact in HeldKnowledgeArtifacts(actor))
@@ -181,7 +181,7 @@ public sealed partial class PrivateWorldRuntime
                 fact.DiscovererId, fact.LearnedTick, fact.Acquisition))
             .ToArray();
 
-    private IReadOnlyList<AgentKnowledgeArtifact> HeldKnowledgeArtifacts(string ownerId)
+    private AgentKnowledgeArtifact[] HeldKnowledgeArtifacts(string ownerId)
     {
         var heldLotIds = society.Checkpoint.Inventory.Lots
             .Where(item => item.OwnerId == ownerId && item.ItemKind is ("field_map" or "field_record"))
