@@ -163,7 +163,9 @@ public partial class WorldOverview : Control
     {
         var atlas = AtlasRect();
         return new Vector2(
-            Math.Clamp((position.X - atlas.Position.X) * mapWidth / atlas.Size.X, 0, mapWidth),
+            WrapsEastWest
+                ? (position.X - atlas.Position.X) * mapWidth / atlas.Size.X
+                : Math.Clamp((position.X - atlas.Position.X) * mapWidth / atlas.Size.X, 0, mapWidth),
             Math.Clamp((position.Y - atlas.Position.Y) * mapHeight / atlas.Size.Y, 0, mapHeight));
     }
 

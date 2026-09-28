@@ -960,6 +960,134 @@ public partial class Main : Control
             if (cameraCenterTiles.X > 10 || worldOverview.VisibleTiles.Position.X >= 0 ||
                 !mapCanvas.GetGlobalRect().HasPoint(seamMarker.GetGlobalRect().GetCenter()))
                 throw new InvalidOperationException("Panning east across a wrapped seam must remain continuous.");
+            var overviewAvailable = worldOverview.Size - new Vector2(12, 12);
+            var overviewScale = Math.Min(overviewAvailable.X / 256, overviewAvailable.Y / 128);
+            var overviewAtlasSize = new Vector2(256 * overviewScale, 128 * overviewScale);
+            var overviewAtlasPosition = (worldOverview.Size - overviewAtlasSize) / 2;
+            var overviewAtlasY = overviewAtlasPosition.Y + overviewAtlasSize.Y / 2;
+            var overviewRightEdge = overviewAtlasPosition.X + overviewAtlasSize.X;
+            CenterCameraAt(new Vector2(254, 64));
+            var eastDragStart = cameraCenterTiles.X;
+            worldOverview._GuiInput(new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+                Position = new Vector2(overviewRightEdge - 1, overviewAtlasY),
+            });
+            worldOverview._GuiInput(new InputEventMouseMotion
+            {
+                Position = new Vector2(overviewRightEdge + 48, overviewAtlasY),
+            });
+            var eastAfterFirstDrag = cameraCenterTiles.X;
+            worldOverview._GuiInput(new InputEventMouseMotion
+            {
+                Position = new Vector2(overviewRightEdge + 96, overviewAtlasY),
+            });
+            var eastAfterSecondDrag = cameraCenterTiles.X;
+            worldOverview._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false });
+            if (PositiveMod(eastAfterFirstDrag - eastDragStart, 256) <= 2 ||
+                PositiveMod(eastAfterSecondDrag - eastAfterFirstDrag, 256) <= 2)
+                throw new InvalidOperationException("Dragging past the wrapped overview's eastern edge must continue panning east.");
+
+            var overviewLeftEdge = overviewAtlasPosition.X;
+            CenterCameraAt(new Vector2(2, 64));
+            var westDragStart = cameraCenterTiles.X;
+            worldOverview._GuiInput(new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+                Position = new Vector2(overviewLeftEdge + 1, overviewAtlasY),
+            });
+            worldOverview._GuiInput(new InputEventMouseMotion
+            {
+                Position = new Vector2(overviewLeftEdge - 48, overviewAtlasY),
+            });
+            var westAfterFirstDrag = cameraCenterTiles.X;
+            worldOverview._GuiInput(new InputEventMouseMotion
+            {
+                Position = new Vector2(overviewLeftEdge - 96, overviewAtlasY),
+            });
+            var westAfterSecondDrag = cameraCenterTiles.X;
+            worldOverview._GuiInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false });
+            if (PositiveMod(westDragStart - westAfterFirstDrag, 256) <= 2 ||
+                PositiveMod(westAfterFirstDrag - westAfterSecondDrag, 256) <= 2)
+                throw new InvalidOperationException("Dragging past the wrapped overview's western edge must continue panning west.");
+
+            CenterCameraAt(new Vector2(0.5f, 64));
+            var wrappedStride = currentTileSize + TileGap;
+            var seamMarkerCellSample = mapStage.Position + new Vector2(
+                seamMarker.Position.X + Math.Min(seamMarker.Size.X / 2, wrappedStride / 2f),
+                seamMarker.Position.Y + wrappedStride / 2f);
+            var seamTileUnderMarker = TileAtCanvas(seamMarkerCellSample, wrappedMap);
+            if (seamTileUnderMarker != new Vector2I(255, 64))
+                throw new InvalidOperationException($"A seam marker must select its canonical tile before repeated wrapping: " +
+                    $"tile={seamTileUnderMarker}, camera={cameraCenterTiles}, stage={mapStage.Position}, " +
+                    $"marker={seamMarker.Position}+{seamMarker.Size}, sample={seamMarkerCellSample}.");
+            var nearestSeamTileX = 255 + MathF.Round((cameraCenterTiles.X - 255) / 256) * 256;
+            var seamSelectionPosition = mapStage.Position + new Vector2(
+                (nearestSeamTileX + 0.5f) * wrappedStride, 64.5f * wrappedStride);
+            HandleMapInput(new InputEventMouseButton
+            {
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+                Position = seamSelectionPosition,
+            });
+            if (terrainLayer.SelectedTile != new Vector2I(255, 64) ||
+                !selectedTileText.Text.Contains("Tile 255, 64", StringComparison.Ordinal))
+                throw new InvalidOperationException("Selecting a wrapped seam marker must inspect its canonical tile.");
+
+            var repeatedKeyStart = cameraCenterTiles.X;
+            var previousKeyCenter = repeatedKeyStart;
+            for (var step = 0; step < 512; step++)
+            {
+                _UnhandledKeyInput(new InputEventKey { Keycode = Key.Right, Pressed = true });
+                if (Math.Abs(PositiveMod(cameraCenterTiles.X - previousKeyCenter, 256) - 1.5f) > 0.01f)
+                    throw new InvalidOperationException("Repeated right-key input must keep moving through multiple wrapped laps.");
+                previousKeyCenter = cameraCenterTiles.X;
+            }
+            for (var step = 0; step < 512; step++)
+            {
+                _UnhandledKeyInput(new InputEventKey { Keycode = Key.Left, Pressed = true });
+                if (Math.Abs(PositiveMod(previousKeyCenter - cameraCenterTiles.X, 256) - 1.5f) > 0.01f)
+                    throw new InvalidOperationException("Repeated left-key input must keep moving through multiple wrapped laps.");
+                previousKeyCenter = cameraCenterTiles.X;
+            }
+            if (Math.Abs(cameraCenterTiles.X - repeatedKeyStart) > 0.01f)
+                throw new InvalidOperationException("Equal repeated horizontal key travel must return to the same wrapped position.");
+
+            var dragStride = currentTileSize + TileGap;
+            HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.Middle, Pressed = true });
+            for (var lap = 0; lap < 4; lap++)
+            {
+                var beforeEastDrag = cameraCenterTiles.X;
+                HandleMapInput(new InputEventMouseMotion
+                {
+                    Relative = new Vector2(-dragStride * (256 + 37), 0),
+                });
+                if (Math.Abs(PositiveMod(cameraCenterTiles.X - beforeEastDrag, 256) - 37) > 0.01f)
+                    throw new InvalidOperationException("Repeated eastward main-map drags must cross full wrapped laps.");
+            }
+            for (var lap = 0; lap < 4; lap++)
+            {
+                var beforeWestDrag = cameraCenterTiles.X;
+                HandleMapInput(new InputEventMouseMotion
+                {
+                    Relative = new Vector2(dragStride * (256 + 37), 0),
+                });
+                if (Math.Abs(PositiveMod(beforeWestDrag - cameraCenterTiles.X, 256) - 37) > 0.01f)
+                    throw new InvalidOperationException("Repeated westward main-map drags must cross full wrapped laps.");
+            }
+            HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.Middle, Pressed = false });
+            nearestSeamTileX = 255 + MathF.Round((cameraCenterTiles.X - 255) / 256) * 256;
+            seamSelectionPosition = mapStage.Position + new Vector2(
+                (nearestSeamTileX + 0.5f) * wrappedStride, 64.5f * wrappedStride);
+            if (Math.Abs(cameraCenterTiles.X - repeatedKeyStart) > 0.01f ||
+                terrainLayer.SelectedTile != new Vector2I(255, 64) ||
+                TileAtCanvas(seamSelectionPosition, wrappedMap) != new Vector2I(255, 64) ||
+                !mapCanvas.GetGlobalRect().HasPoint(seamMarker.GetGlobalRect().GetCenter()) ||
+                !selectedTileText.Text.Contains("Tile 255, 64", StringComparison.Ordinal))
+                throw new InvalidOperationException("Repeated wrapped travel must preserve marker visibility and canonical selection alignment.");
+
             RenderMap(largeMap);
             CenterCameraAt(new Vector2(-5, 64));
             if (worldOverview.VisibleTiles.Position.X < 0 || worldOverview.WrapsEastWest)
