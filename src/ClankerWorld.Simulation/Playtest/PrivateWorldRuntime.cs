@@ -1862,6 +1862,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         string inhabitantId, GridPoint origin, TownRuntimeState? town,
         HashSet<GridPoint> occupiedSites, GridPoint? selectedSite)
     {
+        if (selectedSite is { } invalidSite &&
+            (!map.IsBuildable(invalidSite) || occupiedSites.Contains(invalidSite)))
+            return new Dictionary<GridPoint, int> { [origin] = 0 };
         var occupied = inhabitants.Values
             .Where(item => item.InhabitantId != inhabitantId)
             .Select(item => item.Position)
@@ -1869,15 +1872,17 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         // A Town has bounded construction anchors. Legacy worlds without a
         // Town consider the nearest 32 viable anchors; an already chosen site
         // remains a mandatory route target, however far away it was saved.
-        var pendingAnchors = town is null ? null : TownLayoutContext.CandidateBounds(map, town)
-            .Where(point => map.IsBuildable(point) && !occupiedSites.Contains(point))
+        IReadOnlyList<GridPoint>? anchors = town is null ? null : TownLayoutContext.CandidateBounds(map, town);
+        if (selectedSite is { } chosenSite && anchors is not null)
+            anchors = anchors.Contains(chosenSite) ? [chosenSite] : [];
+        var pendingAnchors = anchors?.Where(point => map.IsBuildable(point) && !occupiedSites.Contains(point))
             .ToHashSet();
         var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
         var best = new Dictionary<GridPoint, int> { [origin] = 0 };
         var settled = new Dictionary<GridPoint, int>();
         var viableLegacyAnchors = 0;
         var selectedSiteReached = selectedSite is null ||
-            pendingAnchors is not null && !pendingAnchors.Contains(selectedSite.Value);
+            pendingAnchors is not null && pendingAnchors.Count == 0;
         var order = 0;
         open.Enqueue(origin, (0, origin.Y, origin.X, order++));
         while (open.TryDequeue(out var current, out var priority))
@@ -1896,8 +1901,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             {
                 pendingAnchors.Remove(current);
             }
-            if (selectedSiteReached && (pendingAnchors?.Count == 0 ||
-                pendingAnchors is null && viableLegacyAnchors >= 32))
+            if (selectedSite is not null ? selectedSiteReached :
+                pendingAnchors?.Count == 0 || pendingAnchors is null && viableLegacyAnchors >= 32)
                 break;
             foreach (var next in map.FootNeighbors(current))
             {

@@ -13,7 +13,8 @@ public sealed class BuildingDesignTests
     public async Task InhabitantsConstructReviewedDesignThroughOrdinaryPlanning(string purpose)
     {
         var package = BuildingDesign.Create("Resident-built " + purpose, purpose, 8);
-        var target = "build:building:" + package.Definitions.Single().CanonicalId(package.PackageDigest);
+        var definitionId = package.Definitions.Single().CanonicalId(package.PackageDigest);
+        var target = "build:building:" + definitionId;
         using var world = new PrivateWorldRuntime("building-design-playtest", _ => new DesignProvider(target));
         world.StageStarterContent();
         for (var tick = 0; tick < 3; tick++) await world.AdvanceOneTickAsync();
@@ -22,9 +23,10 @@ public sealed class BuildingDesignTests
         world.ApproveContent(package.PackageId);
         world.StageContent(package.PackageId);
         for (var tick = 0; tick < 400 && !world.WorldSimulation.Buildings.Any(building =>
-            building.DefinitionId == target[15..]); tick++) await world.AdvanceOneTickAsync();
-        Assert.Contains(world.WorldSimulation.Buildings, building => building.DefinitionId == target[15..]);
-        Assert.Contains(world.Inhabitants, person => person.Project is { Stage: "completed" } project && project.CandidateId == target);
+            building.DefinitionId == definitionId); tick++) await world.AdvanceOneTickAsync();
+        var placed = Assert.Single(world.WorldSimulation.Buildings, building => building.DefinitionId == definitionId);
+        Assert.Contains(world.Inhabitants, person => person.Project is { Stage: "completed" } project &&
+            project.CandidateId == TownConstructionCandidateIds.Building(definitionId, placed.Position));
         using var restored = PrivateWorldRuntime.Restore(world.ExportState());
         Assert.Equal(PrivateWorldRuntimeCodec.Encode(world.ExportState()), PrivateWorldRuntimeCodec.Encode(restored.ExportState()));
     }
@@ -95,7 +97,8 @@ public sealed class BuildingDesignTests
         public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var selected = request.Observation.Candidates.OrderBy(candidate => candidate.Id == target ? -1 : candidate.DeterministicPriority)
+            var selected = request.Observation.Candidates.OrderBy(candidate =>
+                    candidate.Id.StartsWith(target + ":site:", StringComparison.Ordinal) ? -1 : candidate.DeterministicPriority)
                 .ThenBy(candidate => candidate.Id, StringComparer.Ordinal).First().Id;
             return ValueTask.FromResult(new CognitionDecisionResponse(request.RequestId, request.Observation.InhabitantId,
                 Kind, ProviderEpoch, request.Observation.RunEpoch, request.Observation.DecisionGeneration,

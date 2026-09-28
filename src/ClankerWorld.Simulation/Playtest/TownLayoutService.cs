@@ -273,8 +273,8 @@ public static class TownLayoutService
     private static IEnumerable<GridPoint> Footprint(BuildingDefinition definition, GridPoint origin)
     {
         for (var y = 0; y < definition.Height; y++)
-        for (var x = 0; x < definition.Width; x++)
-            yield return new GridPoint(origin.X + x, origin.Y + y);
+            for (var x = 0; x < definition.Width; x++)
+                yield return new GridPoint(origin.X + x, origin.Y + y);
     }
 
     private static bool ResourceMatches(string sourceKind, string requiredKind) =>
