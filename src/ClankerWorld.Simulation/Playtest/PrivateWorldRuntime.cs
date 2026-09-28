@@ -721,7 +721,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             SyncEcologyResourceStates();
             var campPosition = map.CampObjects.First(item => item.Kind == "cooking").Position;
             var previousCampWeather = WeatherRules.At(worldSystems with
-                { WorldTick = previousClimate.WorldTick, Climate = previousClimate },
+            { WorldTick = previousClimate.WorldTick, Climate = previousClimate },
                 campPosition, map.Height, WeatherRules.RegionClimate(map, campPosition));
             var campWeather = WeatherAt(campPosition);
             if (previousClimate.Season != worldSystems.Climate.Season || previousCampWeather != campWeather)
