@@ -206,7 +206,8 @@ public sealed record ViewerPlacedBuilding(
     string? DisplayName = null,
     IReadOnlyList<string>? Tags = null,
     int Width = 1,
-    int Height = 1);
+    int Height = 1,
+    string? TownId = null);
 
 public sealed record ViewerProductionJob(
     string JobId,
@@ -232,6 +233,15 @@ public sealed record ViewerEvent(long EventId, long WorldTick, string Kind, stri
 
 public sealed record ViewerFounderSetup(int Required, int Placed, bool Started);
 
+public sealed record ViewerTown(
+    string Id,
+    string Name,
+    string FoundingState,
+    long FoundedTick,
+    IReadOnlyList<string> ResidentIds,
+    IReadOnlyList<string> AssignedBuildingIds,
+    IReadOnlyList<ViewerPosition> BorderTiles);
+
 public sealed record ViewerWeatherRegion(int X, int Y, string Weather, int? SoilMoisture = null);
 
 public sealed record ViewerWorldSnapshot(
@@ -254,6 +264,7 @@ public sealed record ViewerWorldSnapshot(
     public ViewerCalendarPace? CalendarPace { get; init; }
     public bool? JevEnabled { get; init; }
     public ViewerFounderSetup? FounderSetup { get; init; }
+    public IReadOnlyList<ViewerTown> Towns { get; init; } = [];
     public int WeatherRegionSize { get; init; } = 32;
     public IReadOnlyList<ViewerWeatherRegion> WeatherRegions { get; init; } = [];
     /// <summary>

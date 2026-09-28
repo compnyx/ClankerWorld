@@ -7,7 +7,8 @@ public sealed record PlacedBuilding(
     string InstanceId,
     string DefinitionId,
     GridPoint Position,
-    long PlacedTick);
+    long PlacedTick,
+    string? TownId = null);
 
 public enum WorldProductionJobState
 {

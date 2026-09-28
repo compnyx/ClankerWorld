@@ -18,6 +18,7 @@ public partial class WorldTerrainLayer : Control
     private byte[] naturalStages = [];
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
+    private readonly HashSet<Vector2I> townBorderTiles = [];
 
     public int VisibleTileCount { get; private set; }
 
@@ -57,6 +58,17 @@ public partial class WorldTerrainLayer : Control
         weatherRegionSize = regionSize;
         weatherRegions.Clear();
         foreach (var entry in next) weatherRegions.Add(entry.Key, entry.Value);
+        QueueRedraw();
+    }
+
+    public void SetTownBorders(IReadOnlyList<OwnerWorldTown> towns)
+    {
+        ArgumentNullException.ThrowIfNull(towns);
+        var next = towns.SelectMany(town => town.BorderTiles)
+            .Select(point => new Vector2I(point.X, point.Y)).ToHashSet();
+        if (next.Count == townBorderTiles.Count && next.SetEquals(townBorderTiles)) return;
+        townBorderTiles.Clear();
+        townBorderTiles.UnionWith(next);
         QueueRedraw();
     }
 
@@ -277,6 +289,7 @@ public partial class WorldTerrainLayer : Control
                     DrawNaturalObject(new Vector2(x * stride, y * stride), naturalObjects[index], naturalStages[index]);
             }
         DrawPrecipitation(bounds, stride);
+        DrawTownBorders(bounds, stride);
         if (hoveredTile is { } hover && tileSize > 0 &&
             hover.Y >= bounds.Top && hover.Y < bounds.Top + bounds.Height)
         {
@@ -513,6 +526,29 @@ public partial class WorldTerrainLayer : Control
     }
 
     private static int Mod(int value, int modulus) => (value % modulus + modulus) % modulus;
+
+    private void DrawTownBorders((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || townBorderTiles.Count == 0 || tileSize <= 0) return;
+        var color = new Color(0.95f, 0.78f, 0.38f, 0.88f);
+        var lineWidth = Math.Clamp(tileSize / 30f, 1f, 4f);
+        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
+        for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+        {
+            var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
+            if (!townBorderTiles.Contains(new Vector2I(canonicalX, y))) continue;
+            var origin = new Vector2(x * stride, y * stride);
+            var edge = new Vector2(tileSize, tileSize);
+            if (!ContainsTownTile(canonicalX - 1, y)) DrawLine(origin, origin + new Vector2(0, tileSize), color, lineWidth);
+            if (!ContainsTownTile(canonicalX + 1, y)) DrawLine(origin + new Vector2(tileSize, 0), origin + edge, color, lineWidth);
+            if (!ContainsTownTile(canonicalX, y - 1)) DrawLine(origin, origin + new Vector2(tileSize, 0), color, lineWidth);
+            if (!ContainsTownTile(canonicalX, y + 1)) DrawLine(origin + new Vector2(0, tileSize), origin + edge, color, lineWidth);
+        }
+
+        bool ContainsTownTile(int x, int y) => y >= 0 && y < world.Height &&
+            (wrapsEastWest ? townBorderTiles.Contains(new Vector2I(Mod(x, world.Width), y)) :
+                x >= 0 && x < world.Width && townBorderTiles.Contains(new Vector2I(x, y)));
+    }
 
     private void DrawWeatherClouds((int Left, int Top, int Width, int Height) bounds, int stride)
     {

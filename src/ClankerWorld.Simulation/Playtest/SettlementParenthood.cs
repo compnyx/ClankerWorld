@@ -164,6 +164,8 @@ public sealed partial class PrivateWorldRuntime
             }
             inhabitants.Add(birth.ChildId, new(birth.ChildId, site.Value, 8_000, 0, "curious", "grow with the household",
                 Survival: new SurvivalCondition()));
+            if (TownForResident(person.InhabitantId) is { } parentTownId)
+                AddTownResident(parentTownId, birth.ChildId, "child_joined");
             SetParenthood(person.InhabitantId, plan with { Stage = "completed", ChildId = birth.ChildId });
             AppendEvent("child_born", birth.ChildId);
         }

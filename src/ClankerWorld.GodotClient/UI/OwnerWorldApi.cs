@@ -86,6 +86,14 @@ public sealed record OwnerWorldAgentBelief(
     long? CorrectedTick);
 public sealed record OwnerWorldCalendarPace(int TicksPerDay, int DaysPerYear);
 public sealed record OwnerFounderSetup(int Required, int Placed, bool Started);
+public sealed record OwnerWorldTown(
+    string Id,
+    string Name,
+    string FoundingState,
+    long FoundedTick,
+    IReadOnlyList<string> ResidentIds,
+    IReadOnlyList<string> AssignedBuildingIds,
+    IReadOnlyList<OwnerWorldPosition> BorderTiles);
 
 public sealed record OwnerWorldInhabitant(
     string Id,
@@ -199,7 +207,8 @@ public sealed record OwnerWorldPlacedBuilding(
     string? DisplayName = null,
     IReadOnlyList<string>? Tags = null,
     int Width = 1,
-    int Height = 1);
+    int Height = 1,
+    string? TownId = null);
 
 public sealed record OwnerWorldProductionJob(
     string JobId,
@@ -250,6 +259,7 @@ public sealed record OwnerWorldSnapshot(
     public OwnerWorldCalendarPace? CalendarPace { get; init; }
     public bool? JevEnabled { get; init; }
     public OwnerFounderSetup? FounderSetup { get; init; }
+    public IReadOnlyList<OwnerWorldTown> Towns { get; init; } = [];
     public int WeatherRegionSize { get; init; } = 32;
     public IReadOnlyList<OwnerWeatherRegion> WeatherRegions { get; init; } = [];
     public IReadOnlyList<OwnerWorldInhabitant> Inhabitants { get; init; } = [];

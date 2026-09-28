@@ -55,6 +55,10 @@ public sealed partial class PrivateWorldRuntimeService(
     public override Task StartAsync(CancellationToken cancellationToken)
     {
         runtime.AgentBeliefChanged += OnAgentBeliefChanged;
+        if (logger is not null)
+            foreach (var town in runtime.Towns)
+                TownTelemetry.Transition(logger, runtime.WorldTick, town.Id, TownTransitionKind.StateLoaded,
+                    town.ResidentIds.Count, town.AssignedBuildingIds.Count, town.BorderTiles.Count);
         return base.StartAsync(cancellationToken);
     }
 
@@ -160,6 +164,8 @@ public sealed partial class PrivateWorldRuntimeService(
                 string? EventActor(string detail) => actors.FirstOrDefault(id => detail == id || detail.StartsWith(id + ":", StringComparison.Ordinal));
                 var projects = runtime.Inhabitants.Where(person => person.Project is not null)
                     .ToDictionary(person => person.InhabitantId, person => person.Project!, StringComparer.Ordinal);
+                foreach (var worldEvent in result.Events.Where(item => item.Kind.StartsWith("town_", StringComparison.Ordinal)))
+                    LogTownEvent(worldEvent);
                 foreach (var worldEvent in result.Events.Where(item => item.Kind == "work_practice_earned"))
                 {
                     var actor = EventActor(worldEvent.Detail);
@@ -265,6 +271,28 @@ public sealed partial class PrivateWorldRuntimeService(
         }
 
         return result.Advanced;
+    }
+
+    private void LogTownEvent(PlaytestWorldEvent worldEvent)
+    {
+        if (logger is null) return;
+        var kind = worldEvent.Kind switch
+        {
+            "town_resident_joined" => TownTransitionKind.ResidentJoined,
+            "town_resident_left" => TownTransitionKind.ResidentLeft,
+            "town_membership_evaluated" => TownTransitionKind.ResidentUnaffiliated,
+            "town_founded" => TownTransitionKind.Founded,
+            "town_building_assigned" => TownTransitionKind.BuildingAssigned,
+            "town_border_expanded" => TownTransitionKind.BorderExpanded,
+            _ => (TownTransitionKind?)null,
+        };
+        if (kind is null) return;
+        var townId = worldEvent.Kind == "town_membership_evaluated"
+            ? "none"
+            : worldEvent.Detail.Split(':', 2)[0];
+        var town = runtime.Towns.FirstOrDefault(item => item.Id == townId);
+        TownTelemetry.Transition(logger, worldEvent.WorldTick, townId, kind.Value,
+            town?.ResidentIds.Count ?? 0, town?.AssignedBuildingIds.Count ?? 0, town?.BorderTiles.Count ?? 0);
     }
 
     private static string EstateWillReason(PlaytestWorldEvent worldEvent, string estateId, string outcome)

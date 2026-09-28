@@ -290,6 +290,12 @@ public sealed class OwnerWorldObservationStore
             FounderSetup = state.FounderSetup is { } setup
                 ? new ViewerFounderSetup(PrivateWorldRuntime.RequiredFounders, setup.FounderIds.Count, setup.Started)
                 : null,
+            Towns = (state.Towns ?? []).OrderBy(item => item.Id, StringComparer.Ordinal)
+                .Select(item => new ViewerTown(item.Id, item.Name, item.FoundingState, item.FoundedTick,
+                    item.ResidentIds.ToArray(), item.AssignedBuildingIds.ToArray(),
+                    item.BorderTiles.OrderBy(point => point.Y).ThenBy(point => point.X)
+                        .Select(ToPosition).ToArray()))
+                .ToArray(),
             WeatherRegions = state.WorldSystems is { } weatherSystems
                 ? CreateWeatherRegions(weatherSystems, map)
                 : [],
@@ -390,7 +396,8 @@ public sealed class OwnerWorldObservationStore
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.DisplayName,
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Tags,
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Width ?? 1,
-                    buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Height ?? 1))
+                    buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Height ?? 1,
+                    item.TownId))
                 .ToArray() ?? [],
             ProductionJobs = jobs
                 .OrderBy(item => item.JobId, StringComparer.Ordinal)

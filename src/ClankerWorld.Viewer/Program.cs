@@ -860,6 +860,7 @@ app.MapPost("/api/v1/owner/founders/place", (
     OwnerSignedHttpRequest<OwnerFounderPlacementAction> request,
     OwnerRequestAuthorizer authorizer,
     ProviderConfigurationStore providers,
+    ILoggerFactory loggerFactory,
     IServiceProvider services) =>
 {
     if (!isPrivateWorld || request?.Action is not { Cognition: { } cognition } action)
@@ -888,6 +889,10 @@ app.MapPost("/api/v1/owner/founders/place", (
             var household = runtime.PlaceFounder(action.FounderId, position);
             services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
             var placed = runtime.FounderSetup!.FounderIds.Count;
+            var town = runtime.Towns.Single(item => item.Id == TownBorderRules.FirstTownId);
+            TownTelemetry.Transition(loggerFactory.CreateLogger("ClankerWorld.Town"), runtime.WorldTick,
+                town.Id, TownTransitionKind.ResidentJoined, town.ResidentIds.Count,
+                town.AssignedBuildingIds.Count, town.BorderTiles.Count);
             return Results.Ok(new OwnerFounderPlacementReceipt(action.FounderId, household, placed, PrivateWorldRuntime.RequiredFounders));
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
@@ -931,6 +936,10 @@ app.MapPost("/api/v1/owner/agents/place", (
             var household = runtime.AddAgent(action.AgentId, position);
             services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
             AgentPlacementLog.Placed(logger, action.AgentId, household, runtime.WorldTick, action.X, action.Y);
+            var town = runtime.Towns.SingleOrDefault(item => item.ResidentIds.Contains(action.AgentId, StringComparer.Ordinal));
+            TownTelemetry.Transition(logger, runtime.WorldTick, town?.Id ?? "none",
+                town is null ? TownTransitionKind.ResidentUnaffiliated : TownTransitionKind.ResidentJoined,
+                town?.ResidentIds.Count ?? 0, town?.AssignedBuildingIds.Count ?? 0, town?.BorderTiles.Count ?? 0);
             return Results.Ok(new OwnerAgentPlacementReceipt(action.AgentId, household));
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
@@ -986,7 +995,8 @@ app.MapPost("/api/v1/owner/control/start-world", (
     OwnerRequestAuthorizer authorizer,
     ProviderConfigurationStore providers,
     IServiceProvider services,
-    OwnerWorldObservationStore observations) =>
+    OwnerWorldObservationStore observations,
+    ILoggerFactory loggerFactory) =>
 {
     if (!isPrivateWorld || !IsControl(request, "start-world"))
         return Results.ValidationProblem(new Dictionary<string, string[]> { ["action.operation"] = ["This endpoint starts a configured private world."] });
@@ -1017,6 +1027,10 @@ app.MapPost("/api/v1/owner/control/start-world", (
         }
         runtime.StartWorld();
         services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
+        var town = runtime.Towns.Single(item => item.Id == TownBorderRules.FirstTownId);
+        TownTelemetry.Transition(loggerFactory.CreateLogger("ClankerWorld.Town"), runtime.WorldTick,
+            town.Id, TownTransitionKind.Founded, town.ResidentIds.Count,
+            town.AssignedBuildingIds.Count, town.BorderTiles.Count);
         return Results.Ok(OwnerControlReceipt.From("start-world", true, observations.GetSnapshot()));
     }
 });
@@ -1421,7 +1435,8 @@ app.MapPost("/api/v1/owner/content/rollback", (
 app.MapPost("/api/v1/owner/buildings/place", (
     OwnerSignedHttpRequest<OwnerBuildingPlacementAction> request,
     OwnerRequestAuthorizer authorizer,
-    IServiceProvider services) =>
+    IServiceProvider services,
+    ILoggerFactory loggerFactory) =>
 {
     if (!isPrivateWorld)
     {
@@ -1459,6 +1474,7 @@ app.MapPost("/api/v1/owner/buildings/place", (
 
     var runtime = services.GetRequiredService<PrivateWorldRuntime>();
     var stateFile = services.GetRequiredService<PrivateWorldStateFile>();
+    var previousBorderTiles = runtime.Towns.SingleOrDefault(item => item.Id == TownBorderRules.FirstTownId)?.BorderTiles.Count ?? 0;
     var result = runtime.PlaceBuilding(
         request.Action.InstanceId,
         request.Action.DefinitionId,
@@ -1469,6 +1485,17 @@ app.MapPost("/api/v1/owner/buildings/place", (
     }
 
     stateFile.Save(runtime);
+    var placed = runtime.WorldSimulation.Buildings.Single(item => item.InstanceId == result.InstanceId);
+    var town = placed.TownId is { } townId
+        ? runtime.Towns.Single(item => item.Id == townId)
+        : null;
+    var telemetry = loggerFactory.CreateLogger("ClankerWorld.Town");
+    TownTelemetry.Transition(telemetry, runtime.WorldTick, town?.Id ?? "none",
+        town is null ? TownTransitionKind.BuildingUnassigned : TownTransitionKind.BuildingAssigned,
+        town?.ResidentIds.Count ?? 0, town?.AssignedBuildingIds.Count ?? 0, town?.BorderTiles.Count ?? 0);
+    if (town is not null && town.BorderTiles.Count != previousBorderTiles)
+        TownTelemetry.Transition(telemetry, runtime.WorldTick, town.Id, TownTransitionKind.BorderExpanded,
+            town.ResidentIds.Count, town.AssignedBuildingIds.Count, town.BorderTiles.Count);
     return Results.Ok(result);
 });
 

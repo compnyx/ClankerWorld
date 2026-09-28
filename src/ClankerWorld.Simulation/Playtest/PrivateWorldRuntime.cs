@@ -71,7 +71,8 @@ public sealed record PrivateWorldRuntimeState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? JevEnabled = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long JevPolicyRevision = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FounderSetupState? FounderSetup = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GeographyOptions? Geography = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GeographyOptions? Geography = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TownRuntimeState>? Towns = null);
 
 public sealed record PrivateWorldStepResult(
     bool Advanced,
@@ -89,7 +90,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 20;
+    public const int StateSchemaVersion = 21;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -129,6 +130,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private bool jevEnabled = true;
     private long jevPolicyRevision;
     private FounderSetupState? founderSetup;
+    private List<TownRuntimeState> towns = [];
     private long nextInstructionSequence = 1;
     private readonly Dictionary<string, PendingHostedDecision> pendingHosted = new(StringComparer.Ordinal);
 
@@ -205,7 +207,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             society.Pause();
         }
         if (startPace == WorldStartPace.FounderSetup)
+        {
             founderSetup = new FounderSetupState([], false);
+            towns = [TownBorderRules.CreateFirstTown(map)];
+        }
         else
             CreatePhysicalState();
         foreach (var resource in map.Resources)
@@ -214,6 +219,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
 
         AppendEvent("world_created", $"{this.worldSeed}:inhabitants:{inhabitants.Count}");
+        if (towns.Count > 0) AppendEvent("town_founding_started", TownBorderRules.FirstTownId);
     }
 
     public long WorldTick => society.Checkpoint.WorldTick;
@@ -229,6 +235,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     public long JevPolicyRevision => jevPolicyRevision;
 
     public FounderSetupState? FounderSetup => founderSetup;
+
+    public IReadOnlyList<TownRuntimeState> Towns => towns
+        .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
 
     public WorldContentSimulationState WorldSimulation => worldSimulation;
 
@@ -314,6 +323,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         runtime.worldSimulation = state.WorldSimulation is null
             ? WorldContentSimulationState.Empty
             : state.WorldSimulation with { CropBuilds = state.WorldSimulation.CropBuilds ?? [] };
+        runtime.towns = (state.Towns ?? MigrateTowns(state)).OrderBy(item => item.Id, StringComparer.Ordinal).ToList();
         runtime.assetReservations = WorldAssetReservationLedger.Restore(state.AssetReservations);
         runtime.survivalState = state.Survival;
         runtime.council = state.Council;
@@ -598,6 +608,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         jevEnabled = proposed.jevEnabled;
         jevPolicyRevision = proposed.jevPolicyRevision;
         founderSetup = proposed.founderSetup;
+        towns = proposed.towns;
         nextInstructionSequence = proposed.nextInstructionSequence;
     }
 
@@ -1009,7 +1020,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         gate.Wait();
         try
         {
-            return PlaceBuildingCore(instanceId, definitionId, position, "building_placed");
+            var definition = worldContent.Buildings.SingleOrDefault(item => item.CanonicalId == definitionId);
+            var assignedTown = definition is null ? null : TownForOwnerPlacement(position, definition);
+            return PlaceBuildingCore(instanceId, definitionId, position, "building_placed", assignedTown?.Id);
         }
         finally
         {
@@ -1021,7 +1034,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         string instanceId,
         string definitionId,
         GridPoint position,
-        string eventKind)
+        string eventKind,
+        string? assignedTownId = null)
     {
         try
         {
@@ -1047,6 +1061,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     $"Building instance '{normalizedInstanceId}' already exists.");
             }
 
+            if (assignedTownId is not null && !towns.Any(item => item.Id == assignedTownId))
+                return BuildingPlacementResult.Rejected(normalizedInstanceId, normalizedDefinitionId, position,
+                    "The assigned Town does not exist.");
+
             if (!CanPlaceBuilding(definition, position, out var placementFailure))
             {
                 return BuildingPlacementResult.Rejected(
@@ -1064,7 +1082,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 normalizedInstanceId,
                 definition.CanonicalId,
                 position,
-                WorldTick);
+                WorldTick,
+                assignedTownId);
             worldSimulation = new WorldContentSimulationState(
                 worldSimulation.Buildings
                     .Append(placed)
@@ -1073,6 +1092,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 worldSimulation.ProductionJobs,
                 worldSimulation.NextProductionJobSequence,
                 worldSimulation.CropBuilds);
+            if (assignedTownId is not null)
+                AssignBuildingToTown(placed, definition);
             AppendEvent(eventKind, $"{placed.InstanceId}:{placed.DefinitionId}:{position.X},{position.Y}");
             return BuildingPlacementResult.Success(placed);
         }
@@ -1349,6 +1370,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             inhabitants.Add(founderId, new PlaytestInhabitantState(founderId, position, 6_500, 0,
                 "undecided", "find a purpose"));
             founderSetup = setup with { FounderIds = [.. setup.FounderIds, founderId] };
+            AddTownResident(TownBorderRules.FirstTownId, founderId, "founder_joined");
             AppendEvent("founder_placed", $"{founderId}:{householdId}");
             return householdId;
         }
@@ -1386,12 +1408,15 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         try
         {
             ValidateAgentPlacementUnsafe(agentId, position);
-            // The current map has no recorded property or settlement claims. A
-            // newly placed adult therefore starts a separate, unrelated household.
+            // Household ownership is independent from Town membership: each
+            // player-added adult starts a separate, unrelated household.
             var householdId = "household:" + agentId;
             society.Apply(checkpoint => SocietyFixture.AddAdult(checkpoint, agentId, householdId));
             inhabitants.Add(agentId, new PlaytestInhabitantState(agentId, position, 6_500, 0,
                 "undecided", "find a purpose"));
+            var town = towns.SingleOrDefault(item => item.BorderTiles.Contains(position));
+            if (town is not null) AddTownResident(town.Id, agentId, "agent_joined");
+            else AppendEvent("town_membership_evaluated", $"{agentId}:unaffiliated");
             AppendEvent("agent_added", agentId);
             return householdId;
         }
@@ -1443,6 +1468,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 !society.Checkpoint.IsPaused || WorldTick != 0)
                 throw new InvalidOperationException("Place and configure all four founders before starting time.");
             founderSetup = setup with { Started = true };
+            if (towns.SingleOrDefault(item => item.Id == TownBorderRules.FirstTownId) is { } firstTown)
+            {
+                SetTown(firstTown with { FoundingState = "founded" });
+                AppendEvent("town_founded", $"{firstTown.Id}:residents:{firstTown.ResidentIds.Count}");
+            }
             society.Resume();
             AppendEvent("world_started", "four_founders_ready");
         }
@@ -1501,6 +1531,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             throw new InvalidDataException("The private-world physical and society populations disagree.");
         }
         ValidateFounderSetup(founderSetup, society.Checkpoint);
+        ValidateTowns(towns, map, founderSetup, society.Checkpoint, worldSimulation, worldContent);
         ValidateDeceasedArchive(deceasedInhabitants.Values, society.Checkpoint, map, checkpointSchemaVersion);
 
         foreach (var inhabitant in inhabitants.Values)
@@ -1539,6 +1570,122 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             expectedEventId++;
             previousTick = worldEvent.WorldTick;
         }
+    }
+
+    private void AddTownResident(string townId, string residentId, string reason)
+    {
+        var town = towns.SingleOrDefault(item => item.Id == townId)
+            ?? throw new InvalidOperationException("The resident's Town does not exist.");
+        if (town.ResidentIds.Contains(residentId, StringComparer.Ordinal)) return;
+        SetTown(town with
+        {
+            ResidentIds = town.ResidentIds.Append(residentId).Order(StringComparer.Ordinal).ToArray(),
+        });
+        var updated = towns.Single(item => item.Id == townId);
+        AppendEvent("town_resident_joined", $"{updated.Id}:{residentId}:{reason}:residents:{updated.ResidentIds.Count}");
+    }
+
+    private void RemoveTownResident(string residentId)
+    {
+        var town = towns.SingleOrDefault(item => item.ResidentIds.Contains(residentId, StringComparer.Ordinal));
+        if (town is null) return;
+        var residents = town.ResidentIds.Where(id => id != residentId).ToArray();
+        SetTown(town with { ResidentIds = residents });
+        AppendEvent("town_resident_left", $"{town.Id}:{residentId}:residents:{residents.Length}");
+    }
+
+    private string? TownForResident(string residentId) => towns
+        .SingleOrDefault(item => item.ResidentIds.Contains(residentId, StringComparer.Ordinal))?.Id;
+
+    private TownRuntimeState? TownForOwnerPlacement(GridPoint position, BuildingDefinition definition) => towns
+        .SingleOrDefault(item => TownBorderRules.IsWithinOrAdjacent(item, position, definition.Width, definition.Height));
+
+    private void AssignBuildingToTown(PlacedBuilding building, BuildingDefinition definition)
+    {
+        var town = towns.SingleOrDefault(item => item.Id == building.TownId)
+            ?? throw new InvalidOperationException("The assigned Town does not exist.");
+        if (town.AssignedBuildingIds.Contains(building.InstanceId, StringComparer.Ordinal))
+            throw new InvalidDataException("A placed building is already assigned to its Town.");
+        var border = TownBorderRules.ExpandForBuilding(map, town, building.Position, definition.Width, definition.Height);
+        SetTown(town with
+        {
+            AssignedBuildingIds = town.AssignedBuildingIds.Append(building.InstanceId)
+                .Order(StringComparer.Ordinal).ToArray(),
+            BorderTiles = border,
+        });
+        var updated = towns.Single(item => item.Id == town.Id);
+        AppendEvent("town_building_assigned", $"{town.Id}:{building.InstanceId}:buildings:{updated.AssignedBuildingIds.Count}");
+        if (!town.BorderTiles.SequenceEqual(border))
+            AppendEvent("town_border_expanded", $"{town.Id}:{building.InstanceId}:tiles:{border.Count}");
+    }
+
+    private void SetTown(TownRuntimeState updated)
+    {
+        var index = towns.FindIndex(item => item.Id == updated.Id);
+        if (index < 0) throw new InvalidOperationException("The Town identity does not exist.");
+        towns[index] = updated;
+        checkpointSchemaVersion = StateSchemaVersion;
+    }
+
+    private static IReadOnlyList<TownRuntimeState> MigrateTowns(PrivateWorldRuntimeState state)
+    {
+        if (state.FounderSetup is not { } setup) return [];
+        var active = state.Society.Society.Inhabitants
+            .Where(person => person.Status == SocietyInhabitantStatus.Active)
+            .Select(person => person.Id).ToHashSet(StringComparer.Ordinal);
+        var residents = setup.FounderIds.Where(active.Contains).ToArray();
+        return [TownBorderRules.CreateFirstTown(state.Map, residents, founded: setup.Started)];
+    }
+
+    private static void ValidateTowns(
+        IReadOnlyList<TownRuntimeState>? savedTowns,
+        SeededMap map,
+        FounderSetupState? setup,
+        SocietyCheckpoint society,
+        WorldContentSimulationState simulation,
+        DeclarativeWorldContentState content)
+    {
+        ArgumentNullException.ThrowIfNull(savedTowns);
+        if (setup is null)
+        {
+            if (savedTowns.Count != 0 || simulation.Buildings.Any(item => item.TownId is not null))
+                throw new InvalidDataException("A legacy world cannot claim an unrecorded Town or Town-assigned building.");
+            return;
+        }
+
+        if (savedTowns.Count != 1)
+            throw new InvalidDataException("A founder-setup world must have exactly one first Town.");
+        var town = savedTowns[0];
+        if (town.Id != TownBorderRules.FirstTownId || town.Name != TownBorderRules.FirstTownName ||
+            town.FoundingState != (setup.Started ? "founded" : "founding") || town.FoundedTick != 0 ||
+            town.ResidentIds is null || town.AssignedBuildingIds is null || town.BorderTiles is null ||
+            town.ResidentIds.Distinct(StringComparer.Ordinal).Count() != town.ResidentIds.Count ||
+            town.AssignedBuildingIds.Distinct(StringComparer.Ordinal).Count() != town.AssignedBuildingIds.Count ||
+            town.BorderTiles.Distinct().Count() != town.BorderTiles.Count || town.BorderTiles.Count == 0)
+            throw new InvalidDataException("The first Town identity, founding state, or membership is invalid.");
+
+        var active = society.Inhabitants.Where(person => person.Status == SocietyInhabitantStatus.Active)
+            .Select(person => person.Id).ToHashSet(StringComparer.Ordinal);
+        if (town.ResidentIds.Any(id => !active.Contains(id)) ||
+            setup.FounderIds.Any(id => active.Contains(id) && !town.ResidentIds.Contains(id, StringComparer.Ordinal)))
+            throw new InvalidDataException("Town residents must be active inhabitants and active founders retain their founding membership.");
+
+        var byInstance = simulation.Buildings.ToDictionary(item => item.InstanceId, StringComparer.Ordinal);
+        var assignedIds = simulation.Buildings.Where(item => item.TownId == town.Id)
+            .Select(item => item.InstanceId).Order(StringComparer.Ordinal).ToArray();
+        if (!town.AssignedBuildingIds.Order(StringComparer.Ordinal).SequenceEqual(assignedIds) ||
+            simulation.Buildings.Any(item => item.TownId is not null && item.TownId != town.Id))
+            throw new InvalidDataException("Town building assignments disagree with the placed-building state.");
+
+        var definitions = content.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
+        foreach (var buildingId in town.AssignedBuildingIds)
+            if (!byInstance.ContainsKey(buildingId))
+                throw new InvalidDataException("A Town references a building that is not placed.");
+        var expected = TownBorderRules.ExpectedBorder(map, town, simulation.Buildings, definitions);
+        if (!town.BorderTiles.OrderBy(point => point.Y).ThenBy(point => point.X)
+            .SequenceEqual(expected.OrderBy(point => point.Y).ThenBy(point => point.X)) ||
+            town.BorderTiles.Any(point => !map.Contains(point)))
+            throw new InvalidDataException("The saved Town border does not match its founding area and assigned buildings.");
     }
 
     private static void ValidateFounderSetup(FounderSetupState? setup, SocietyCheckpoint society)
@@ -1608,7 +1755,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations.ExportState(), eventHistoryFloor, historyArchiveHead, survivalState, council,
         deceasedInhabitants.Count == 0 ? null : deceasedInhabitants.Values.OrderBy(item => item.InhabitantId, StringComparer.Ordinal).ToArray(),
         jevPolicyRevision == 0 && jevEnabled ? null : jevEnabled, jevPolicyRevision, founderSetup,
-        geographyOptions);
+        geographyOptions, towns.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray());
 
     public DeclarativeWorldContentState WorldContent => worldContent;
 
@@ -2317,6 +2464,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             deceasedInhabitants.Add(id, new PlaytestDeceasedInhabitantState(
                 id, deathTick, society.Checkpoint.AgeAt(deceased, deathTick), inhabitants[id]));
             inhabitants.Remove(id);
+            RemoveTownResident(id);
             checkpointSchemaVersion = StateSchemaVersion;
             AppendEvent("inhabitant_removed", id);
         }
@@ -2651,7 +2799,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 BuildInstanceId(inhabitantId, definition),
                 definition.CanonicalId,
                 position,
-                "build_completed");
+                "build_completed",
+                TownForResident(inhabitantId));
             if (!placement.Applied)
             {
                 AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:{placement.Failure}");
@@ -3159,6 +3308,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
              !string.Equals(state.Geography.Seed, state.WorldSeed, StringComparison.Ordinal)))
             throw new InvalidDataException("Generated geography does not match the saved world setup.");
         ValidateFounderSetup(state.FounderSetup, state.Society.Society);
+        if (state.SchemaVersion >= 21 && state.Towns is null)
+            throw new InvalidDataException("Private-world schema 21 requires authoritative Town state.");
         var hasArchivedEvents = state.EventHistoryFloor > 0 || state.Society.Society.EventHistoryFloor > 0 ||
             state.Society.Society.Inventory.EventHistoryFloor > 0 || state.Society.Cognition.EventHistoryFloor > 0 ||
             state.Society.Cognition.Runtimes.Any(runtime => runtime.EventHistoryFloor > 0);
@@ -3225,6 +3376,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 state.WorldContent,
                 state.Map,
                 state.Society.Society.WorldTick);
+            ValidateTowns(state.Towns ?? MigrateTowns(state), state.Map, state.FounderSetup,
+                state.Society.Society, state.WorldSimulation, state.WorldContent);
         }
 
         if (state.AssetReservations is not null)

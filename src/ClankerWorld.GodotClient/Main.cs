@@ -569,14 +569,18 @@ public partial class Main : Control
                     Convert.ToBase64String(new byte[16]),
                     Convert.ToBase64String(Enumerable.Repeat((byte)1, 16).ToArray()),
                     Convert.ToBase64String(Enumerable.Repeat((byte)3, 16).ToArray())),
+                Towns = [new OwnerWorldTown("town:first", "First Town", "founding", 0,
+                    ["founder:1", "founder:2", "founder:3", "founder:4"], [],
+                    [new(0, 0), new(1, 0), new(0, 1), new(1, 1)])],
                 PlacedBuildings = [new("test-hall", "test-definition", new(0, 2), 0, "Test hall", ["shelter"], 2, 1)],
                 ContentPackages = [new("owner-building-ui-test", "1.0.0", "sha256:test", "proposed", null, null, null, null,
                     "sha256:manifest", "Mira's shelter study", "builder-test")],
             };
             Render(sample with { WorldTick = 3_600, CalendarPace = new OwnerWorldCalendarPace(360, 40) }, []);
             if (clockLabel.Text != "01-02-0001 · 00:00" ||
-                !worldInfoText.Text.Contains("40 days/year", StringComparison.Ordinal))
-                throw new InvalidOperationException("The HUD must use the world's saved calendar pace, not a hard-coded day length.");
+                !worldInfoText.Text.Contains("40 days/year", StringComparison.Ordinal) ||
+                !worldInfoText.Text.Contains("First Town: Founding · 4 residents · 4 border tiles", StringComparison.Ordinal))
+                throw new InvalidOperationException("World Info must show the saved calendar and only the first Town's established founding, membership and border facts.");
             Render(sample with { JevEnabled = true }, []);
             if (!jevAssistanceToggle.ButtonPressed)
                 throw new InvalidOperationException("World Settings must reflect this world's saved Jev assistance choice.");
@@ -627,8 +631,9 @@ public partial class Main : Control
                 !selectedTileText.Text.Contains("Terrain kind: Meadow", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Surface: Sand", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Vegetation: Scrub", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Fertility: unavailable", StringComparison.Ordinal))
-                throw new InvalidOperationException("Selected-tile inspection must show separate map facts and mark unavailable fertility honestly.");
+                !selectedTileText.Text.Contains("Fertility: unavailable", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Town border: First Town", StringComparison.Ordinal))
+                throw new InvalidOperationException("Selected-tile inspection must show separate map facts, established Town coverage and unavailable fertility honestly.");
             var renderedSurface = terrainMap?.DisplayColorAt(1, 1) ?? Colors.Transparent;
             var expectedSurface = new Color("AA985F");
             if (terrainMap?.SurfaceAt(1, 1) != 1 ||
@@ -2486,7 +2491,7 @@ public partial class Main : Control
         inhabitantsButton.Pressed += ToggleInhabitants;
         topBar.AddChild(inhabitantsButton);
 
-        settlementButton.Text = "Settlement";
+        settlementButton.Text = "Town";
         StyleButton(settlementButton);
         settlementButton.Pressed += () =>
         {
@@ -2887,7 +2892,7 @@ public partial class Main : Control
         content.AddChild(memoriesPanel);
 
         ConfigureTextPanel(worldDetails, 320);
-        AddPanelContents(settlementPanel, "Settlement · stores and projects", worldDetails);
+        AddPanelContents(settlementPanel, "Town · stores and projects", worldDetails);
         settlementPanel.CustomMinimumSize = new Vector2(420, 380);
         settlementPanel.ZIndex = 80;
         settlementPanel.Hide();
@@ -3879,6 +3884,7 @@ public partial class Main : Control
         terrainLayer.SetTrees(snapshot.Resources);
         terrainLayer.SetNaturalObjects(snapshot.Resources);
         terrainLayer.SetWeatherRegions(snapshot.WeatherRegionSize, snapshot.WeatherRegions);
+        terrainLayer.SetTownBorders(snapshot.Towns);
         var mapWidth = terrainMap.Width;
         var mapHeight = terrainMap.Height;
         worldOverview.WrapsEastWest = snapshot.WrapsEastWest;
@@ -3917,8 +3923,11 @@ public partial class Main : Control
             var kind = tags.Contains("shelter", StringComparer.Ordinal) ? "shelter" :
                 tags.Any(tag => tag is "warmth" or "cooking") ? "campfire" : "building";
             var name = building.DisplayName ?? "Building";
+            var assignedTown = snapshot.Towns.FirstOrDefault(item => item.Id == building.TownId)?.Name;
             AddMapObjectVisual("building:" + building.InstanceId, building.Position, ObjectGlyph(kind), name,
-                $"{name}\nBuilt · {building.Width} × {building.Height} tiles", building.Width, building.Height);
+                $"{name}\nBuilt · {building.Width} × {building.Height} tiles" +
+                (assignedTown is null ? "\nNo Town assignment" : $"\nTown · {assignedTown}"),
+                building.Width, building.Height);
         }
 
         foreach (var group in snapshot.Inhabitants
@@ -4058,12 +4067,18 @@ public partial class Main : Control
         var localWeather = snapshot.Authoring is { } authoring
             ? $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))}"
             : "Not reported";
+        var townInfo = snapshot.Towns.Count == 0 ? string.Empty : "\nTown borders are outlined in amber on the map.\n" + string.Join("\n",
+            snapshot.Towns.Select(town =>
+                $"{town.Name}: {Pretty(town.FoundingState)} · {town.ResidentIds.Count} residents · {town.BorderTiles.Count} border tiles\n" +
+                "Residents: " + string.Join(", ", town.ResidentIds.Select(id =>
+                    snapshot.Inhabitants.FirstOrDefault(item => item.Id == id)?.DisplayName).Where(name => name is not null))));
         worldInfoText.Text =
             $"Date and time: {DisplayWorldClock(snapshot.WorldTick)}\n" +
             (snapshot.CalendarPace is { } pace ? $"Calendar: {pace.DaysPerYear} days/year\n" : "") +
             $"Living agents: {LivingPopulation(snapshot)}\n" +
             $"Map: {width} × {height} tiles\n" +
             $"Buildings: {snapshot.PlacedBuildings.Count}\n" +
+            townInfo + "\n" +
             $"Resource sites: {snapshot.Resources.Count}\n" +
             $"Season and weather at camera: {localWeather}" +
             (WeatherRegionAtCamera(snapshot)?.SoilMoisture is { } moisture
@@ -4205,7 +4220,7 @@ public partial class Main : Control
         var projectText = inhabitant.Project is { } project
             ? $"{project.Label} · {Pretty(project.Stage)} · {project.WorkDone}/{project.WorkRequired}" +
                 (project.Blocker is null ? "" : $"\n{project.Blocker}")
-            : "No settlement project";
+            : "No active building project";
         var socialNotes = inhabitant.SocialNotes.Count == 0 ? "" : "\n" + string.Join("\n", inhabitant.SocialNotes);
         var standing = inhabitant.SocialStanding.Count == 0 ? "" : "\n" + string.Join(" · ",
             inhabitant.SocialStanding.Select(item => $"Trust in {item.SubjectName} {item.Trust}/10"));
@@ -4798,6 +4813,7 @@ public partial class Main : Control
         var hydrology = WorldTerrainMap.HydrologyName(terrainMap.HydrologyAt(tile.X, tile.Y)) ?? "unavailable";
         var surface = WorldTerrainMap.SurfaceName(terrainMap.SurfaceAt(tile.X, tile.Y)) ?? "unavailable";
         var vegetation = WorldTerrainMap.VegetationName(terrainMap.VegetationAt(tile.X, tile.Y)) ?? "unavailable";
+        var town = snapshot.Towns.FirstOrDefault(item => item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y));
         selectedTileText.Text =
             $"Tile {tile.X}, {tile.Y}\n" +
             $"Terrain kind: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}\n" +
@@ -4809,6 +4825,7 @@ public partial class Main : Control
             $"Regional soil moisture: {(region?.SoilMoisture is { } moisture ? moisture + "/100" : "unavailable")}\n" +
             $"Elevation: {(elevation is { } level ? level + "/255" : "unavailable")}\n" +
             $"Fertility: unavailable\n" +
+            $"Town border: {(town?.Name ?? "none established")}\n" +
             $"Objects: {(objects.Length == 0 ? "none observed" : string.Join(", ", objects))}";
     }
 
@@ -5135,7 +5152,14 @@ public partial class Main : Control
             "estate_will_accepted" => "A final will directed a personal estate.",
             "estate_will_default" => "A personal estate followed household inheritance.",
             "inhabitant_building_proposed" => $"{NameAt(0)} proposed a new building design.",
-            "settlement_founded" => "A new settlement was founded.",
+            "settlement_founded" => "A new Town was founded.",
+            "town_founding_started" => "The first Town began founding during paused setup.",
+            "town_resident_joined" when parts.Length >= 2 => $"{NameAt(1)} joined the first Town.",
+            "town_resident_left" when parts.Length >= 2 => $"{NameAt(1)} left the first Town.",
+            "town_membership_evaluated" => "The added adult was not placed in an established Town.",
+            "town_building_assigned" => "A building joined the first Town.",
+            "town_border_expanded" => "The first Town border expanded.",
+            "town_founded" => "The first Town is founded.",
             "paused" => "The world was paused.",
             "resumed" => "The world resumed.",
             _ => $"{GameUiText.HumanizeIdentifier(worldEvent.Kind)}.",

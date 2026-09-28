@@ -24,6 +24,12 @@ release yet.
   The new terrain and object marks are code-drawn prototypes rather than final
   production textures/sprites. Existing generated saves without the new natural
   object details and geology sites remain loadable.
+- The paused New World setup now has a persistent first Town. Founders join it
+  as they are placed; its amber map border and World Info show only its saved
+  founding state, residents, and assigned buildings. Adults placed within the
+  border join the Town, and Town-assigned buildings can expand it. Existing
+  founder-setup saves migrate without inferring unrecorded adult membership or
+  building assignments.
 - After an agent dies, their assigned personal model can make one bounded final
   choice to leave frozen personal belongings on the household inheritance path
   or give the whole estate to a living agent. Invalid, unavailable, timed-out or

@@ -224,6 +224,31 @@ Jev-assisted memory compaction is not implemented yet.
   current world's rotating-snapshot schedule and last saved tick; include it
   in backups. Rotating snapshots use the same private checkpoint directory as
   named saves and are trimmed only after a newer copy exists.
+- Private-world schema 21 saves Town identity, founding state, resident IDs,
+  Town-assigned building IDs, and the inspectable border tiles. A New World
+  founder-setup runtime contains exactly one `First Town`: it is `founding`
+  while paused setup is in progress and becomes `founded` when Start World is
+  accepted. Every placed founder joins it. After start, an adult placed within
+  its current border joins; walking later does not rewrite membership. A child
+  inherits the resident parent's Town, and death removes the resident. A
+  player-placed building is assigned only when its footprint is in or directly
+  adjacent to the current border; a building proposed by a Town resident uses
+  that resident's Town. The Town-assigned building footprint expands its
+  border if needed.
+- This is a **provisional single-Town implementation**, not a final land-claim
+  decision: the initial border is the starter-camp object bounding rectangle
+  plus one tile of margin; added assigned buildings grow the rectangle to
+  include their footprint plus one tile, clipped at map edges. It does not
+  bridge wrapped seams, create overlapping claims, add later Towns, or offer a
+  separate map-filter control. Schema-20-and-earlier founder-setup saves
+  reconstruct only the known first Town and its founding members; existing
+  post-start adults and buildings remain unassigned rather than having
+  affiliation inferred from current position. Old worlds without founder
+  setup keep no invented Town. The owner projection sends saved facts only;
+  the Godot client draws the saved border and World Info/tile inspection show
+  its current recorded state. Stable `town_transition` telemetry reports only
+  Town ID, transition, resident/building counts and border size, never names or
+  provider text.
 - The current content path accepts bounded, validated data-only designs.
   Arbitrary executable agent code is disabled. The vision includes a
   restricted script sandbox and explicit human-mod import; neither is a
