@@ -194,6 +194,7 @@ public partial class Main : Control
     private bool isOwnerAction;
     private bool registeredEndpointInvalid;
     private bool menuPausedWorld;
+    private bool menuPauseConfirmed;
     private OwnerWorldSnapshot? renderedMapSnapshot;
     private int currentTileSize = DefaultTileSize;
     private float cameraZoom = 1;
@@ -373,6 +374,18 @@ public partial class Main : Control
             if (!quitToMenuConfirmation.Visible)
                 throw new InvalidOperationException("Quit to Menu must request confirmation.");
             quitToMenuConfirmation.Hide();
+            // The pause receipt can succeed even when the following reconnect
+            // fails. Leaving must not require a newer snapshot in that case.
+            menuPauseConfirmed = true;
+            menuPausedWorld = true;
+            QuitToMainMenu();
+            if (!mainMenuOverlay.Visible || gameMenuPanel.Visible || !resumeWorldOnContinue)
+                throw new InvalidOperationException("An accepted pause must allow Quit to Menu despite a held snapshot.");
+            mainMenuOverlay.Hide();
+            isInWorld = true;
+            resumeWorldOnContinue = false;
+            gameMenuPanel.Show();
+            menuShade.Show();
             foreach (var size in new[] { new Vector2I(1280, 720), new Vector2I(1920, 1080), new Vector2I(1024, 768) })
             {
                 GetWindow().Size = size;
@@ -1213,21 +1226,24 @@ public partial class Main : Control
         }
     }
 
-    private async Task SetPausedAsync(bool paused)
+    private async Task<bool> SetPausedAsync(bool paused)
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer))
         {
-            return;
+            return false;
         }
 
+        var accepted = false;
         await RunOwnerActionAsync(async () =>
         {
             var receipt = await ownerApi.SetPausedAsync(
                 ResolveWorldUri(), authority, deviceId, paused, signer, CancellationToken.None);
+            accepted = true;
             return receipt.Changed
                 ? $"world {receipt.Operation}d at revision {receipt.Revision}"
                 : $"world was already {(paused ? "paused" : "running")}";
         });
+        return accepted;
     }
 
     private async Task SubmitInstructionAsync()
@@ -3119,9 +3135,10 @@ public partial class Main : Control
 
         var paused = observationSession.Current?.Baseline.Snapshot.Authoring?.IsPaused == true;
         menuPausedWorld = observationSession.Current is not null && !paused;
+        menuPauseConfirmed = paused;
         if (menuPausedWorld)
         {
-            await SetPausedAsync(paused: true);
+            menuPauseConfirmed = await SetPausedAsync(paused: true);
         }
     }
 
@@ -3150,6 +3167,7 @@ public partial class Main : Control
         modLibraryPanel.Hide();
         developerScroll.Hide();
         menuPausedWorld = false;
+        menuPauseConfirmed = false;
     }
 
     private void OpenMenuForSetup()

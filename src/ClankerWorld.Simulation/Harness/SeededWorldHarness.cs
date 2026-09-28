@@ -401,6 +401,16 @@ public static class GeneratedCampMapGenerator
     private const int CampHeight = 5;
 
     public static SeededMap Generate(GeographyOptions options, bool includeLegacyBedroll = false)
+        => GenerateCore(options, includeLegacyBedroll, legacyLayout: false);
+
+    // Reconstruct the pre-layer generated manifest when validating old saves.
+    // The old resource placement and camp-site rules are part of that map's
+    // identity; accepting its self-digest alone would not prove provenance.
+    public static SeededMap GenerateLegacy(GeographyOptions options, bool includeLegacyBedroll)
+        => GenerateCore(options, includeLegacyBedroll, legacyLayout: true);
+
+    private static SeededMap GenerateCore(GeographyOptions options, bool includeLegacyBedroll,
+        bool legacyLayout)
     {
         ArgumentNullException.ThrowIfNull(options);
         // This bridge still allocates one object per tile for the old
@@ -453,7 +463,9 @@ public static class GeneratedCampMapGenerator
                 tiles[index] = new TerrainTile(new GridPoint(x, y), kind);
             }
 
-        var origin = FindCampOrigin(hydrologyKinds, elevationLevels, surfaceKinds, width, height);
+        var origin = legacyLayout
+            ? FindLegacyCampOrigin(kinds, width, height)
+            : FindCampOrigin(hydrologyKinds, elevationLevels, surfaceKinds, width, height);
         var template = BaseCampMapGenerator.Generate(options.Seed, includeLegacyBedroll);
         var objects = template.CampObjects.Select(item => item with
         {
@@ -463,14 +475,16 @@ public static class GeneratedCampMapGenerator
         {
             Position = new GridPoint(item.Position.X + origin.X, item.Position.Y + origin.Y),
             IsRenewable = item.Id == "timber-tree" || item.IsRenewable,
-            TreeKind = item.Id == "timber-tree" ? "broadleaf" : item.TreeKind,
+            TreeKind = !legacyLayout && item.Id == "timber-tree" ? "broadleaf" : item.TreeKind,
         }).ToArray();
-        var distributed = GenerateResourceSites(options, geography, hydrologyKinds, elevationLevels,
-            surfaceKinds, vegetationKinds, objects, resources);
-        var trees = GenerateTrees(options, geography, vegetationKinds, width, height, objects,
+        var distributed = legacyLayout
+            ? GenerateLegacyResourceSites(options, kinds, width, height, objects, resources)
+            : GenerateResourceSites(options, geography, hydrologyKinds, elevationLevels,
+                surfaceKinds, vegetationKinds, objects, resources);
+        List<MapResource> trees = legacyLayout ? [] : GenerateTrees(options, geography, vegetationKinds, width, height, objects,
             resources.Concat(distributed).ToArray());
-        var orchards = GenerateOrchards(options, geography, surfaceKinds, vegetationKinds, width, height, objects,
-            resources.Concat(distributed).Concat(trees).ToArray());
+        List<MapResource> orchards = legacyLayout ? [] : GenerateOrchards(options, geography, surfaceKinds, vegetationKinds,
+            width, height, objects, resources.Concat(distributed).Concat(trees).ToArray());
         var withoutDigest = new SeededMap(width, height, 0, tiles, objects,
             resources.Concat(distributed).Concat(trees).Concat(orchards).ToArray(), string.Empty)
         {
@@ -486,6 +500,89 @@ public static class GeneratedCampMapGenerator
         if (!validation.IsValid)
             throw new InvalidOperationException($"Generated base camp is invalid: {validation.Failure}");
         return map;
+    }
+
+    private static List<MapResource> GenerateLegacyResourceSites(GeographyOptions options,
+        TerrainKind[] kinds, int width, int height, IReadOnlyList<CampObject> camp,
+        IReadOnlyList<MapResource> starter)
+    {
+        const int spacing = 16;
+        var occupied = camp.Select(item => item.Position)
+            .Concat(starter.Select(item => item.Position)).ToHashSet();
+        var sites = new List<MapResource>();
+        for (var top = 0; top < height; top += spacing)
+            for (var left = 0; left < width; left += spacing)
+            {
+                var sitesInCell = options.ResourceAbundance switch
+                {
+                    ResourceAbundance.Sparse => (left / spacing + top / spacing) % 2 == 0 ? 1 : 0,
+                    ResourceAbundance.Normal => 1,
+                    ResourceAbundance.Abundant => 2,
+                    _ => throw new ArgumentOutOfRangeException(nameof(options)),
+                };
+                var random = Pcg32XshRrV1.Create(options.Seed, $"resource-site:{left},{top}");
+                for (var site = 0; site < sitesInCell; site++)
+                    for (var attempt = 0; attempt < 12; attempt++)
+                    {
+                        var x = left + (int)(random.NextUInt() % (uint)Math.Min(spacing, width - left));
+                        var y = top + (int)(random.NextUInt() % (uint)Math.Min(spacing, height - top));
+                        var position = new GridPoint(x, y);
+                        var kind = kinds[y * width + x];
+                        if (kind is not (TerrainKind.Meadow or TerrainKind.Sand or TerrainKind.Forest or TerrainKind.Snow) ||
+                            occupied.Contains(position)) continue;
+                        var selection = random.NextUInt() % 4;
+                        var resourceKind = kind switch
+                        {
+                            TerrainKind.Forest => "construction",
+                            TerrainKind.Sand => selection == 0 ? "fiber" : "stone",
+                            TerrainKind.Snow => selection == 0 ? "food" : "stone",
+                            _ => selection switch
+                            {
+                                0 => "fertile_land",
+                                1 => "food",
+                                2 => "fiber",
+                                _ => "seed",
+                            },
+                        };
+                        var renewable = resourceKind is "construction" or "food" or "fiber" or "seed";
+                        var id = site == 0 ? $"wild-{left}-{top}" : $"wild-{left}-{top}-{site}";
+                        sites.Add(new MapResource(id, resourceKind, position, renewable));
+                        occupied.Add(position);
+                        break;
+                    }
+            }
+        return sites;
+    }
+
+    private static GridPoint FindLegacyCampOrigin(TerrainKind[] kinds, int width, int height)
+    {
+        var centerX = (width - CampWidth) / 2;
+        var centerY = (height - CampHeight) / 2;
+        var maxRadius = width + height;
+        for (var radius = 0; radius <= maxRadius; radius++)
+            for (var offsetX = -radius; offsetX <= radius; offsetX++)
+            {
+                var offsetY = radius - Math.Abs(offsetX);
+                if (TryLegacySite(centerX + offsetX, centerY + offsetY, kinds, width, height))
+                    return new GridPoint(centerX + offsetX, centerY + offsetY);
+                if (offsetY > 0 && TryLegacySite(centerX + offsetX, centerY - offsetY, kinds, width, height))
+                    return new GridPoint(centerX + offsetX, centerY - offsetY);
+            }
+        throw new InvalidOperationException("The generated geography has no suitable base-camp clearing.");
+    }
+
+    private static bool TryLegacySite(int left, int top, TerrainKind[] kinds, int width, int height)
+    {
+        if (left < 0 || top < 0 || left + CampWidth > width || top + CampHeight > height)
+            return false;
+        if (left / GeographyGenerator.ChunkSize != (left + CampWidth - 1) / GeographyGenerator.ChunkSize ||
+            top / GeographyGenerator.ChunkSize != (top + CampHeight - 1) / GeographyGenerator.ChunkSize)
+            return false;
+        for (var y = top; y < top + CampHeight; y++)
+            for (var x = left; x < left + CampWidth; x++)
+                if (kinds[y * width + x] is not (TerrainKind.Meadow or TerrainKind.Sand or
+                    TerrainKind.Forest or TerrainKind.Snow)) return false;
+        return true;
     }
 
     private static List<MapResource> GenerateResourceSites(GeographyOptions options, GeneratedGeography geography,
@@ -915,6 +1012,17 @@ public static class DeterministicRouteFinder
             throw new InvalidOperationException("Routing endpoints must be passable.");
         }
 
+        if (TryFind(map, origin, destination, out var route)) return route;
+        throw new InvalidOperationException("No passable route exists between the requested points.");
+    }
+
+    public static bool TryFind(SeededMap map, GridPoint origin, GridPoint destination,
+        out IReadOnlyList<GridPoint> route)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        route = [];
+        if (!map.IsPassable(origin) || !map.IsPassable(destination)) return false;
+
         var open = new PriorityQueue<RouteNode, RoutePriority>();
         var predecessor = new Dictionary<GridPoint, GridPoint>();
         var best = new Dictionary<GridPoint, RouteRecord>();
@@ -933,7 +1041,8 @@ public static class DeterministicRouteFinder
 
             if (node.Position == destination)
             {
-                return Reconstruct(predecessor, origin, destination);
+                route = Reconstruct(predecessor, origin, destination);
+                return true;
             }
 
             foreach (var next in map.FootNeighbors(node.Position))
@@ -956,7 +1065,7 @@ public static class DeterministicRouteFinder
             }
         }
 
-        throw new InvalidOperationException("No passable route exists between the requested points.");
+        return false;
     }
 
     private static int Compare(RouteRecord left, RouteRecord right)

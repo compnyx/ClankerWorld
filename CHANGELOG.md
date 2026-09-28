@@ -20,6 +20,11 @@ release yet.
 
 ### Fixed
 
+- Adding an adult on disconnected land no longer breaks world reconnects while
+  the client previews a path to food. An accepted pause also lets Quit to Menu
+  work when the next world refresh fails. The host can again load pre-layer
+  generated worlds whose original resource layout and settlement package
+  predate the current generator.
 - Render Resolution now defaults to the current window size or fullscreen
   display size, so a 2560×1440 screen renders sharply instead of enlarging a
   720p/1080p viewport. Fixed resolution choices remain available and include

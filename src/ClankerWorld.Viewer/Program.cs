@@ -453,8 +453,7 @@ app.MapPost("/api/v1/owner/control/jev-assistance", (
 app.MapPost("/api/v1/owner/control/pause", (
     OwnerSignedHttpRequest<OwnerControlAction> request,
     OwnerRequestAuthorizer authorizer,
-    IServiceProvider services,
-    OwnerWorldObservationStore observations) =>
+    IServiceProvider services) =>
 {
     if (!IsControl(request, "pause"))
     {
@@ -486,7 +485,7 @@ app.MapPost("/api/v1/owner/control/pause", (
             privateStateFile.Save(privateRuntime);
         }
 
-        return Results.Ok(OwnerControlReceipt.From("pause", changed, observations.GetSnapshot()));
+        return Results.Ok(OwnerControlReceipt.From("pause", changed, privateRuntime.ExportState()));
     }
 
     var runtime = services.GetRequiredService<OwnerWorldRuntime>();
@@ -503,8 +502,7 @@ app.MapPost("/api/v1/owner/control/pause", (
 app.MapPost("/api/v1/owner/control/resume", (
     OwnerSignedHttpRequest<OwnerControlAction> request,
     OwnerRequestAuthorizer authorizer,
-    IServiceProvider services,
-    OwnerWorldObservationStore observations) =>
+    IServiceProvider services) =>
 {
     if (!IsControl(request, "resume"))
     {
@@ -540,7 +538,7 @@ app.MapPost("/api/v1/owner/control/resume", (
             privateStateFile.Save(privateRuntime);
         }
 
-        return Results.Ok(OwnerControlReceipt.From("resume", changed, observations.GetSnapshot()));
+        return Results.Ok(OwnerControlReceipt.From("resume", changed, privateRuntime.ExportState()));
     }
 
     var runtime = services.GetRequiredService<OwnerWorldRuntime>();

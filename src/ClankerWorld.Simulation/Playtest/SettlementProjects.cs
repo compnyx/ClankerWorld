@@ -21,6 +21,10 @@ public sealed record SettlementProject(
 public sealed partial class PrivateWorldRuntime
 {
     private const int ProjectWorkTicks = 10;
+    // The pre-energy-removal settlement package included bedding. Its digest
+    // remains a valid provenance marker for three staged map resources.
+    private const string LegacySettlementPackageDigest =
+        "sha256:037c1b07a6a88989adfc6fe61fb03e7c625524dfbbb530b3e1b30701f66a21ac";
 
     private static bool IsCompatibleSavedMap(SeededMap generated, PrivateWorldRuntimeState state)
     {
@@ -49,29 +53,41 @@ public sealed partial class PrivateWorldRuntime
         };
         foreach (var baseline in new[] { generated, previousTrees, previousVegetation })
         {
-            if (baseline.ManifestDigest == state.Map.ManifestDigest)
-                return true;
-            var baseIds = baseline.Resources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
-            var added = state.Map.Resources.Where(resource => !baseIds.Contains(resource.Id)).ToArray();
-            if (state.SchemaVersion < 5 || added.Length is < 1 or > 3 ||
-                added.Select(resource => resource.Position).Distinct().Count() != added.Length ||
-                state.Content?.Packages.Any(package => package.Manifest.PackageId == SettlementContent.PackageId &&
-                    package.Manifest.PackageDigest == SettlementContent.Create().PackageDigest && package.ActivationTick is not null) != true ||
-                added.Any(resource => resource.Id != "settlement-" + resource.Kind ||
-                    resource.Kind is not ("stone" or "fiber" or "seed") ||
-                    resource.IsRenewable != (resource.Kind is "fiber" or "seed") ||
-                    !baseline.IsBuildable(resource.Position) ||
-                    baseline.CampObjects.Any(item => item.Position == resource.Position) ||
-                    baseline.Resources.Any(item => item.Position == resource.Position)))
-                continue;
-            var original = state.Map with
-            {
-                Resources = state.Map.Resources.Where(resource => baseIds.Contains(resource.Id)).ToArray(),
-            };
-            if (MapManifestCodec.Digest(original) == baseline.ManifestDigest)
-                return true;
+            if (SavedMapMatchesBaseline(state, baseline)) return true;
         }
-        return false;
+        // Before independent map layers, resource placement and clearing
+        // selection used the flattened TerrainKind. Validate that historical
+        // generator as a separate immutable lineage, including worlds that
+        // were later resaved under a newer checkpoint schema.
+        return state.Geography is { } geography &&
+            SavedMapMatchesBaseline(state, GeneratedCampMapGenerator.GenerateLegacy(geography,
+                state.Map.CampObjects.Any(item => item.Id == "bedroll" && item.Kind == "bedroll")));
+    }
+
+    private static bool SavedMapMatchesBaseline(PrivateWorldRuntimeState state, SeededMap baseline)
+    {
+        if (baseline.ManifestDigest == state.Map.ManifestDigest)
+            return true;
+        var baseIds = baseline.Resources.Select(resource => resource.Id).ToHashSet(StringComparer.Ordinal);
+        var added = state.Map.Resources.Where(resource => !baseIds.Contains(resource.Id)).ToArray();
+        if (state.SchemaVersion < 5 || added.Length is < 1 or > 3 ||
+            added.Select(resource => resource.Position).Distinct().Count() != added.Length ||
+            state.Content?.Packages.Any(package => package.Manifest.PackageId == SettlementContent.PackageId &&
+                (package.Manifest.PackageDigest == SettlementContent.Create().PackageDigest ||
+                 package.Manifest.PackageDigest == LegacySettlementPackageDigest) &&
+                package.ActivationTick is not null) != true ||
+            added.Any(resource => resource.Id != "settlement-" + resource.Kind ||
+                resource.Kind is not ("stone" or "fiber" or "seed") ||
+                resource.IsRenewable != (resource.Kind is "fiber" or "seed") ||
+                !baseline.IsBuildable(resource.Position) ||
+                baseline.CampObjects.Any(item => item.Position == resource.Position) ||
+                baseline.Resources.Any(item => item.Position == resource.Position)))
+            return false;
+        var original = state.Map with
+        {
+            Resources = state.Map.Resources.Where(resource => baseIds.Contains(resource.Id)).ToArray(),
+        };
+        return MapManifestCodec.Digest(original) == baseline.ManifestDigest;
     }
 
     private void StageSettlementContent()

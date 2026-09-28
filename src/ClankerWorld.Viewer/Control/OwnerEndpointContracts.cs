@@ -1,5 +1,6 @@
 using System.Net;
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Viewer.Observation;
 using Microsoft.AspNetCore.Http;
 
@@ -35,6 +36,16 @@ public sealed record OwnerControlReceipt(
             authoring?.RunEpoch ?? 0,
             authoring?.Revision ?? snapshot.WorldTick,
             snapshot.LatestEventId);
+    }
+
+    // Control acknowledgements must not depend on the optional world-view
+    // projection. A projection defect must never turn an accepted pause into
+    // an HTTP 500 that leaves the client unsure whether the world stopped.
+    public static OwnerControlReceipt From(string operation, bool changed, PrivateWorldRuntimeState state)
+    {
+        var revision = state.EventHistoryFloor + state.Events.Count;
+        return new OwnerControlReceipt(operation, changed, state.Society.Society.IsPaused,
+            state.Society.Society.RunEpoch, revision, revision);
     }
 }
 

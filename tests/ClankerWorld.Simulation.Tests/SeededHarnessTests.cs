@@ -42,6 +42,20 @@ public sealed class SeededHarnessTests
     }
 
     [Fact]
+    public void UnreachableLandReturnsNoRouteWithoutThrowingDuringObservation()
+    {
+        var map = TerrainMap(5, 3, point => point.X == 2 ? TerrainKind.Peak : TerrainKind.Meadow);
+        var origin = new GridPoint(0, 1);
+        var destination = new GridPoint(4, 1);
+
+        Assert.False(DeterministicRouteFinder.TryFind(map, origin, destination, out var route));
+        Assert.Empty(route);
+        Assert.Throws<InvalidOperationException>(() => DeterministicRouteFinder.Find(map, origin, destination));
+        Assert.True(DeterministicRouteFinder.TryFind(map, origin, new GridPoint(1, 1), out var reachable));
+        Assert.Equal([origin, new GridPoint(1, 1)], reachable);
+    }
+
+    [Fact]
     public void DiagonalRoutesHaveAStableCostAndCannotClipBlockedCorners()
     {
         var open = TerrainMap(4, 4, _ => TerrainKind.Meadow);

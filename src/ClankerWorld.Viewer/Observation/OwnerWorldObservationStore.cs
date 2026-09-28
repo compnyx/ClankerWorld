@@ -789,7 +789,16 @@ public sealed class OwnerWorldObservationStore
 
         if (berryState == ResourceState.Available && physical.HungerBasisPoints < 7_000)
         {
-            return RouteTo(state.Map, physical.Position, berry.Position, "seek_food", berry.Id);
+            // The starter patch is camp-reachable. Reject an agent on a
+            // separate island using the map's cached camp component instead
+            // of exhaustively searching the entire world on every reconnect.
+            if ((state.Map.IsReachableFromCampOnFoot(berry.Position) &&
+                 !state.Map.IsReachableFromCampOnFoot(physical.Position)) ||
+                !DeterministicRouteFinder.TryFind(state.Map, physical.Position, berry.Position,
+                    out var path))
+                return new ViewerRoute("food_unreachable", null, null, [], state.Map.ManifestDigest);
+            return new ViewerRoute("seek_food", berry.Id, ToPosition(berry.Position),
+                path.Skip(1).Select(ToPosition).ToArray(), state.Map.ManifestDigest);
         }
 
         return new ViewerRoute("idle", null, null, [], state.Map.ManifestDigest);

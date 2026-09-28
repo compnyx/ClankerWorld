@@ -64,7 +64,10 @@ and computment's laptop check; the live host was not changed.
 Save schema 18 removed persisted energy and sleep state; schema 19 and the v2
 private-world checkpoint format store terrain in verified 64×64 byte chunks
 instead of per-tile JSON. Older v1 checkpoints remain loadable and migrate
-atomically on load. Damaged chunks fail closed without replacing the save.
+atomically on load. Pre-layer generated maps retain their original resource
+layout and are checked against the historical generator and known settlement
+package digest before migration. Damaged chunks fail closed without replacing
+the save.
 Legacy bedroll markers remain hidden
 compatibility map data in those worlds; they reserve their historical tile but
 have no rest effect. Their maps still undergo deterministic regeneration

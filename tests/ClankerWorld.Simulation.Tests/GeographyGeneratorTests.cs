@@ -10,6 +10,20 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class GeographyGeneratorTests
 {
+    [Fact]
+    public void PreLayerGeneratedManifestRemainsReproducibleForHistoricalWorldSaves()
+    {
+        var options = new GeographyOptions("pre-layer-compat", WorldSizePreset.Small);
+        var legacy = GeneratedCampMapGenerator.GenerateLegacy(options, includeLegacyBedroll: true);
+
+        // Captured from the deployed pre-layer generator, not this migration
+        // implementation. Drift would strand worlds created by that host.
+        Assert.Equal("1b2a438a850546a16256a65f1b504d108bc6b79b69c14f0d1ce4ec4f0dfb49d8",
+            legacy.ManifestDigest);
+        Assert.Equal(102, legacy.Resources.Count);
+        Assert.Equal(legacy.ManifestDigest, MapManifestCodec.Digest(legacy));
+    }
+
     [Theory]
     [InlineData(WorldSizePreset.Small)]
     [InlineData(WorldSizePreset.Medium)]

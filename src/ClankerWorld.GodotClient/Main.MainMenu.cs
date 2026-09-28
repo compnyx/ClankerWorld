@@ -199,7 +199,8 @@ public partial class Main
     {
         // Opening the pause menu already committed a pause on the host. Stop
         // owner polling while the title screen is open, so no model work runs.
-        if (observationSession.Current?.Baseline.Snapshot.Authoring?.IsPaused != true)
+        if (observationSession.Current?.Baseline.Snapshot.Authoring?.IsPaused != true &&
+            !menuPauseConfirmed)
         {
             SetStatus("Wait for the host to confirm the pause before leaving this world.", good: false);
             return;
