@@ -11,7 +11,8 @@ public sealed record SettlementExploration(
     IReadOnlyList<GridPoint> VisitedTiles,
     IReadOnlyList<GridPoint> OutingPath,
     long LastOutingTick,
-    bool Returning);
+    bool Returning,
+    IReadOnlyList<GridPoint>? OutingDiscoveries = null);
 
 public sealed partial class PrivateWorldRuntime
 {
@@ -45,6 +46,7 @@ public sealed partial class PrivateWorldRuntime
         var exploration = person.Exploration ?? new SettlementExploration([], [], WorldTick, false);
         if (exploration.OutingPath.Count == 0)
         {
+            var learnedStartingTile = RecordKnowledgeFact(actor, person.Position);
             exploration = exploration with
             {
                 VisitedTiles = exploration.VisitedTiles.Contains(person.Position)
@@ -53,6 +55,7 @@ public sealed partial class PrivateWorldRuntime
                 OutingPath = [person.Position],
                 LastOutingTick = WorldTick,
                 Returning = false,
+                OutingDiscoveries = learnedStartingTile ? [person.Position] : [],
             };
             AppendEvent("exploration_started", $"{actor}:{person.Position.X},{person.Position.Y}");
         }
@@ -88,12 +91,16 @@ public sealed partial class PrivateWorldRuntime
         var visited = exploration.VisitedTiles.Contains(moved.Position)
             ? exploration.VisitedTiles
             : exploration.VisitedTiles.Append(moved.Position).TakeLast(ExplorationMemoryLimit).ToArray();
+        var learned = !exploration.VisitedTiles.Contains(moved.Position) && RecordKnowledgeFact(actor, moved.Position);
         inhabitants[actor] = moved with
         {
             Exploration = exploration with
             {
                 VisitedTiles = visited,
                 OutingPath = exploration.OutingPath.Append(moved.Position).ToArray(),
+                OutingDiscoveries = learned
+                    ? (exploration.OutingDiscoveries ?? []).Append(moved.Position).TakeLast(ExplorationStepsPerOuting + 1).ToArray()
+                    : exploration.OutingDiscoveries ?? [],
             }
         };
         if (!exploration.VisitedTiles.Contains(moved.Position))
@@ -110,6 +117,7 @@ public sealed partial class PrivateWorldRuntime
     {
         if (exploration.OutingPath.Count == 1)
         {
+            CreateKnowledgeArtifact(actor, exploration.OutingDiscoveries ?? []);
             inhabitants[actor] = person with
             {
                 Exploration = exploration with
@@ -137,6 +145,7 @@ public sealed partial class PrivateWorldRuntime
             };
         else if (moved.MoveWaitTicks >= 30)
         {
+            CreateKnowledgeArtifact(actor, exploration.OutingDiscoveries ?? []);
             inhabitants[actor] = moved with
             {
                 Exploration = exploration with
@@ -156,9 +165,12 @@ public sealed partial class PrivateWorldRuntime
         if (exploration.VisitedTiles is null || exploration.OutingPath is null ||
             exploration.VisitedTiles.Count > ExplorationMemoryLimit ||
             exploration.OutingPath.Count > ExplorationStepsPerOuting + 1 ||
+            (exploration.OutingDiscoveries?.Count ?? 0) > ExplorationStepsPerOuting + 1 ||
             exploration.LastOutingTick < 0 || exploration.LastOutingTick > worldTick ||
             exploration.VisitedTiles.Any(point => !map.IsPassable(point)) ||
             exploration.OutingPath.Any(point => !map.IsPassable(point)) ||
+            (exploration.OutingDiscoveries ?? []).Any(point => !map.IsPassable(point)) ||
+            (exploration.OutingDiscoveries ?? []).Distinct().Count() != (exploration.OutingDiscoveries?.Count ?? 0) ||
             exploration.OutingPath.Zip(exploration.OutingPath.Skip(1),
                 (first, second) => map.CanFootStep(first, second)).Any(legal => !legal))
             throw new InvalidDataException("The saved local exploration record is invalid.");

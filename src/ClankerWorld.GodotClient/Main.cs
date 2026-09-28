@@ -1135,6 +1135,12 @@ public partial class Main : Control
                 RecentPrivateThoughts = [new OwnerWorldPrivateThought(1, "I hope Rowan remembers our garden.")],
                 RecentMemories = [new OwnerWorldAgentMemory(1, "living-parent", "Rowan",
                     "I hid the garden tools where Rowan cannot see them.", "private")],
+                RecentKnowledgeFacts = [new OwnerWorldKnowledgeFact(2, 7, 9, "Forest", ["wood"],
+                    "Mira", "firsthand", null)],
+                KnowledgeArtifacts = [new OwnerWorldKnowledgeArtifact("knowledge-artifact-000001", "field_map",
+                    "Field map · 2 sites", 2, "Mira",
+                    [new OwnerWorldKnowledgeSite(7, 9, "Forest", ["wood"], "Mira"),
+                     new OwnerWorldKnowledgeSite(8, 9, "River", [], "Mira")])],
             };
             var historicalSnapshot = sample with
             {
@@ -1158,8 +1164,10 @@ public partial class Main : Control
             memoriesButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (!memoriesPanel.Visible ||
                 !memoryHistory.Text.Contains("I hid the garden tools", StringComparison.Ordinal) ||
+                !memoryHistory.Text.Contains("Field map", StringComparison.Ordinal) ||
+                !memoryHistory.Text.Contains("Forest at (7, 9)", StringComparison.Ordinal) ||
                 inhabitantSocialDetails.Text.Contains("I hid the garden tools", StringComparison.Ordinal))
-                throw new InvalidOperationException("Historical private memories must be inspectable separately from public social notes.");
+                throw new InvalidOperationException("Historical memories and bounded agent-owned map records must be inspectable separately from public social notes.");
             memoriesPanel.Hide();
             cameraZoom = 4;
             RenderMap(historicalSnapshot);
@@ -2875,7 +2883,7 @@ public partial class Main : Control
 
         var memoriesBody = new VBoxContainer();
         var memoriesHeading = new HBoxContainer();
-        var memoriesTitle = new Label { Text = "Memories", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var memoriesTitle = new Label { Text = "Memories and maps", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         memoriesTitle.AddThemeFontSizeOverride("font_size", 18);
         memoriesHeading.AddChild(memoriesTitle);
         var closeMemories = new Button { Text = "×", TooltipText = "Close memories" };
@@ -2884,7 +2892,7 @@ public partial class Main : Control
         memoriesHeading.AddChild(closeMemories);
         memoriesBody.AddChild(memoriesHeading);
         ConfigureTextPanel(memoryHistory, 300);
-        memoryHistory.TooltipText = "This is the selected agent's saved memory, not the authoritative world event log.";
+        memoryHistory.TooltipText = "Shows only this agent's saved memories, beliefs, map facts, and held field records; this is not the world event log.";
         memoriesBody.AddChild(memoryHistory);
         AddPanelContents(memoriesPanel, memoriesBody);
         memoriesPanel.ZIndex = 85;
@@ -3270,7 +3278,7 @@ public partial class Main : Control
         privateThoughtHistory.TooltipText = "Only you can inspect these in-character thoughts. Other agents do not learn them automatically.";
         selectedAgentOverview.AddChild(privateThoughtHistory);
 
-        memoriesButton.Text = "Memories";
+        memoriesButton.Text = "Memories + maps";
         memoriesButton.TooltipText = "Inspect this agent's saved memories, including private memories and historical records after death.";
         StyleButton(memoriesButton);
         memoriesButton.Pressed += OpenMemories;
@@ -4266,8 +4274,27 @@ public partial class Main : Control
         memoryRows.AddRange(inhabitant.RecentMemories.Select(memory =>
             (memory.WorldTick, 1,
                 $"{DisplayWorldClock(memory.WorldTick)} · {Pretty(memory.Visibility)} · about {memory.SubjectName}\n{memory.Summary}")));
+        memoryRows.AddRange(inhabitant.RecentKnowledgeFacts.Select(fact =>
+        {
+            var acquisition = fact.Acquisition == "firsthand"
+                ? $"discovered by {fact.DiscovererName}"
+                : $"{Pretty(fact.Acquisition)} from {fact.SourceAgentName ?? "another agent"}; discovered by {fact.DiscovererName}";
+            var resources = fact.ResourceKinds.Count == 0 ? "no recorded resource site" :
+                "resources · " + string.Join(", ", fact.ResourceKinds.Select(Pretty));
+            return (fact.WorldTick, 2,
+                $"{DisplayWorldClock(fact.WorldTick)} · Map fact · {acquisition}\n" +
+                $"{Pretty(fact.Terrain)} at ({fact.X}, {fact.Y}) · {resources}");
+        }));
+        memoryRows.AddRange(inhabitant.KnowledgeArtifacts.Select(artifact =>
+        {
+            var sites = string.Join("\n", artifact.Sites.Select(site =>
+                $"  {Pretty(site.Terrain)} at ({site.X}, {site.Y})" +
+                (site.ResourceKinds.Count == 0 ? "" : " · " + string.Join(", ", site.ResourceKinds.Select(Pretty)))));
+            return (artifact.CreatedTick, 3,
+                $"{DisplayWorldClock(artifact.CreatedTick)} · {Pretty(artifact.Kind)} · {artifact.Title} · by {artifact.CreatorName}\n{sites}");
+        }));
         memoryHistory.Text = memoryRows.Count == 0
-            ? "No saved memories or beliefs for this agent yet."
+            ? "No saved memories, beliefs, or map records for this agent yet."
             : string.Join("\n\n", memoryRows.OrderByDescending(item => item.WorldTick)
                 .ThenBy(item => item.Kind).Select(item => item.Text));
         inhabitantSocialDetails.TooltipText = decision is null ? "" :

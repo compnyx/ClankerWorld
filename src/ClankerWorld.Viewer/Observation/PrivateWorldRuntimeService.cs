@@ -49,6 +49,11 @@ public sealed partial class PrivateWorldRuntimeService(
     private static partial void LogAgentMemoryCompaction(ILogger logger, long worldTick, string ownerId,
         int assessedCount, int indexSize);
 
+    [LoggerMessage(EventId = 2222, Level = LogLevel.Information,
+        Message = "agent_knowledge tick={WorldTick} outcome={Outcome} agent={AgentId} recipient={RecipientId} artifact={ArtifactId} facts={FactCount}")]
+    private static partial void LogAgentKnowledgeTransition(ILogger logger, long worldTick, string outcome,
+        string agentId, string recipientId, string artifactId, int factCount);
+
     [LoggerMessage(EventId = 2253, Level = LogLevel.Information,
         Message = "autosave outcome=created save={SaveId} tick={WorldTick}")]
     private static partial void LogAutosaveCreated(ILogger logger, string saveId, long worldTick);
@@ -236,6 +241,10 @@ public sealed partial class PrivateWorldRuntimeService(
                 {
                     LogSettlementTrade(logger, result.WorldTick, worldEvent.Kind);
                 }
+                foreach (var worldEvent in result.Events.Where(item => item.Kind.StartsWith("agent_knowledge_", StringComparison.Ordinal)))
+                {
+                    LogKnowledgeEvent(worldEvent);
+                }
                 foreach (var worldEvent in result.Events.Where(item => item.Kind is "council_steward_changed" or
                              "council_policy_proposed" or "council_vote_recorded" or "council_policy_adopted" or "council_policy_rejected"))
                 {
@@ -367,6 +376,30 @@ public sealed partial class PrivateWorldRuntimeService(
         {
             LogWorldTickGate(logger, state, worldTick, clientPresence.ActiveClientCount);
         }
+    }
+
+    private void LogKnowledgeEvent(PlaytestWorldEvent worldEvent)
+    {
+        if (logger is null) return;
+        var fields = worldEvent.Detail.Split('|');
+        var agentId = fields.ElementAtOrDefault(0) ?? "unknown";
+        var recipientId = worldEvent.Kind is "agent_knowledge_shared" or "agent_knowledge_artifact_read"
+            ? fields.ElementAtOrDefault(1) ?? "unknown"
+            : "";
+        var artifactId = worldEvent.Kind switch
+        {
+            "agent_knowledge_artifact_created" => fields.ElementAtOrDefault(1) ?? "",
+            "agent_knowledge_shared" or "agent_knowledge_artifact_read" => fields.ElementAtOrDefault(2) ?? "",
+            _ => "",
+        };
+        var factCountIndex = worldEvent.Kind switch
+        {
+            "agent_knowledge_artifact_created" or "agent_knowledge_shared" or "agent_knowledge_artifact_read" => 3,
+            _ => 2,
+        };
+        _ = int.TryParse(fields.ElementAtOrDefault(factCountIndex), out var factCount);
+        LogAgentKnowledgeTransition(logger, worldEvent.WorldTick, worldEvent.Kind,
+            agentId, recipientId, artifactId, Math.Clamp(factCount, 0, 9));
     }
 
     [LoggerMessage(EventId = 2212, Level = LogLevel.Information,

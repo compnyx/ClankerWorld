@@ -84,6 +84,23 @@ public sealed record OwnerWorldAgentBelief(
     string? AboutInhabitantId,
     bool IsCorrected,
     long? CorrectedTick);
+public sealed record OwnerWorldKnowledgeFact(
+    long WorldTick,
+    int X,
+    int Y,
+    string Terrain,
+    IReadOnlyList<string> ResourceKinds,
+    string DiscovererName,
+    string Acquisition,
+    string? SourceAgentName);
+public sealed record OwnerWorldKnowledgeSite(int X, int Y, string Terrain, IReadOnlyList<string> ResourceKinds, string DiscovererName);
+public sealed record OwnerWorldKnowledgeArtifact(
+    string Id,
+    string Kind,
+    string Title,
+    long CreatedTick,
+    string CreatorName,
+    IReadOnlyList<OwnerWorldKnowledgeSite> Sites);
 public sealed record OwnerWorldCalendarPace(int TicksPerDay, int DaysPerYear);
 public sealed record OwnerFounderSetup(int Required, int Placed, bool Started);
 public sealed record OwnerWorldTown(
@@ -124,6 +141,10 @@ public sealed record OwnerWorldInhabitant(
     public IReadOnlyList<OwnerWorldAgentMemory> RecentMemories { get; init; } = [];
 
     public IReadOnlyList<OwnerWorldAgentBelief> RecentBeliefs { get; init; } = [];
+
+    public IReadOnlyList<OwnerWorldKnowledgeFact> RecentKnowledgeFacts { get; init; } = [];
+
+    public IReadOnlyList<OwnerWorldKnowledgeArtifact> KnowledgeArtifacts { get; init; } = [];
 }
 
 public sealed record OwnerWorldProject(string Label, string Stage, int WorkDone, int WorkRequired, string? Blocker, long StartedTick);

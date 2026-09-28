@@ -14,9 +14,21 @@ public sealed partial class PrivateWorldRuntime
         (offer.FirstPartyId == actor || offer.SecondPartyId == actor) &&
         !offer.AcceptedBy.Contains(actor, StringComparer.Ordinal));
 
-    private bool WantsTradeItem(string actor, string kind)
+    private bool WantsTradeItem(string actor, InventoryLot item)
     {
         var state = inhabitants[actor];
+        var kind = item.ItemKind;
+        if (kind is "field_map" or "field_record")
+        {
+            // An agent can offer a record they physically hold; a prospective
+            // recipient wants it only if it contains a fact they have not learned.
+            if (item.OwnerId == actor ||
+                knowledge.Facts.Count(fact => fact.OwnerId == actor) >= AgentKnowledgeRules.MaximumFactsPerAgent)
+                return false;
+            var artifact = knowledge.Artifacts.FirstOrDefault(candidate => candidate.LotId == item.Id);
+            return artifact?.Facts.Any(fact => !KnowsMapFact(actor, fact.Position)) == true;
+        }
+
         var owned = society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == actor && lot.ItemKind == kind)
             .Sum(AvailableLotQuantity);
         if (kind == "food")
@@ -51,12 +63,12 @@ public sealed partial class PrivateWorldRuntime
             return null;
         }
         var lots = society.Checkpoint.Inventory.Lots;
-        foreach (var give in lots.Where(lot => lot.OwnerId == actor && AvailableLotQuantity(lot) >= 2 &&
-                     !WantsTradeItem(actor, lot.ItemKind) && WantsTradeItem(other, lot.ItemKind) &&
+        foreach (var give in lots.Where(lot => lot.OwnerId == actor && TradeQuantityAvailable(lot) &&
+                     !WantsTradeItem(actor, lot) && WantsTradeItem(other, lot) &&
                      (lot.ItemKind != "food" || inhabitants[actor].HungerBasisPoints >= 6_500)))
         {
             var take = lots.FirstOrDefault(lot => lot.OwnerId == other && lot.ItemKind != give.ItemKind &&
-                AvailableLotQuantity(lot) >= 2 && !WantsTradeItem(other, lot.ItemKind) && WantsTradeItem(actor, lot.ItemKind) &&
+                TradeQuantityAvailable(lot) && !WantsTradeItem(other, lot) && WantsTradeItem(actor, lot) &&
                 (lot.ItemKind != "food" || inhabitants[other].HungerBasisPoints >= 6_500));
             if (take is not null)
             {
@@ -85,7 +97,7 @@ public sealed partial class PrivateWorldRuntime
             var takeId = offer.FirstPartyId == actor ? offer.SecondLotId : offer.FirstLotId;
             var give = society.Checkpoint.Inventory.GetLot(giveId);
             var take = society.Checkpoint.Inventory.GetLot(takeId);
-            var useful = WantsTradeItem(actor, take.ItemKind) && (give.ItemKind != "food" || inhabitants[actor].HungerBasisPoints >= 6_500);
+            var useful = WantsTradeItem(actor, take) && (give.ItemKind != "food" || inhabitants[actor].HungerBasisPoints >= 6_500);
             candidates.Add(new("trade_accept:" + offer.Id, $"Accept exchange: give one {give.ItemKind}, receive one {take.ItemKind}.", useful ? 12 : 60));
             candidates.Add(new("trade_decline:" + offer.Id, "Decline this exchange and release both reserved items.", useful ? 60 : 12));
         }
@@ -139,6 +151,7 @@ public sealed partial class PrivateWorldRuntime
         society.Apply(checkpoint => SocietyFixture.AcceptBarterOffer(checkpoint, offerId, offer.Revision, actor));
         if (society.Checkpoint.Inventory.GetOffer(offerId).State == DirectBarterState.Settled)
         {
+            ReadTradedKnowledge(offer.FirstPartyId, offer.SecondPartyId, offer.FirstLotId, offer.SecondLotId);
             foreach (var (owner, subject) in new[] { (offer.FirstPartyId, offer.SecondPartyId), (offer.SecondPartyId, offer.FirstPartyId) })
             {
                 IncreaseTrust(owner, subject, 1, "barter_completed");
@@ -152,6 +165,9 @@ public sealed partial class PrivateWorldRuntime
             AppendEvent("settlement_trade_completed", actor);
         }
     }
+
+    private bool TradeQuantityAvailable(InventoryLot lot) =>
+        AvailableLotQuantity(lot) >= (lot.ItemKind is "field_map" or "field_record" ? 1 : 2);
 
     private void MaintainSettlementTrades()
     {

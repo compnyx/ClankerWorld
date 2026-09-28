@@ -2,7 +2,7 @@
 title: ClankerWorld Current Architecture
 type: architecture
 status: active
-updated: 2026-09-26
+updated: 2026-09-28
 ---
 
 # Current architecture
@@ -213,6 +213,18 @@ capture or generated narrative summaries.
   Beliefs are not yet generated from conversations or shared automatically;
   automatic experience capture and generated narrative summaries remain
   unimplemented.
+- Explored map facts are saved per agent in private-world schema 23; a fact
+  visible to the player remains absent from agents who have neither visited it
+  nor learned it from another person or a physical record. Each bounded outing
+  can create a one-site field record or a map of up to nine sites. Their
+  inventory lots can be shared nearby without transfer or exchanged through
+  existing barter; recipients gain their own fact entries with the original
+  discoverer and source agent retained. Personal-model requests receive only
+  up to 16 of the current agent's recent map facts. Owner observations expose
+  each agent's bounded knowledge and the records they physically hold, not a
+  shared global knowledge ledger. Cognition observations include only the
+  current agent's bounded facts. Operational events log transition IDs and
+  counts, never map contents or model prose.
 - Live physical actors remain separate from saved deceased records. On death,
   the runtime archives the last physical state and frozen age alongside the
   society death record, then removes the actor from active movement and work.

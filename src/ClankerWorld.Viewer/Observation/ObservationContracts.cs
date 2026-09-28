@@ -88,6 +88,23 @@ public sealed record ViewerAgentBelief(
     string? AboutInhabitantId,
     bool IsCorrected,
     long? CorrectedTick);
+public sealed record ViewerAgentKnowledgeFact(
+    long WorldTick,
+    int X,
+    int Y,
+    string Terrain,
+    IReadOnlyList<string> ResourceKinds,
+    string DiscovererName,
+    string Acquisition,
+    string? SourceAgentName);
+public sealed record ViewerKnowledgeSite(int X, int Y, string Terrain, IReadOnlyList<string> ResourceKinds, string DiscovererName);
+public sealed record ViewerAgentKnowledgeArtifact(
+    string Id,
+    string Kind,
+    string Title,
+    long CreatedTick,
+    string CreatorName,
+    IReadOnlyList<ViewerKnowledgeSite> Sites);
 public sealed record ViewerCalendarPace(int TicksPerDay, int DaysPerYear);
 
 /// <summary>
@@ -123,6 +140,10 @@ public sealed record ViewerInhabitant(
     public IReadOnlyList<ViewerAgentMemory> RecentMemories { get; init; } = [];
 
     public IReadOnlyList<ViewerAgentBelief> RecentBeliefs { get; init; } = [];
+
+    public IReadOnlyList<ViewerAgentKnowledgeFact> RecentKnowledgeFacts { get; init; } = [];
+
+    public IReadOnlyList<ViewerAgentKnowledgeArtifact> KnowledgeArtifacts { get; init; } = [];
 }
 
 public sealed record ViewerProject(string Label, string Stage, int WorkDone, int WorkRequired, string? Blocker, long StartedTick);

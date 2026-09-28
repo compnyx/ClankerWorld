@@ -51,6 +51,13 @@ release yet.
   their provenance, confidence, and correction status; Jev-off retrieval still
   works locally. The source text is not rewritten, and compaction adds no
   separate provider request.
+- Local exploration now gives each agent a bounded personal ledger of terrain
+  and resource-site facts. A completed outing can produce a physical field
+  record or map that the agent may share nearby or barter; the recipient learns
+  only those recorded sites, with discoverer and source tracked. Personal-model
+  decisions receive only that agent's bounded facts, and the Godot Memories and
+  Maps view shows their knowledge and held artifacts. Schema-21 and schema-22
+  saves load with an empty knowledge ledger and migrate to schema 23.
 
 ### Fixed
 

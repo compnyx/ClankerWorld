@@ -72,7 +72,8 @@ public sealed record PrivateWorldRuntimeState(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long JevPolicyRevision = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] FounderSetupState? FounderSetup = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] GeographyOptions? Geography = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TownRuntimeState>? Towns = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TownRuntimeState>? Towns = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PrivateWorldKnowledgeState? Knowledge = null);
 
 public sealed record PrivateWorldStepResult(
     bool Advanced,
@@ -93,7 +94,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 22;
+    public const int StateSchemaVersion = 23;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -120,6 +121,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private Dictionary<string, PlaytestInhabitantState> inhabitants = new(StringComparer.Ordinal);
     private Dictionary<string, PlaytestDeceasedInhabitantState> deceasedInhabitants = new(StringComparer.Ordinal);
     private Dictionary<string, ResourceState> resources = new(StringComparer.Ordinal);
+    private PrivateWorldKnowledgeState knowledge = PrivateWorldKnowledgeState.Empty;
     private Dictionary<string, OwnerQueuedInstruction> instructionsByIdempotency =
         new(StringComparer.Ordinal);
     private Dictionary<string, OwnerInstructionReceipt> instructionReceipts =
@@ -247,6 +249,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
     public WorldAssetReservationLedgerState AssetReservations => assetReservations.ExportState();
 
+    public PrivateWorldKnowledgeState Knowledge => knowledge;
+
     public IReadOnlyList<PlaytestInhabitantState> Inhabitants => inhabitants.Values
         .OrderBy(item => item.InhabitantId, StringComparer.Ordinal)
         .ToArray();
@@ -352,6 +356,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             runtime.resources.Add(resource.ResourceId, resource.State);
         }
+        runtime.knowledge = state.Knowledge ?? PrivateWorldKnowledgeState.Empty;
 
         runtime.instructionsByIdempotency.Clear();
         runtime.instructionReceipts.Clear();
@@ -601,6 +606,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         inhabitants = proposed.inhabitants;
         deceasedInhabitants = proposed.deceasedInhabitants;
         resources = proposed.resources;
+        knowledge = proposed.knowledge;
         instructionsByIdempotency = proposed.instructionsByIdempotency;
         instructionReceipts = proposed.instructionReceipts;
         completedInstructionIds = proposed.completedInstructionIds;
@@ -1540,6 +1546,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         ValidateFounderSetup(founderSetup, society.Checkpoint);
         ValidateTowns(towns, map, founderSetup, society.Checkpoint, worldSimulation, worldContent);
         ValidateDeceasedArchive(deceasedInhabitants.Values, society.Checkpoint, map, checkpointSchemaVersion);
+        AgentKnowledgeRules.Validate(knowledge, map, society.Checkpoint, WorldTick, checkpointSchemaVersion);
 
         foreach (var inhabitant in inhabitants.Values)
         {
@@ -1762,7 +1769,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations.ExportState(), eventHistoryFloor, historyArchiveHead, survivalState, council,
         deceasedInhabitants.Count == 0 ? null : deceasedInhabitants.Values.OrderBy(item => item.InhabitantId, StringComparer.Ordinal).ToArray(),
         jevPolicyRevision == 0 && jevEnabled ? null : jevEnabled, jevPolicyRevision, founderSetup,
-        geographyOptions, towns.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray());
+        geographyOptions, towns.OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(), knowledge);
 
     public DeclarativeWorldContentState WorldContent => worldContent;
 
@@ -2558,17 +2565,19 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 WorldTick,
                 candidates);
             var requiresPersonalProvider = checkpoint.Births.Any(birth => birth.ChildId == inhabitant.Id);
+            var knownMapFacts = KnownMapFactsForCognition(inhabitant.Id);
             var observation = new InhabitantObservation(
                 inhabitant.Id,
                 WorldTick,
                 society.Checkpoint.RunEpoch,
                 generation,
-                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories, []),
+                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories, [], knownMapFacts),
                 physical.HungerBasisPoints,
                 candidates,
                 NeedsName: inhabitant.NeedsName,
                 RequiresPersonalProvider: requiresPersonalProvider,
-                RetrievedMemories: retrievedMemories);
+                RetrievedMemories: retrievedMemories,
+                KnownMapFacts: knownMapFacts);
             if (jevEnabled && !requiresPersonalProvider && providerFactory is not null)
             {
                 try
@@ -2588,7 +2597,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                             {
                                 MemoryCompactionCandidates = memoryCandidates,
                                 ObservationDigest = ObservationDigest(
-                                    inhabitant.Id, physical, candidates, retrievedMemories, memoryCandidates),
+                                    inhabitant.Id, physical, candidates, retrievedMemories, memoryCandidates, knownMapFacts),
                             };
                         }
                     }
@@ -2808,6 +2817,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         if (candidateId.StartsWith("trade_", StringComparison.Ordinal))
         {
             ApplyTradeCandidate(inhabitantId, state, candidateId);
+            return;
+        }
+        if (candidateId.StartsWith(KnowledgeSharePrefix, StringComparison.Ordinal))
+        {
+            ApplyKnowledgeShare(inhabitantId, state, candidateId);
             return;
         }
         if (candidateId.StartsWith("build:", StringComparison.Ordinal))
@@ -3232,6 +3246,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AddProjectAssistanceCandidates(candidates, inhabitantId);
             AddForestryCandidates(candidates, inhabitantId, state);
             AddTradeCandidates(candidates, inhabitantId);
+            AddKnowledgeCandidates(candidates, inhabitantId, state);
             AddCouncilCandidates(candidates, inhabitantId);
             AddLearningCandidates(candidates, inhabitantId);
             AddFamilyCandidates(candidates, inhabitantId);
@@ -3364,7 +3379,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         PlaytestInhabitantState state,
         IReadOnlyList<CognitionCandidate> candidates,
         IReadOnlyList<CognitionMemoryExcerpt> memories,
-        IReadOnlyList<CognitionMemoryCompactionCandidate> compactionCandidates)
+        IReadOnlyList<CognitionMemoryCompactionCandidate> compactionCandidates,
+        IReadOnlyList<CognitionKnowledgeFact> knownMapFacts)
     {
         var text = new StringBuilder()
             .Append("clankerworld.private-world-observation/v1|")
@@ -3398,6 +3414,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 .Append('|').Append(memory.SourceAgentId ?? "none")
                 .Append('|').Append(memory.SourceEventId ?? -1)
                 .Append('|').Append(memory.IsCorrected);
+        foreach (var fact in knownMapFacts)
+            text.Append("|map=").Append(fact.X).Append(',').Append(fact.Y).Append('|')
+                .Append(fact.Terrain).Append('|').Append(string.Join(',', fact.ResourceKinds))
+                .Append('|').Append(fact.DiscovererId).Append('|').Append(fact.Acquisition)
+                .Append('|').Append(fact.LearnedTick);
         return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())))}";
     }
 
@@ -3449,6 +3470,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         ValidateFounderSetup(state.FounderSetup, state.Society.Society);
         if (state.SchemaVersion >= 21 && state.Towns is null)
             throw new InvalidDataException("Private-world schema 21 requires authoritative Town state.");
+        if (state.SchemaVersion >= 23 && state.Knowledge is null)
+            throw new InvalidDataException("Private-world schema 23 requires agent map-knowledge state.");
         var hasArchivedEvents = state.EventHistoryFloor > 0 || state.Society.Society.EventHistoryFloor > 0 ||
             state.Society.Society.Inventory.EventHistoryFloor > 0 || state.Society.Cognition.EventHistoryFloor > 0 ||
             state.Society.Cognition.Runtimes.Any(runtime => runtime.EventHistoryFloor > 0);
@@ -3466,6 +3489,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         using var society = SocietyWorldRuntime.Restore(state.Society);
         ValidateBeliefEventSources(state.Society.Society.Beliefs ?? [], state.Events, state.EventHistoryFloor);
+        AgentKnowledgeRules.Validate(state.Knowledge, state.Map, society.Checkpoint,
+            society.Checkpoint.WorldTick, state.SchemaVersion);
         ValidateSurvival(state);
         ValidateCouncil(state);
         ValidateLessons(state);

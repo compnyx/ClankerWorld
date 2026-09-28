@@ -14,6 +14,7 @@ namespace ClankerWorld.Viewer.Observation;
 /// </summary>
 public sealed class OwnerWorldObservationStore
 {
+    private const int AgentKnowledgeArtifactLimit = 8;
     private static readonly string[] OwnerServerCapabilities =
     [
         "snapshot.read.v1",
@@ -578,6 +579,8 @@ public sealed class OwnerWorldObservationStore
                 .Select(thought => new ViewerPrivateThought(thought.WorldTick, thought.Text)).ToArray(),
             RecentMemories = MemoriesFor(state, inhabitant.Id),
             RecentBeliefs = BeliefsFor(state, inhabitant.Id),
+            RecentKnowledgeFacts = KnowledgeFactsFor(state, inhabitant.Id),
+            KnowledgeArtifacts = KnowledgeArtifactsFor(state, inhabitant.Id),
             Project = physical.Project is { } project
                 ? new ViewerProject(project.Label, project.Stage, project.WorkDone, 10, project.Blocker, project.StartedTick)
                 : null,
@@ -648,6 +651,8 @@ public sealed class OwnerWorldObservationStore
                 .Select(thought => new ViewerPrivateThought(thought.WorldTick, thought.Text)).ToArray(),
             RecentMemories = MemoriesFor(state, inhabitant.Id),
             RecentBeliefs = BeliefsFor(state, inhabitant.Id),
+            RecentKnowledgeFacts = KnowledgeFactsFor(state, inhabitant.Id),
+            KnowledgeArtifacts = KnowledgeArtifactsFor(state, inhabitant.Id),
             Proficiency = lastPhysical.Proficiency is { } practice
                 ? new ViewerProficiency(practice.Building, practice.Farming, practice.Crafting) : null,
             SocialStanding = SocialStandingFor(state, inhabitant.Id, lastPhysical),
@@ -688,6 +693,49 @@ public sealed class OwnerWorldObservationStore
                 belief.SupersededByBeliefId is not null,
                 belief.SupersededTick))
             .ToArray();
+
+    private static ViewerAgentKnowledgeFact[] KnowledgeFactsFor(PrivateWorldRuntimeState state, string ownerId)
+    {
+        var names = state.Society.Society.Inhabitants.ToDictionary(item => item.Id, item => item.Name, StringComparer.Ordinal);
+        return (state.Knowledge?.Facts ?? []).Where(fact => fact.OwnerId == ownerId)
+            .OrderByDescending(fact => fact.LearnedTick)
+            .ThenBy(fact => fact.Id, StringComparer.Ordinal)
+            .Take(16)
+            .Select(fact => new ViewerAgentKnowledgeFact(
+                fact.LearnedTick,
+                fact.Position.X,
+                fact.Position.Y,
+                fact.Terrain,
+                fact.ResourceKinds,
+                names.GetValueOrDefault(fact.DiscovererId, fact.DiscovererId),
+                fact.Acquisition,
+                fact.SourceAgentId is { } sourceId ? names.GetValueOrDefault(sourceId, sourceId) : null))
+            .ToArray();
+    }
+
+    private static ViewerAgentKnowledgeArtifact[] KnowledgeArtifactsFor(PrivateWorldRuntimeState state, string ownerId)
+    {
+        var names = state.Society.Society.Inhabitants.ToDictionary(item => item.Id, item => item.Name, StringComparer.Ordinal);
+        var heldLotIds = state.Society.Society.Inventory.Lots.Where(lot => lot.OwnerId == ownerId)
+            .Select(lot => lot.Id).ToHashSet(StringComparer.Ordinal);
+        return (state.Knowledge?.Artifacts ?? []).Where(artifact => heldLotIds.Contains(artifact.LotId))
+            .OrderByDescending(artifact => artifact.CreatedTick)
+            .ThenBy(artifact => artifact.Id, StringComparer.Ordinal)
+            .Take(AgentKnowledgeArtifactLimit)
+            .Select(artifact => new ViewerAgentKnowledgeArtifact(
+                artifact.Id,
+                artifact.Kind,
+                artifact.Title,
+                artifact.CreatedTick,
+                names.GetValueOrDefault(artifact.CreatorId, artifact.CreatorId),
+                artifact.Facts.Select(fact => new ViewerKnowledgeSite(
+                    fact.Position.X,
+                    fact.Position.Y,
+                    fact.Terrain,
+                    fact.ResourceKinds,
+                    names.GetValueOrDefault(fact.DiscovererId, fact.DiscovererId))).ToArray()))
+            .ToArray();
+    }
 
     private static ViewerSocialStanding[] SocialStandingFor(
         PrivateWorldRuntimeState state,

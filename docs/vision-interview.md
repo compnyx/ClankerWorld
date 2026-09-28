@@ -2,12 +2,12 @@
 title: ClankerWorld Vision Interview and Decision Ledger
 type: product-vision
 status: active
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 # ClankerWorld Vision Interview — Current Working Picture
 
-> Last reconciled: 2026-09-27. This is the **current** interview notebook, not a
+> Last reconciled: 2026-09-28. This is the **current** interview notebook, not a
 > finished specification, implementation claim, or approval to modify the game.
 > It separates decisions from proposals and unresolved questions. The
 > [historical interview record](archive/vision-interview-history.md)
@@ -806,8 +806,11 @@ Hunger and urgent exposure can pause projects or restrict available adult action
 Generated-world weather is currently chosen per **32×32-tile region per world
 day**, so a severe result can occupy a whole nominal six-real-minute day in a
 new world; successive severe days can extend the interruption.
-The current candidate list includes a bounded local curiosity outing, but
-not yet purposeful discovery of distant resources, terrain and Towns.
+The current candidate list includes a bounded local curiosity outing. It now
+records visited terrain/resource sites in the explorer's own ledger, creates a
+bounded physical map/record artifact on return, and can share or trade that
+artifact without teaching unrelated agents. It does not yet seek distant
+resources or Towns purposefully.
 
 The illness prototype now uses a bounded four-tick work schedule: healthy
 agents retain full project speed, while illness bands permit 75%, 50%, or 25%

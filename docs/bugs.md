@@ -2,7 +2,7 @@
 title: Known Bugs and Product Gaps
 type: defect-register
 status: active
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 # Known bugs and product gaps
@@ -48,11 +48,11 @@ the resolution evidence below.
 - **Agents rarely pursue non-survival activity — playtest report, partly
   addressed:** stable adults now have a bounded local curiosity outing that
   remembers visited tiles and returns; whether that feels sufficiently useful
-  requires owner playtesting. The bounded prototype is a useful safe starting
-  point, but the recommended next direction is purpose-driven discovery of
-  resources, terrain and Towns after the owner judges its pacing. Exploration
-  does not yet search for distant
-  resources or Towns, or create tradable knowledge. Low hunger or urgent
+  requires owner playtesting. Visited terrain and resource sites now enter
+  only that agent's bounded knowledge, and returning from an outing can create
+  a physical map or field record that can be shared or bartered. This does not
+  yet search for distant resources or Towns; purpose-driven exploration remains
+  the next direction after the owner judges its pacing. Low hunger or urgent
   weather exposure can still pause projects and narrow adult choices to routine
   survival. There is no separate numeric safety need; `safe_idle` is a fallback
   action, not a safety meter. The current runtime now removes energy and sleeping; food and urgent

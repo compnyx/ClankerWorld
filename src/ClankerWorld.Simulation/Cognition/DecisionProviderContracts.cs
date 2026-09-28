@@ -85,6 +85,16 @@ public sealed record CognitionMemoryCompactionScore(
     int ImportanceBasisPoints,
     int ConfidenceBasisPoints);
 
+/// <summary>A compact fact from the observing agent's own map or field records.</summary>
+public sealed record CognitionKnowledgeFact(
+    int X,
+    int Y,
+    string Terrain,
+    IReadOnlyList<string> ResourceKinds,
+    string DiscovererId,
+    long LearnedTick,
+    string Acquisition);
+
 /// <summary>
 /// Compact, provider-neutral state supplied to a decision provider. It is an
 /// observation, not a mutable world object or an omniscient world dump.
@@ -100,7 +110,8 @@ public sealed record InhabitantObservation(
     bool NeedsName = false,
     bool RequiresPersonalProvider = false,
     IReadOnlyList<CognitionMemoryExcerpt>? RetrievedMemories = null,
-    IReadOnlyList<CognitionMemoryCompactionCandidate>? MemoryCompactionCandidates = null)
+    IReadOnlyList<CognitionMemoryCompactionCandidate>? MemoryCompactionCandidates = null,
+    IReadOnlyList<CognitionKnowledgeFact>? KnownMapFacts = null)
 {
     public void Validate()
     {
@@ -168,6 +179,20 @@ public sealed record InhabitantObservation(
                 candidate.ConfidenceBasisPoints is < 0 or > 10_000 ||
                 !IsOptionalBounded(candidate.SourceAgentId, 128) || candidate.SourceEventId is <= 0)
                 throw new ArgumentException("Memory compaction context must be bounded and owned by the actor.", nameof(MemoryCompactionCandidates));
+        }
+
+        if (KnownMapFacts is { Count: > 16 })
+            throw new ArgumentException("Map-knowledge context exceeds the sixteen-fact budget.", nameof(KnownMapFacts));
+        foreach (var fact in KnownMapFacts ?? [])
+        {
+            ArgumentNullException.ThrowIfNull(fact);
+            if (fact.X < 0 || fact.Y < 0 || string.IsNullOrWhiteSpace(fact.Terrain) || fact.Terrain.Length > 32 ||
+                fact.ResourceKinds is null || fact.ResourceKinds.Count > 4 ||
+                fact.ResourceKinds.Any(kind => string.IsNullOrWhiteSpace(kind) || kind.Length > 48) ||
+                string.IsNullOrWhiteSpace(fact.DiscovererId) || fact.DiscovererId.Length > 128 ||
+                fact.LearnedTick < 0 || fact.LearnedTick > WorldTick ||
+                fact.Acquisition is not ("firsthand" or "shared" or "read"))
+                throw new ArgumentException("Map-knowledge context must be bounded and privately owned by the actor.", nameof(KnownMapFacts));
         }
     }
 
@@ -716,6 +741,8 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         "assume another actor knows this information. Confidence values are basis points out of 10000; " +
                         "a corrected belief is superseded history, not the current account. Jev importance confidence is " +
                         "confidence in retrieval salience, not in the belief itself. A referenced world event does not itself prove a belief. " +
+                        "Known map facts, when present, are bounded terrain/resource notes this actor has learned; " +
+                        "other agents may know different places and these notes are not a complete world map. " +
                         "This is dialogue-like fiction, not an explanation of your reasoning. Do not include reasoning.",
                 },
                 new
@@ -749,6 +776,16 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                             is_corrected = memory.IsCorrected,
                             jev_importance_basis_points = memory.ImportanceBasisPoints,
                             jev_importance_confidence_basis_points = memory.ImportanceConfidenceBasisPoints,
+                        }).ToArray(),
+                        known_map_facts = request.Observation.KnownMapFacts?.Select(fact => new
+                        {
+                            x = fact.X,
+                            y = fact.Y,
+                            terrain = fact.Terrain,
+                            resources = fact.ResourceKinds,
+                            discoverer_id = fact.DiscovererId,
+                            learned_tick = fact.LearnedTick,
+                            acquisition = fact.Acquisition,
                         }).ToArray(),
                     }, JsonOptions),
                 },
