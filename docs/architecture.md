@@ -148,7 +148,17 @@ The provider credentials remain installation-local and are not erased by this
 world switch. An older saved world retains its prior format and default-on
 behavior until the setting changes; the first change writes private-world
 schema 15 so older hosts cannot silently discard the world choice.
-Jev-assisted memory compaction is not implemented yet.
+When Jev handles a routine request, that same bounded request may also score up
+to 12 previously unassessed source records belonging to that inhabitant. The
+runtime saves only the salience/confidence index and source links; it does not
+ask Jev to generate prose or make a separate billable request. Personal-model
+observations retrieve at most four relevant records from that inhabitant's own
+social memories and belief ledger. Each excerpt retains its source kind,
+provenance, confidence, correction state, and any Jev salience estimate. The
+local relevance path remains available when Jev is disabled. Source records
+remain unchanged and inspectable; beliefs do not become world facts through
+compaction. This is bounded relevance assistance, not automatic experience
+capture or generated narrative summaries.
 
 ## Authority and failure boundaries
 
@@ -193,8 +203,14 @@ Jev-assisted memory compaction is not implemented yet.
   world facts; the owner inspection projection shows that evidence and status.
   Belief telemetry records a safe-format belief ID, owner ID, provenance,
   confidence and outcome, never statements or source prose.
-  Beliefs are not yet generated from conversations or shared automatically,
-  and broad episodic recall and Jev-assisted compaction remain unimplemented.
+  Personal-model requests retrieve at most four owner-only social-memory or
+  belief excerpts with their evidence labels. Jev can score at most twelve
+  previously unassessed records in an existing routine call; scores link to the
+  unchanged sources and are used only as retrieval weights. This adds bounded
+  input to an already-reserved provider attempt, not another provider call.
+  Beliefs are not yet generated from conversations or shared automatically;
+  automatic experience capture and generated narrative summaries remain
+  unimplemented.
 - Live physical actors remain separate from saved deceased records. On death,
   the runtime archives the last physical state and frozen age alongside the
   society death record, then removes the actor from active movement and work.
@@ -235,6 +251,8 @@ Jev-assisted memory compaction is not implemented yet.
   adjacent to the current border; a building proposed by a Town resident uses
   that resident's Town. The Town-assigned building footprint expands its
   border if needed.
+- Private-world schema 22 additionally permits Jev-assisted memory-compaction
+  indexes; schema-21 Town saves remain loadable without inventing an index.
 - This is a **provisional single-Town implementation**, not a final land-claim
   decision: the initial border is the starter-camp object bounding rectangle
   plus one tile of margin; added assigned buildings grow the rectangle to

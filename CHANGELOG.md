@@ -38,7 +38,13 @@ release yet.
 - Agent memory inspection can distinguish owner-private beliefs from social
   memories, showing firsthand/hearsay/inference provenance, confidence, and
   retained correction history. Beliefs stay out of the public event log;
-  schema-19 private saves remain loadable and migrate to schema 20.
+  schema-19 private saves remain loadable and migrate to schema 21.
+- Optional Jev memory assistance now scores small batches of one agent's
+  existing memories and beliefs during Jev's normal routine decision call.
+  Personal-model decisions can retrieve up to four relevant source records with
+  their provenance, confidence, and correction status; Jev-off retrieval still
+  works locally. The source text is not rewritten, and compaction adds no
+  separate provider request.
 
 ### Fixed
 
@@ -55,7 +61,7 @@ release yet.
   Back returns to the Main Menu instead of leaving the game apparently frozen.
 - New agents' personal models are now asked to choose a full name with a family
   name; a middle name is optional.
-- Turning Jev off now keeps agents' saved social memories useful in personal-model decisions. Each agent receives only a small, relevant set of its own non-forgotten memories; provider failures do not add or share memories.
+- Turning Jev off keeps an agent's saved social memories and private beliefs useful in personal-model decisions. Each agent receives only a small, relevant set of its own records, with belief provenance and confidence preserved; provider failures do not add or share memories.
 - Generated Small/Medium maps now keep climate, elevation, water, surface and
   vegetation cover distinct through saves, previews and owner observations.
   Ground drawing and movement use those facts separately; individual trees

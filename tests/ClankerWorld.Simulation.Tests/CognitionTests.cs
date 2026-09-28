@@ -113,6 +113,58 @@ public sealed class CognitionTests
     }
 
     [Fact]
+    public async Task JevCompactionScoresAreStructuredBoundedAndKeepSourceIdsHostLocal()
+    {
+        var handler = new RecordingHandler(
+            """
+            {
+              "model": "jev-1.13.0",
+              "answers": {
+                "selected_candidate": {
+                  "type": "choice", "choice": "safe_idle",
+                  "probabilities": { "safe_idle": 1 }, "confidence": 1
+                },
+                "memory_salience_00": {
+                  "type": "score", "score": 1.8, "confidence": 0.75,
+                  "legend": { "0": "minor", "1": "useful", "2": "important" },
+                  "probabilities": { "0": 0.05, "1": 0.1, "2": 0.85 }
+                }
+              },
+              "usage": { "input_tokens": 221, "output_tokens": 14 }
+            }
+            """);
+        using var client = new HttpClient(handler);
+        var provider = new JevDecisionProvider(client, () => "test-secret",
+            new Uri("https://typesafe.test/v1/systemone"));
+        var observation = new InhabitantObservation(
+            "actor-scout", 4, 0, 1, "sha256:memory-score", 2_000,
+            [new CognitionCandidate("safe_idle", "Continue safely.")],
+            MemoryCompactionCandidates: [new CognitionMemoryCompactionCandidate(
+                "belief:hidden-store", "actor-scout", "belief", "actor-mira",
+                "Mira said a hidden store is beneath the old oak.", 3,
+                Provenance: "hearsay", ConfidenceBasisPoints: 4_200,
+                SourceAgentId: "actor-mira", SourceEventId: 12)]);
+        var response = await provider.DecideAsync(new CognitionDecisionRequest("cognition-memory", 1, observation));
+        using var body = JsonDocument.Parse(handler.Body ?? throw new InvalidDataException());
+
+        var question = body.RootElement.GetProperty("questions").GetProperty("memory_salience_00");
+        Assert.Equal("score", question.GetProperty("type").GetString());
+        Assert.Equal(3, question.GetProperty("criteria").GetArrayLength());
+        var memory = body.RootElement.GetProperty("state").GetProperty("memory_compaction_candidates")[0];
+        Assert.Equal("belief", memory.GetProperty("kind").GetString());
+        Assert.Equal("hearsay", memory.GetProperty("provenance").GetString());
+        Assert.Equal(4_200, memory.GetProperty("confidence_basis_points").GetInt32());
+        Assert.Equal("Mira said a hidden store is beneath the old oak.", memory.GetProperty("summary").GetString());
+        Assert.DoesNotContain("belief:hidden-store", handler.Body, StringComparison.Ordinal);
+        var score = Assert.Single(response.MemoryCompactionScores!);
+        Assert.Equal("belief:hidden-store", score.Id);
+        Assert.Equal("actor-scout", score.OwnerId);
+        Assert.Equal(9_000, score.ImportanceBasisPoints);
+        Assert.Equal(7_500, score.ConfidenceBasisPoints);
+        Assert.Equal(221, response.Usage?.InputTokens);
+    }
+
+    [Fact]
     public async Task OpenAiCompatibleAdapterSupportsStructuredChoiceAndUsage()
     {
         var handler = new RecordingHandler(OpenAiCompatibleJsonResponse());
@@ -133,7 +185,10 @@ public sealed class CognitionTests
                 new CognitionCandidate("safe_idle", "Continue safely.", 0),
                 new CognitionCandidate("seek_food", "Travel to food.", 10, "berry-patch"),
             ], NeedsName: true, RetrievedMemories: [new CognitionMemoryExcerpt(
-                "m1", "actor-scout", "friend", "Private campfire promise.", 8)]);
+                "m1", "actor-scout", "friend", "Mira told me about the private campfire promise.", 8,
+                Kind: "belief", Provenance: "hearsay", ConfidenceBasisPoints: 4_200,
+                SourceAgentId: "friend", SourceEventId: 9, IsCorrected: true,
+                ImportanceBasisPoints: 7_500, ImportanceConfidenceBasisPoints: 8_200)]);
         var request = new CognitionDecisionRequest("cognition-openai-test", 2, observation);
 
         var response = await provider.DecideAsync(request);
@@ -153,12 +208,19 @@ public sealed class CognitionTests
         Assert.Contains("given name", systemPrompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("family/surname", systemPrompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("middle name is optional", systemPrompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("not authoritative current facts", systemPrompt, StringComparison.OrdinalIgnoreCase);
         using var question = JsonDocument.Parse(body.RootElement.GetProperty("messages")[1].GetProperty("content").GetString()!);
         Assert.False(question.RootElement.TryGetProperty("energy_basis_points", out _));
         Assert.True(question.RootElement.GetProperty("needs_name").GetBoolean());
         var memory = Assert.Single(question.RootElement.GetProperty("retrieved_memories").EnumerateArray());
-        Assert.Equal("Private campfire promise.", memory.GetProperty("summary").GetString());
+        Assert.Equal("Mira told me about the private campfire promise.", memory.GetProperty("summary").GetString());
         Assert.Equal("friend", memory.GetProperty("subject_id").GetString());
+        Assert.Equal("belief", memory.GetProperty("kind").GetString());
+        Assert.Equal("hearsay", memory.GetProperty("provenance").GetString());
+        Assert.Equal(4_200, memory.GetProperty("confidence_basis_points").GetInt32());
+        Assert.Equal(9, memory.GetProperty("source_event_id").GetInt64());
+        Assert.True(memory.GetProperty("is_corrected").GetBoolean());
+        Assert.Equal(7_500, memory.GetProperty("jev_importance_basis_points").GetInt32());
         Assert.Equal("test-model", response.Usage?.ModelId);
         Assert.Equal(44, response.Usage?.InputTokens);
         Assert.Equal(9, response.Usage?.OutputTokens);
@@ -173,6 +235,31 @@ public sealed class CognitionTests
             RetrievedMemories: [new CognitionMemoryExcerpt(
                 "secret", "actor-mira", "actor-scout", "Mira's own secret.", 8)]);
         Assert.Throws<ArgumentException>(observation.Validate);
+    }
+
+    [Fact]
+    public void CognitionAdmissionRejectsJevCompactionScoresForAnotherOwner()
+    {
+        var provider = new ThrowingProvider();
+        var runtime = new CognitionRuntime("actor-scout", provider, minimumConfidence: 0);
+        var observation = new InhabitantObservation(
+            "actor-scout", 9, 0, 1, "sha256:owner-check", 2_000,
+            [new CognitionCandidate("safe_idle", "Continue safely.")],
+            MemoryCompactionCandidates: [new CognitionMemoryCompactionCandidate(
+                "own-memory", "actor-scout", "experience", "friend", "A private promise.", 8)]);
+        var request = runtime.IssueRequest(observation);
+        var response = new CognitionDecisionResponse(
+            request.RequestId, "actor-scout", DecisionProviderKind.Jev, provider.ProviderEpoch,
+            observation.RunEpoch, observation.DecisionGeneration, observation.ObservationDigest,
+            "safe_idle", 1, new Dictionary<string, double> { ["safe_idle"] = 1 },
+            MemoryCompactionScores: [new CognitionMemoryCompactionScore(
+                "own-memory", "actor-mira", "experience", 8, 9_000, 9_000)]);
+
+        var result = runtime.ApplyResponse(response);
+
+        Assert.False(result.Accepted);
+        Assert.Equal("memory_compaction_source", result.Outcome);
+        Assert.Null(result.MemoryCompactionScores);
     }
 
     private static string JsonResponse() =>

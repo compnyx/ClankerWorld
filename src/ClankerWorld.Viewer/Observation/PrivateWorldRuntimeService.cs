@@ -44,6 +44,11 @@ public sealed partial class PrivateWorldRuntimeService(
     private static partial void LogAgentBeliefTransition(ILogger logger, long worldTick, string ownerId,
         string beliefId, string outcome, SocietyBeliefProvenance provenance, int confidenceBasisPoints);
 
+    [LoggerMessage(EventId = 2221, Level = LogLevel.Information,
+        Message = "agent_memory_compaction tick={WorldTick} owner={OwnerId} assessed={AssessedCount} indexed={IndexedCount}")]
+    private static partial void LogAgentMemoryCompaction(ILogger logger, long worldTick, string ownerId,
+        int assessedCount, int indexedCount);
+
     [LoggerMessage(EventId = 2253, Level = LogLevel.Information,
         Message = "autosave outcome=created save={SaveId} tick={WorldTick}")]
     private static partial void LogAutosaveCreated(ILogger logger, string saveId, long worldTick);
@@ -55,6 +60,7 @@ public sealed partial class PrivateWorldRuntimeService(
     public override Task StartAsync(CancellationToken cancellationToken)
     {
         runtime.AgentBeliefChanged += OnAgentBeliefChanged;
+        runtime.AgentMemoryCompactionChanged += OnAgentMemoryCompactionChanged;
         if (logger is not null)
             foreach (var town in runtime.Towns)
                 TownTelemetry.Transition(logger, runtime.WorldTick, town.Id, TownTransitionKind.StateLoaded,
@@ -65,6 +71,7 @@ public sealed partial class PrivateWorldRuntimeService(
     public override Task StopAsync(CancellationToken cancellationToken)
     {
         runtime.AgentBeliefChanged -= OnAgentBeliefChanged;
+        runtime.AgentMemoryCompactionChanged -= OnAgentMemoryCompactionChanged;
         return base.StopAsync(cancellationToken);
     }
 
@@ -73,6 +80,13 @@ public sealed partial class PrivateWorldRuntimeService(
         if (logger is null) return;
         LogAgentBeliefTransition(logger, transition.WorldTick, transition.OwnerId, transition.BeliefId,
             transition.Outcome, transition.Provenance, transition.ConfidenceBasisPoints);
+    }
+
+    private void OnAgentMemoryCompactionChanged(PrivateWorldMemoryCompactionTransition transition)
+    {
+        if (logger is null) return;
+        LogAgentMemoryCompaction(logger, transition.WorldTick, transition.OwnerId,
+            transition.AssessedCount, transition.IndexedCount);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

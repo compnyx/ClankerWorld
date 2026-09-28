@@ -38,7 +38,7 @@ public sealed class AgentBeliefLedgerTests
                 AboutInhabitantId: "founder-mira"));
 
         var state = world.ExportState();
-        Assert.Equal(21, state.SchemaVersion);
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, state.SchemaVersion);
         Assert.Equal(before.Society.Society.WorldTick, state.Society.Society.WorldTick);
         Assert.Equal(before.Events, state.Events);
         Assert.Equal(before.Society.Society.Events, state.Society.Society.Events);
@@ -61,7 +61,7 @@ public sealed class AgentBeliefLedgerTests
         var migrated = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(schema19));
         using var oldWorld = PrivateWorldRuntime.Restore(migrated);
         Assert.Empty(oldWorld.Society.Beliefs ?? []);
-        Assert.Equal(21, oldWorld.ExportState().SchemaVersion);
+        Assert.Equal(PrivateWorldRuntime.StateSchemaVersion, oldWorld.ExportState().SchemaVersion);
     }
 
     [Fact]

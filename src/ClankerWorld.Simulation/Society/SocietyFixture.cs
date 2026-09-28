@@ -472,6 +472,64 @@ public static partial class SocietyFixture
         return checkpoint with { Beliefs = revised };
     }
 
+    /// <summary>
+    /// Merges Jev's bounded salience estimates into an owner's private index.
+    /// Existing experience and belief text is left untouched and no event is
+    /// appended to the authoritative world history.
+    /// </summary>
+    public static SocietyCheckpoint RecordAgentMemoryCompaction(
+        SocietyCheckpoint checkpoint,
+        string ownerId,
+        IReadOnlyList<SocietyAgentMemoryImportance> scores)
+    {
+        Validate(checkpoint);
+        var owner = NormalizeRequiredText(ownerId, nameof(ownerId));
+        ArgumentNullException.ThrowIfNull(scores);
+        EnsureActive(checkpoint, owner);
+        if (scores.Count is < 1 or > 12)
+            throw new ArgumentOutOfRangeException(nameof(scores));
+
+        var existingSources = (checkpoint.MemoryCompactions ?? [])
+            .SingleOrDefault(item => item.OwnerId == owner)?.Sources ?? [];
+        var combined = existingSources.ToDictionary(
+            item => $"{item.Kind}:{item.SourceId}", StringComparer.Ordinal);
+        foreach (var score in scores)
+        {
+            ArgumentNullException.ThrowIfNull(score);
+            if (!IsCanonicalBoundedText(score.SourceId, 128) || !Enum.IsDefined(score.Kind) ||
+                score.SourceTick < 0 || score.SourceTick > checkpoint.WorldTick ||
+                score.ImportanceBasisPoints is < 0 or > 10_000 ||
+                score.ImportanceConfidenceBasisPoints is < 0 or > 10_000)
+                throw new InvalidDataException("An agent memory importance assessment is invalid.");
+
+            var sourceTick = score.Kind switch
+            {
+                SocietyMemorySourceKind.Experience => checkpoint.Memories
+                    .SingleOrDefault(item => item.Id == score.SourceId && item.OwnerId == owner)?.SourceTick,
+                SocietyMemorySourceKind.Belief => (checkpoint.Beliefs ?? [])
+                    .SingleOrDefault(item => item.Id == score.SourceId && item.OwnerId == owner)?.FormedTick,
+                _ => null,
+            };
+            if (sourceTick is null || sourceTick.Value != score.SourceTick)
+                throw new InvalidOperationException("An agent may compact only their own existing memory sources.");
+
+            combined[$"{score.Kind}:{score.SourceId}"] = score with { AssessedTick = checkpoint.WorldTick };
+        }
+
+        var boundedSources = combined.Values
+            .OrderByDescending(item => item.SourceTick)
+            .ThenBy(item => item.Kind)
+            .ThenBy(item => item.SourceId, StringComparer.Ordinal)
+            .Take(256)
+            .OrderBy(item => item.Kind)
+            .ThenBy(item => item.SourceId, StringComparer.Ordinal).ToArray();
+        var compactions = (checkpoint.MemoryCompactions ?? [])
+            .Where(item => item.OwnerId != owner)
+            .Append(new SocietyAgentMemoryCompaction(owner, boundedSources))
+            .OrderBy(item => item.OwnerId, StringComparer.Ordinal).ToArray();
+        return checkpoint with { MemoryCompactions = compactions };
+    }
+
     public static SocietyOperationResult CreateOrganization(
         SocietyCheckpoint checkpoint,
         string organizationId,
@@ -918,6 +976,7 @@ public static partial class SocietyFixture
         EnsureCanonicalIds(checkpoint.Organizations.Select(item => item.Id), "organizations");
         EnsureCanonicalIds(checkpoint.Memories.Select(item => item.Id), "memories");
         ValidateAgentBeliefs(checkpoint);
+        ValidateAgentMemoryCompactions(checkpoint);
         EnsureCanonicalIds(checkpoint.Estates.Select(item => item.Id), "estates");
         EnsureCanonicalIds(checkpoint.Births.Select(item => item.RequestId), "births");
         foreach (var estate in checkpoint.Estates)
@@ -1001,6 +1060,49 @@ public static partial class SocietyFixture
                 (!byId.TryGetValue(replacementId, out var replacement) || replacement.OwnerId != belief.OwnerId ||
                  replacement.SupersedesBeliefId != belief.Id || replacement.FormedTick != belief.SupersededTick))
                 throw new InvalidDataException("An agent belief correction link is inconsistent.");
+        }
+    }
+
+    private static void ValidateAgentMemoryCompactions(SocietyCheckpoint checkpoint)
+    {
+        var compactions = checkpoint.MemoryCompactions ?? [];
+        EnsureCanonicalIds(compactions.Select(item => item.OwnerId), "agent memory compactions");
+        var memoryById = checkpoint.Memories.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var beliefById = (checkpoint.Beliefs ?? []).ToDictionary(item => item.Id, StringComparer.Ordinal);
+        foreach (var compaction in compactions)
+        {
+            if (!IsCanonicalBoundedText(compaction.OwnerId, 128) || compaction.Sources is null ||
+                compaction.Sources.Count is < 1 or > 256 ||
+                !checkpoint.Inhabitants.Any(item => item.Id == compaction.OwnerId))
+                throw new InvalidDataException("An agent memory compaction is malformed.");
+
+            var expected = compaction.Sources.OrderBy(item => item.Kind)
+                .ThenBy(item => item.SourceId, StringComparer.Ordinal).ToArray();
+            if (!compaction.Sources.SequenceEqual(expected) ||
+                compaction.Sources.Select(item => $"{item.Kind}:{item.SourceId}")
+                    .Distinct(StringComparer.Ordinal).Count() != compaction.Sources.Count)
+                throw new InvalidDataException("Agent memory compaction sources must be unique and canonical.");
+
+            foreach (var source in compaction.Sources)
+            {
+                if (!IsCanonicalBoundedText(source.SourceId, 128) || !Enum.IsDefined(source.Kind) ||
+                    source.SourceTick < 0 || source.SourceTick > checkpoint.WorldTick ||
+                    source.AssessedTick < source.SourceTick || source.AssessedTick > checkpoint.WorldTick ||
+                    source.ImportanceBasisPoints is < 0 or > 10_000 ||
+                    source.ImportanceConfidenceBasisPoints is < 0 or > 10_000)
+                    throw new InvalidDataException("An agent memory compaction assessment is malformed.");
+
+                var validOwnerSource = source.Kind switch
+                {
+                    SocietyMemorySourceKind.Experience => memoryById.TryGetValue(source.SourceId, out var memory) &&
+                        memory.OwnerId == compaction.OwnerId && memory.SourceTick == source.SourceTick,
+                    SocietyMemorySourceKind.Belief => beliefById.TryGetValue(source.SourceId, out var belief) &&
+                        belief.OwnerId == compaction.OwnerId && belief.FormedTick == source.SourceTick,
+                    _ => false,
+                };
+                if (!validOwnerSource)
+                    throw new InvalidDataException("An agent memory compaction references another agent or an unknown source.");
+            }
         }
     }
 

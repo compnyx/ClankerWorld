@@ -74,6 +74,47 @@ public sealed class ProviderConfigurationStoreTests
     }
 
     [Fact]
+    public async Task JevMemoryScoringSharesItsRoutineAttemptAndConsumesOnlyOnePaidCall()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-memory-usage-");
+        try
+        {
+            var configuration = new ProviderConfigurationStore(Path.Combine(directory.FullName, "providers.json"), EmptySeed());
+            var usage = new ProviderUsageStore(Path.Combine(directory.FullName, "usage.json"));
+            var handler = new ProviderResponseHandler();
+            _ = configuration.Configure(new("routine", "jev", "jev-test", "jev-memory-secret", false));
+            _ = usage.Configure(new ProviderUsageLimitAction(1));
+            var router = new ConfigurableDecisionProvider(configuration, new FixedHttpClientFactory(handler),
+                usageStore: usage);
+            var original = Request(router.ProviderEpoch);
+            var request = original with
+            {
+                Observation = original.Observation with
+                {
+                    MemoryCompactionCandidates = Enumerable.Range(0, 4).Select(index =>
+                        new CognitionMemoryCompactionCandidate(
+                            $"experience-{index}", "inhabitant-test", "experience", "friend",
+                            $"Existing owner-private event {index}.", 1)).ToArray(),
+                },
+            };
+
+            var response = await router.DecideAsync(request);
+
+            Assert.Equal(DecisionProviderKind.Jev, response.Provider);
+            Assert.Equal("routine", response.Usage!.Role);
+            Assert.Equal(1, usage.Capture().Attempts);
+            Assert.Equal(1, usage.Capture().Completed);
+            Assert.Contains("memory_salience_00", handler.LastBody!, StringComparison.Ordinal);
+            await Assert.ThrowsAsync<ProviderUsageLimitReachedException>(async () =>
+                await router.DecideAsync(request with { RequestId = "second-memory-request" }));
+            Assert.Equal(1, handler.RequestCount);
+            Assert.Equal(1, usage.Capture().Attempts);
+            Assert.DoesNotContain("jev-memory-secret", File.ReadAllText(Path.Combine(directory.FullName, "usage.json")));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public void SlotDeletionTelemetryReportsOutcomeWithoutCredentialMaterial()
     {
         var logger = new RecordingLogger<ProviderConfigurationStore>();
@@ -636,23 +677,27 @@ public sealed class ProviderConfigurationStoreTests
 
     private sealed class ProviderResponseHandler : HttpMessageHandler
     {
+        public int RequestCount { get; private set; }
         public Uri? LastUri { get; private set; }
 
         public string? LastAuthorization { get; private set; }
         public string? LastModel { get; private set; }
+        public string? LastBody { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
+            RequestCount++;
+            LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
             LastUri = request.RequestUri;
             LastAuthorization = request.Headers.Authorization?.ToString();
-            using var payload = System.Text.Json.JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+            using var payload = System.Text.Json.JsonDocument.Parse(LastBody!);
             LastModel = payload.RootElement.TryGetProperty("model", out var model) ? model.GetString() : null;
             var isJev = string.Equals(request.RequestUri?.Host, "api.typesafe.ai", StringComparison.Ordinal);
             var body = isJev
                 ? """
-                  {"model":"jev-test","answers":{"selected_candidate":{"type":"choice","choice":"safe_idle","probabilities":{"safe_idle":1.0},"confidence":1.0}}}
+                  {"model":"jev-test","answers":{"selected_candidate":{"type":"choice","choice":"safe_idle","probabilities":{"safe_idle":1.0},"confidence":1.0},"memory_salience_00":{"type":"score","score":1.8,"confidence":0.75}}}
                   """
                 : """
                   {"model":"hosted-test","choices":[{"message":{"role":"assistant","content":"{\"selected_candidate_id\":\"safe_idle\",\"confidence\":1.0,\"probabilities\":{\"safe_idle\":1.0}}"}}]}

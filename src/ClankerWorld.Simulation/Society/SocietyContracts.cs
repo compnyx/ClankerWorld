@@ -269,6 +269,30 @@ public sealed record SocietyAgentBelief(
     string? SupersededByBeliefId = null,
     long? SupersededTick = null);
 
+/// <summary>Identifies an agent-private source without turning it into a world fact.</summary>
+public enum SocietyMemorySourceKind
+{
+    Experience,
+    Belief,
+}
+
+/// <summary>A bounded Jev importance estimate linked to its unchanged source record.</summary>
+public sealed record SocietyAgentMemoryImportance(
+    string SourceId,
+    SocietyMemorySourceKind Kind,
+    long SourceTick,
+    int ImportanceBasisPoints,
+    int ImportanceConfidenceBasisPoints,
+    long AssessedTick);
+
+/// <summary>
+/// Per-agent salience index. Source experiences and beliefs remain separately
+/// stored so provenance, uncertainty, and correction history are preserved.
+/// </summary>
+public sealed record SocietyAgentMemoryCompaction(
+    string OwnerId,
+    IReadOnlyList<SocietyAgentMemoryImportance> Sources);
+
 public sealed record SocietyBirthRequest(
     string Id,
     int Revision,
@@ -330,6 +354,9 @@ public sealed record SocietyCheckpoint(
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<SocietyAgentBelief>? Beliefs { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<SocietyAgentMemoryCompaction>? MemoryCompactions { get; init; }
 
     public long LifeTickAt(long worldTick) => LifeClock?.At(worldTick) ?? worldTick;
 

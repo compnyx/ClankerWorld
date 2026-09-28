@@ -41,13 +41,49 @@ public sealed record CognitionCandidate(
     }
 }
 
-/// <summary>A bounded excerpt of an existing, actor-owned social memory.</summary>
+/// <summary>A bounded excerpt of an existing, actor-owned memory or belief.</summary>
 public sealed record CognitionMemoryExcerpt(
     string Id,
     string OwnerId,
     string SubjectId,
     string Summary,
-    long SourceTick);
+    long SourceTick,
+    string Kind = "experience",
+    string? Visibility = null,
+    string? Provenance = null,
+    int? ConfidenceBasisPoints = null,
+    string? SourceAgentId = null,
+    long? SourceEventId = null,
+    bool IsCorrected = false,
+    int ImportanceBasisPoints = 0,
+    int ImportanceConfidenceBasisPoints = 0);
+
+/// <summary>
+/// A source record Jev may rate while it is already choosing a routine action.
+/// IDs stay local to the host; the provider sees only a per-request index.
+/// </summary>
+public sealed record CognitionMemoryCompactionCandidate(
+    string Id,
+    string OwnerId,
+    string Kind,
+    string SubjectId,
+    string Summary,
+    long SourceTick,
+    string? Visibility = null,
+    string? Provenance = null,
+    int? ConfidenceBasisPoints = null,
+    string? SourceAgentId = null,
+    long? SourceEventId = null,
+    bool IsCorrected = false);
+
+/// <summary>A Jev salience assessment of one source record, not a world fact.</summary>
+public sealed record CognitionMemoryCompactionScore(
+    string Id,
+    string OwnerId,
+    string Kind,
+    long SourceTick,
+    int ImportanceBasisPoints,
+    int ConfidenceBasisPoints);
 
 /// <summary>
 /// Compact, provider-neutral state supplied to a decision provider. It is an
@@ -63,7 +99,8 @@ public sealed record InhabitantObservation(
     IReadOnlyList<CognitionCandidate> Candidates,
     bool NeedsName = false,
     bool RequiresPersonalProvider = false,
-    IReadOnlyList<CognitionMemoryExcerpt>? RetrievedMemories = null)
+    IReadOnlyList<CognitionMemoryExcerpt>? RetrievedMemories = null,
+    IReadOnlyList<CognitionMemoryCompactionCandidate>? MemoryCompactionCandidates = null)
 {
     public void Validate()
     {
@@ -104,10 +141,40 @@ public sealed record InhabitantObservation(
                 string.IsNullOrWhiteSpace(memory.Id) || string.IsNullOrWhiteSpace(memory.SubjectId) ||
                 memory.Id.Length > 128 || memory.SubjectId.Length > 128 ||
                 string.IsNullOrWhiteSpace(memory.Summary) || memory.Summary.Length > 160 ||
-                memory.SourceTick < 0 || memory.SourceTick > WorldTick)
+                memory.SourceTick < 0 || memory.SourceTick > WorldTick ||
+                !IsMemoryKind(memory.Kind) || !IsOptionalBounded(memory.Visibility, 32) ||
+                memory.Provenance is not (null or "firsthand" or "hearsay" or "inference") ||
+                memory.ConfidenceBasisPoints is < 0 or > 10_000 ||
+                !IsOptionalBounded(memory.SourceAgentId, 128) || memory.SourceEventId is <= 0 ||
+                memory.ImportanceBasisPoints is < 0 or > 10_000 ||
+                memory.ImportanceConfidenceBasisPoints is < 0 or > 10_000)
                 throw new ArgumentException("Memory context must be bounded and owned by the actor.", nameof(RetrievedMemories));
         }
+
+        if (MemoryCompactionCandidates is { Count: > 12 })
+            throw new ArgumentException("Memory compaction context exceeds the twelve-record budget.", nameof(MemoryCompactionCandidates));
+        var compactionIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var candidate in MemoryCompactionCandidates ?? [])
+        {
+            ArgumentNullException.ThrowIfNull(candidate);
+            if (!string.Equals(candidate.OwnerId, InhabitantId, StringComparison.Ordinal) ||
+                string.IsNullOrWhiteSpace(candidate.Id) || candidate.Id.Length > 128 ||
+                !compactionIds.Add($"{candidate.Kind}:{candidate.Id}") ||
+                !IsMemoryKind(candidate.Kind) || string.IsNullOrWhiteSpace(candidate.SubjectId) ||
+                candidate.SubjectId.Length > 128 || string.IsNullOrWhiteSpace(candidate.Summary) ||
+                candidate.Summary.Length > 160 || candidate.SourceTick < 0 || candidate.SourceTick > WorldTick ||
+                !IsOptionalBounded(candidate.Visibility, 32) ||
+                candidate.Provenance is not (null or "firsthand" or "hearsay" or "inference") ||
+                candidate.ConfidenceBasisPoints is < 0 or > 10_000 ||
+                !IsOptionalBounded(candidate.SourceAgentId, 128) || candidate.SourceEventId is <= 0)
+                throw new ArgumentException("Memory compaction context must be bounded and owned by the actor.", nameof(MemoryCompactionCandidates));
+        }
     }
+
+    private static bool IsMemoryKind(string kind) => kind is "experience" or "belief";
+
+    private static bool IsOptionalBounded(string? value, int maximumLength) =>
+        value is null || value.Length <= maximumLength && !value.Any(char.IsControl);
 }
 
 /// <summary>
@@ -150,7 +217,8 @@ public sealed record CognitionDecisionResponse(
     IReadOnlyDictionary<string, double> Probabilities,
     CognitionUsage? Usage = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PrivateThought = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ChosenName = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ChosenName = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<CognitionMemoryCompactionScore>? MemoryCompactionScores = null)
 {
     public const int MaximumPrivateThoughtLength = 160;
     public const int MaximumChosenNameLength = 48;
@@ -202,6 +270,21 @@ public sealed record CognitionDecisionResponse(
 
         if (ChosenName is not null && NormalizeChosenName(ChosenName) != ChosenName)
             throw new ArgumentOutOfRangeException(nameof(ChosenName));
+
+        if (MemoryCompactionScores is { Count: > 12 })
+            throw new ArgumentOutOfRangeException(nameof(MemoryCompactionScores));
+        var compactionIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var score in MemoryCompactionScores ?? [])
+        {
+            ArgumentNullException.ThrowIfNull(score);
+            if (string.IsNullOrWhiteSpace(score.Id) || score.Id.Length > 128 ||
+                string.IsNullOrWhiteSpace(score.OwnerId) || score.OwnerId.Length > 128 ||
+                score.Kind is not ("experience" or "belief") || score.SourceTick < 0 ||
+                score.ImportanceBasisPoints is < 0 or > 10_000 ||
+                score.ConfidenceBasisPoints is < 0 or > 10_000 ||
+                !compactionIds.Add($"{score.Kind}:{score.Id}"))
+                throw new ArgumentOutOfRangeException(nameof(MemoryCompactionScores));
+        }
 
         Usage?.Validate();
     }
@@ -303,6 +386,12 @@ public sealed class DeterministicDecisionProvider : IDecisionProvider
 public sealed class JevDecisionProvider : IDecisionProvider
 {
     private const string ChoiceQuestionId = "selected_candidate";
+    private static readonly string[] MemoryImportanceCriteria =
+    [
+        "Minor, redundant, or unlikely to help the agent again.",
+        "Possibly useful context for the agent's future choices.",
+        "Important long-term context that should remain easy to retrieve.",
+    ];
     private readonly HttpClient httpClient;
     private readonly Func<string?> apiKeyAccessor;
     private readonly Uri endpoint;
@@ -354,6 +443,27 @@ public sealed class JevDecisionProvider : IDecisionProvider
             throw new InvalidOperationException("Jev is enabled but no TypeSafe API key is configured.");
         }
 
+        var questions = new Dictionary<string, JevQuestion>(StringComparer.Ordinal)
+        {
+            [ChoiceQuestionId] = new JevQuestion(
+                "choice",
+                "Choose exactly one legal candidate for the inhabitant's next small action.",
+                request.Observation.Candidates.ToDictionary(
+                    candidate => candidate.Id,
+                    candidate => candidate.Description,
+                    StringComparer.Ordinal)),
+        };
+        for (var index = 0; index < (request.Observation.MemoryCompactionCandidates?.Count ?? 0); index++)
+        {
+            questions[MemoryQuestionId(index)] = new JevQuestion(
+                "score",
+                "Rate how useful this source record is for the agent's future decisions and identity. " +
+                "Preserve it if it records a lasting relationship, learned skill, major personal event, " +
+                "or unresolved commitment. A belief is an uncertain account, not a verified world fact; " +
+                "consider its provenance and confidence without treating it as authoritative.",
+                MemoryImportanceCriteria);
+        }
+
         var payload = new JevRequest(
             new
             {
@@ -368,18 +478,24 @@ public sealed class JevDecisionProvider : IDecisionProvider
                     description = candidate.Description,
                     destination_id = candidate.DestinationId,
                 }).ToArray(),
+                memory_compaction_candidates = (request.Observation.MemoryCompactionCandidates ?? [])
+                    .Select((candidate, index) => new
+                    {
+                        source_index = index,
+                        kind = candidate.Kind,
+                        subject_id = candidate.SubjectId,
+                        summary = candidate.Summary,
+                        source_tick = candidate.SourceTick,
+                        visibility = candidate.Visibility,
+                        provenance = candidate.Provenance,
+                        confidence_basis_points = candidate.ConfidenceBasisPoints,
+                        source_agent_id = candidate.SourceAgentId,
+                        source_event_id = candidate.SourceEventId,
+                        is_corrected = candidate.IsCorrected,
+                    }).ToArray(),
             },
             model,
-            new Dictionary<string, JevQuestion>(StringComparer.Ordinal)
-            {
-                [ChoiceQuestionId] = new JevQuestion(
-                    "choice",
-                    "Choose exactly one legal candidate for the inhabitant's next small action.",
-                    request.Observation.Candidates.ToDictionary(
-                        candidate => candidate.Id,
-                        candidate => candidate.Description,
-                        StringComparer.Ordinal)),
-            });
+            questions);
 
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -435,6 +551,8 @@ public sealed class JevDecisionProvider : IDecisionProvider
                     usageProperty.GetProperty("input_tokens").GetInt32(),
                     usageProperty.GetProperty("output_tokens").GetInt32())
                 : modelId is null ? null : new CognitionUsage(modelId, 0, 0);
+            var memoryCompactionScores = ReadMemoryCompactionScores(
+                root.GetProperty("answers"), request.Observation);
 
             return new CognitionDecisionResponse(
                 request.RequestId,
@@ -447,7 +565,8 @@ public sealed class JevDecisionProvider : IDecisionProvider
                 NormalizeRequiredText(selected ?? string.Empty, "choice"),
                 confidence,
                 probabilities,
-                usage);
+                usage,
+                MemoryCompactionScores: memoryCompactionScores);
         }
         catch (JsonException exception)
         {
@@ -458,6 +577,40 @@ public sealed class JevDecisionProvider : IDecisionProvider
             throw new InvalidDataException("Jev returned an incomplete choice response.", exception);
         }
     }
+
+    private static List<CognitionMemoryCompactionScore>? ReadMemoryCompactionScores(
+        JsonElement answers,
+        InhabitantObservation observation)
+    {
+        var candidates = observation.MemoryCompactionCandidates;
+        if (candidates is null || candidates.Count == 0) return null;
+        var scores = new List<CognitionMemoryCompactionScore>(candidates.Count);
+        for (var index = 0; index < candidates.Count; index++)
+        {
+            if (!answers.TryGetProperty(MemoryQuestionId(index), out var answer) ||
+                answer.ValueKind != JsonValueKind.Object ||
+                !answer.TryGetProperty("type", out var type) || type.GetString() != "score" ||
+                !answer.TryGetProperty("score", out var scoreValue) ||
+                !scoreValue.TryGetDouble(out var score) || double.IsNaN(score) || double.IsInfinity(score) ||
+                score is < 0 or > 2 ||
+                !answer.TryGetProperty("confidence", out var confidenceValue) ||
+                !confidenceValue.TryGetDouble(out var confidence) || double.IsNaN(confidence) ||
+                double.IsInfinity(confidence) || confidence is < 0 or > 1)
+                continue;
+
+            var candidate = candidates[index];
+            scores.Add(new CognitionMemoryCompactionScore(
+                candidate.Id,
+                candidate.OwnerId,
+                candidate.Kind,
+                candidate.SourceTick,
+                (int)Math.Round(score * 5_000, MidpointRounding.AwayFromZero),
+                (int)Math.Round(confidence * 10_000, MidpointRounding.AwayFromZero)));
+        }
+        return scores.Count == 0 ? null : scores;
+    }
+
+    private static string MemoryQuestionId(int index) => $"memory_salience_{index:D2}";
 
     private static string NormalizeRequiredText(string? value, string name)
     {
@@ -478,7 +631,7 @@ public sealed class JevDecisionProvider : IDecisionProvider
     private sealed record JevQuestion(
         string Type,
         string Instructions,
-        IReadOnlyDictionary<string, string> Criteria);
+        object Criteria);
 }
 
 /// <summary>
@@ -558,7 +711,11 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         "When needs_name is true, also include chosen_name (your own full name, " +
                         "including a given name and family/surname; a middle name is optional; " +
                         "at most 48 characters). " +
-                        "Retrieved memories, when present, are this actor's past beliefs, not authoritative current facts. " +
+                        "Retrieved memories belong only to this actor. They are remembered experiences or private beliefs, " +
+                        "not authoritative current facts; preserve any provenance and confidence exactly as labels, and do not " +
+                        "assume another actor knows this information. Confidence values are basis points out of 10000; " +
+                        "a corrected belief is superseded history, not the current account. Jev importance confidence is " +
+                        "confidence in retrieval salience, not in the belief itself. A referenced world event does not itself prove a belief. " +
                         "This is dialogue-like fiction, not an explanation of your reasoning. Do not include reasoning.",
                 },
                 new
@@ -580,9 +737,18 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                         }).ToArray(),
                         retrieved_memories = request.Observation.RetrievedMemories?.Select(memory => new
                         {
+                            kind = memory.Kind,
                             subject_id = memory.SubjectId,
                             summary = memory.Summary,
                             source_tick = memory.SourceTick,
+                            visibility = memory.Visibility,
+                            provenance = memory.Provenance,
+                            confidence_basis_points = memory.ConfidenceBasisPoints,
+                            source_agent_id = memory.SourceAgentId,
+                            source_event_id = memory.SourceEventId,
+                            is_corrected = memory.IsCorrected,
+                            jev_importance_basis_points = memory.ImportanceBasisPoints,
+                            jev_importance_confidence_basis_points = memory.ImportanceConfidenceBasisPoints,
                         }).ToArray(),
                     }, JsonOptions),
                 },

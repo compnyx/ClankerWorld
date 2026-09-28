@@ -62,7 +62,8 @@ public sealed record CognitionAdmissionResult(
     bool Accepted,
     bool FellBack,
     string Outcome,
-    CognitionIntention? Intention);
+    CognitionIntention? Intention,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<CognitionMemoryCompactionScore>? MemoryCompactionScores = null);
 
 /// <summary>
 /// The first Phase 3 cognition boundary. It owns request admission and
@@ -270,7 +271,12 @@ public sealed class CognitionRuntime
             {
                 AppendEvent(request.Observation.WorldTick, "cognition_usage_recorded", FormatUsage(response.Usage));
             }
-            return new CognitionAdmissionResult(true, false, "provider_decision", intention);
+            return new CognitionAdmissionResult(
+                true,
+                false,
+                "provider_decision",
+                intention,
+                response.Provider == DecisionProviderKind.Jev ? response.MemoryCompactionScores : null);
         }
     }
 
@@ -485,6 +491,19 @@ public sealed class CognitionRuntime
                 string.Equals(candidate.Id, response.SelectedCandidateId, StringComparison.Ordinal)))
         {
             return "candidate_not_legal";
+        }
+
+        if (response.MemoryCompactionScores is { Count: > 0 } memoryScores)
+        {
+            if (response.Provider != DecisionProviderKind.Jev || request.Observation.MemoryCompactionCandidates is not { } memoryCandidates)
+                return "memory_compaction_not_requested";
+            foreach (var score in memoryScores)
+            {
+                if (!string.Equals(score.OwnerId, InhabitantId, StringComparison.Ordinal) ||
+                    !memoryCandidates.Any(candidate => candidate.Id == score.Id && candidate.OwnerId == score.OwnerId &&
+                        candidate.Kind == score.Kind && candidate.SourceTick == score.SourceTick))
+                    return "memory_compaction_source";
+            }
         }
 
         return null;

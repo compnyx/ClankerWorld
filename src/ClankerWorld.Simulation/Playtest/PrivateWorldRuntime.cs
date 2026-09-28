@@ -90,7 +90,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 21;
+    public const int StateSchemaVersion = 22;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -2497,20 +2497,58 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
 
             var generation = checked((int)(WorldTick + 1));
-            var retrievedMemories = jevEnabled
-                ? Array.Empty<CognitionMemoryExcerpt>()
-                : PrivateWorldMemoryRetrieval.Retrieve(
-                    society.Checkpoint.Memories, inhabitant.Id, WorldTick, candidates);
+            var checkpoint = society.Checkpoint;
+            var compaction = (checkpoint.MemoryCompactions ?? [])
+                .SingleOrDefault(item => item.OwnerId == inhabitant.Id);
+            var retrievedMemories = PrivateWorldMemoryRetrieval.Retrieve(
+                checkpoint.Memories,
+                checkpoint.Beliefs ?? [],
+                compaction,
+                inhabitant.Id,
+                WorldTick,
+                candidates);
+            var requiresPersonalProvider = checkpoint.Births.Any(birth => birth.ChildId == inhabitant.Id);
             var observation = new InhabitantObservation(
                 inhabitant.Id,
                 WorldTick,
                 society.Checkpoint.RunEpoch,
                 generation,
-                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories),
+                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories, []),
                 physical.HungerBasisPoints,
                 candidates,
                 NeedsName: inhabitant.NeedsName,
+                RequiresPersonalProvider: requiresPersonalProvider,
                 RetrievedMemories: retrievedMemories);
+            if (jevEnabled && !requiresPersonalProvider && providerFactory is not null)
+            {
+                try
+                {
+                    var provider = providerFactory(inhabitant.Id);
+                    if (provider.KindFor(observation) == DecisionProviderKind.Jev)
+                    {
+                        var memoryCandidates = PrivateWorldMemoryRetrieval.Unassessed(
+                            checkpoint.Memories,
+                            checkpoint.Beliefs ?? [],
+                            compaction,
+                            inhabitant.Id,
+                            WorldTick);
+                        if (memoryCandidates.Count > 0)
+                        {
+                            observation = observation with
+                            {
+                                MemoryCompactionCandidates = memoryCandidates,
+                                ObservationDigest = ObservationDigest(
+                                    inhabitant.Id, physical, candidates, retrievedMemories, memoryCandidates),
+                            };
+                        }
+                    }
+                }
+                catch (Exception exception) when (exception is not OutOfMemoryException)
+                {
+                    // Optional memory assistance cannot prevent the local
+                    // retrieval path from supplying safe existing records.
+                }
+            }
             var accepted = society.EnqueueCognition(new SocietyCognitionScheduleEntry(
                 $"tick:{WorldTick}:{inhabitant.Id}",
                 inhabitant.Id,
@@ -2641,6 +2679,13 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
     private void ApplyDecision(SocietyCognitionDispatchResult decision)
     {
+        if (decision.Admission.Accepted && !decision.Admission.FellBack &&
+            decision.Admission.Intention?.Provider == DecisionProviderKind.Jev &&
+            decision.Admission.MemoryCompactionScores is { Count: > 0 } memoryScores)
+        {
+            ApplyMemoryCompaction(decision.InhabitantId, memoryScores);
+        }
+
         if (!decision.Admission.Accepted || decision.Admission.Intention is null ||
             !inhabitants.TryGetValue(decision.InhabitantId, out var state))
         {
@@ -3248,7 +3293,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         string inhabitantId,
         PlaytestInhabitantState state,
         IReadOnlyList<CognitionCandidate> candidates,
-        IReadOnlyList<CognitionMemoryExcerpt> memories)
+        IReadOnlyList<CognitionMemoryExcerpt> memories,
+        IReadOnlyList<CognitionMemoryCompactionCandidate> compactionCandidates)
     {
         var text = new StringBuilder()
             .Append("clankerworld.private-world-observation/v1|")
@@ -3260,7 +3306,28 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             text.Append('|').Append(memory.Id.Length).Append(':').Append(memory.Id)
                 .Append('|').Append(memory.SourceTick)
                 .Append('|').Append(memory.SubjectId.Length).Append(':').Append(memory.SubjectId)
-                .Append('|').Append(memory.Summary.Length).Append(':').Append(memory.Summary);
+                .Append('|').Append(memory.Summary.Length).Append(':').Append(memory.Summary)
+                .Append('|').Append(memory.Kind)
+                .Append('|').Append(memory.Visibility ?? "none")
+                .Append('|').Append(memory.Provenance ?? "none")
+                .Append('|').Append(memory.ConfidenceBasisPoints ?? -1)
+                .Append('|').Append(memory.SourceAgentId ?? "none")
+                .Append('|').Append(memory.SourceEventId ?? -1)
+                .Append('|').Append(memory.IsCorrected)
+                .Append('|').Append(memory.ImportanceBasisPoints)
+                .Append('|').Append(memory.ImportanceConfidenceBasisPoints);
+        foreach (var memory in compactionCandidates)
+            text.Append('|').Append(memory.Kind)
+                .Append('|').Append(memory.Id.Length).Append(':').Append(memory.Id)
+                .Append('|').Append(memory.SourceTick)
+                .Append('|').Append(memory.SubjectId.Length).Append(':').Append(memory.SubjectId)
+                .Append('|').Append(memory.Summary.Length).Append(':').Append(memory.Summary)
+                .Append('|').Append(memory.Visibility ?? "none")
+                .Append('|').Append(memory.Provenance ?? "none")
+                .Append('|').Append(memory.ConfidenceBasisPoints ?? -1)
+                .Append('|').Append(memory.SourceAgentId ?? "none")
+                .Append('|').Append(memory.SourceEventId ?? -1)
+                .Append('|').Append(memory.IsCorrected);
         return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())))}";
     }
 
@@ -3298,6 +3365,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
         if (state.SchemaVersion < 20 && state.Society.Society.Beliefs is { Count: > 0 })
             throw new InvalidDataException("Agent belief history requires private-world schema 20.");
+        if (state.SchemaVersion < 22 && state.Society.Society.MemoryCompactions is { Count: > 0 })
+            throw new InvalidDataException("Agent memory compaction indexes require private-world schema 22.");
         if (state.JevPolicyRevision < 0 || state.JevEnabled is null && state.JevPolicyRevision != 0 ||
             state.SchemaVersion < 15 && (state.JevEnabled is not null || state.JevPolicyRevision != 0))
             throw new InvalidDataException("The saved Jev routing policy is invalid.");
