@@ -288,9 +288,10 @@ public sealed partial class PrivateWorldRuntime
         }
     }
 
-    private bool NeedsRecipeOutput(RecipeDefinition recipe) => survivalState is null || recipe.Outputs.Any(output =>
+    private bool NeedsRecipeOutput(RecipeDefinition recipe, string? ownerId = null) => survivalState is null || recipe.Outputs.Any(output =>
     {
-        var available = society.Checkpoint.Inventory.Lots.Where(lot => lot.ItemKind == output.ResourceId)
+        var available = society.Checkpoint.Inventory.Lots.Where(lot => lot.ItemKind == output.ResourceId &&
+                (ownerId is null || lot.OwnerId == ownerId))
             .Sum(AvailableLotQuantity);
         var target = output.ResourceId == "food" ? inhabitants.Count * 4 : Math.Max(1, inhabitants.Count);
         return available < target;

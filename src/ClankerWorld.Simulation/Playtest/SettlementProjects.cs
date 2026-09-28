@@ -166,6 +166,23 @@ public sealed partial class PrivateWorldRuntime
         AppendEvent("house_content_staged", manifest.PackageId);
     }
 
+    private void StageHouseCookingContent()
+    {
+        var packages = contentRegistry.ExportState().Packages;
+        if (packages.Any(package => package.Manifest.PackageId == HouseCookingContent.PackageId) ||
+            !packages.Any(package => package.Manifest.PackageId == HouseContent.PackageId &&
+                package.Lifecycle == ContentPackageLifecycle.Active))
+            return;
+        var manifest = HouseCookingContent.Create();
+        var resolution = ContentPackageResolver.Resolve(packages.Select(package => package.Manifest).Append(manifest),
+            [manifest.PackageId]);
+        contentRegistry.Propose(manifest, WorldTick);
+        contentRegistry.Validate(manifest.PackageId, resolution, WorldTick);
+        contentRegistry.Approve(manifest.PackageId, WorldTick);
+        contentRegistry.Stage(manifest.PackageId, WorldTick);
+        AppendEvent("house_cooking_content_staged", manifest.PackageId);
+    }
+
     private void AddSettlementResources()
     {
         var occupied = map.CampObjects.Select(item => item.Position).Concat(map.Resources.Select(item => item.Position))
@@ -337,7 +354,8 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
-        var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true
+        var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true ||
+            recipe?.WorkstationBuildingId == House1x1DefinitionId
             ? HouseholdFor(inhabitantId) : HouseholdId;
         var missing = inputs.FirstOrDefault(input => !HasAvailableQuantities([input], constructionOwner));
         if (missing.Amount > 0)
@@ -516,7 +534,9 @@ public sealed partial class PrivateWorldRuntime
                 : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.Inputs;
             var constructionOwner = selection.IsBuilding &&
                 worldContent.Buildings.Any(item => item.CanonicalId == selection.DefinitionId &&
-                    item.Tags.Contains("house", StringComparer.Ordinal))
+                    item.Tags.Contains("house", StringComparer.Ordinal)) ||
+                !selection.IsBuilding && worldContent.Recipes.Any(item =>
+                    item.CanonicalId == selection.DefinitionId && item.WorkstationBuildingId == House1x1DefinitionId)
                 ? HouseholdFor(person.InhabitantId) : HouseholdId;
             foreach (var input in inputs ?? [])
             {

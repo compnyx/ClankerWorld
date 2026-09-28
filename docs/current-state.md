@@ -212,11 +212,12 @@ now seek nearby forest or a standing tree in a storm; cover reduces exposure
 at the agent's actual tile. A first 1×1 House design now has saved household
 ownership and only its household receives nearby refuge and house-fire warmth;
 its construction consumes that household's materials rather than the prototype
-camp stockpile. Legacy Shelters remain loadable. Houses are not yet guaranteed
-at world start,
-and physical food storage, expansion and guest entry are unfinished. Its current
-eight-wood construction cost reuses the old Shelter prototype value; it is not
-an accepted finished-game recipe or storage-capacity decision.
+camp stockpile. House cooking now reserves household-owned ingredients and
+returns food to that household. Legacy Shelters remain loadable. Houses are not
+yet guaranteed at world start; physical food storage and access at the building,
+expansion and guest entry are unfinished. Its current eight-wood construction
+cost and the meal's food/wood quantities reuse prototype
+values; they are not accepted finished-game recipes or storage-capacity decisions.
 Food provenance distinguishes foraging, crops, cooked meals and camp rations;
 inhabitants prefer a different available source, while monotonous diets reduce
 their diet score. Spoiled reserved ingredients cancel

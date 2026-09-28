@@ -35,7 +35,8 @@ public static class StarterContent
     }
 
     internal static ContentPackageManifest BuildManifest(string packageId, ContentVersion version, string digest,
-        IEnumerable<BuildingDefinition> buildings, IEnumerable<RecipeDefinition> recipes, IReadOnlyList<ContentDependency> dependencies)
+        IEnumerable<BuildingDefinition> buildings, IEnumerable<RecipeDefinition> recipes,
+        IReadOnlyList<ContentDependency> dependencies, DeclarativeWorldContentState? baseWorldContent = null)
     {
         var definitions = buildings.Select(building => new ContentDefinition(
             BuildingDefinition.SchemaKind, building.LocalId, version, building.DisplayName, building.PayloadDigest,
@@ -62,7 +63,7 @@ public static class StarterContent
             .ToArray();
         var manifest = new ContentPackageManifest(packageId, version, digest, dependencies, definitions, []);
         manifest.Validate();
-        _ = ContentDefinitionPayloadCodec.ApplyPackage(new DeclarativeWorldContentState([], []), manifest);
+        _ = ContentDefinitionPayloadCodec.ApplyPackage(baseWorldContent ?? new DeclarativeWorldContentState([], []), manifest);
         return manifest;
     }
 }

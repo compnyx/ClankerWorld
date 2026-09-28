@@ -11,6 +11,62 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class HouseContentTests
 {
     [Fact]
+    public async Task HouseMealUsesOnlyItsHouseholdsIngredientsAndKeepsTheOutputOnReload()
+    {
+        using var seed = new PrivateWorldRuntime("house-meal", _ => new IdleProvider(),
+            startPace: WorldStartPace.FounderSetup);
+        var founderPositions = new[]
+        {
+            new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2),
+        };
+        for (var index = 0; index < founderPositions.Length; index++)
+            seed.PlaceFounder("founder:" + (index + 1).ToString("x32", CultureInfo.InvariantCulture), founderPositions[index]);
+        seed.StartWorld();
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 8; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+
+        var state = seed.ExportState();
+        var alpha = state.Society.Society.Inhabitants.First(person => person.HouseholdId == "household:camp-alpha").Id;
+        var beta = state.Society.Society.Inhabitants.First(person => person.HouseholdId == "household:camp-beta").Id;
+        var site = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+            state.Map.IsBuildable(point) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.InhabitantId != beta && person.Position == point));
+        var house = seed.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        var recipe = seed.WorldContent.Recipes.Single(item => item.LocalId == "house-meal");
+        Assert.True(seed.PlaceBuilding("meal-home-beta", house.CanonicalId, site, "household:camp-beta").Applied);
+        state = seed.ExportState() with
+        {
+            Inhabitants = seed.ExportState().Inhabitants.Select(person => person.InhabitantId == beta
+                ? person with { Position = site, HungerBasisPoints = 9_000 } : person).ToArray(),
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+        var alphaFood = HouseholdQuantity(world, "household:camp-alpha", "food");
+        var betaFood = HouseholdQuantity(world, "household:camp-beta", "food");
+        var betaWood = HouseholdQuantity(world, "household:camp-beta", "wood");
+        var rejected = world.StartProduction(recipe.CanonicalId, "meal-home-beta", alpha);
+        Assert.False(rejected.Applied);
+        Assert.Contains("Only a member", rejected.Failure, StringComparison.Ordinal);
+        var started = world.StartProduction(recipe.CanonicalId, "meal-home-beta", beta);
+        Assert.True(started.Applied, started.Failure);
+        Assert.All(world.WorldSimulation.ProductionJobs.Single(job => job.JobId == started.JobId)
+            .InputReservationIds, reservationId =>
+                Assert.Equal("household:camp-beta", world.Society.Inventory.GetReservation(reservationId).OwnerId));
+
+        var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        using var resumed = PrivateWorldRuntime.Restore(saved, _ => new IdleProvider());
+        for (var tick = 0; tick < recipe.DurationTicks; tick++)
+            Assert.True((await resumed.AdvanceOneTickAsync()).Advanced);
+        Assert.Equal(alphaFood, HouseholdQuantity(resumed, "household:camp-alpha", "food"));
+        Assert.Equal(betaFood + 2, HouseholdQuantity(resumed, "household:camp-beta", "food"));
+        Assert.Equal(betaWood - 1, HouseholdQuantity(resumed, "household:camp-beta", "wood"));
+        Assert.Equal(WorldProductionJobState.Completed,
+            resumed.WorldSimulation.ProductionJobs.Single(job => job.JobId == started.JobId).State);
+    }
+
+    [Fact]
     public async Task AnotherHouseholdDoesNotReceiveHouseRefugeInSnow()
     {
         using var seed = new PrivateWorldRuntime("house-refuge", _ => new IdleProvider(),
@@ -127,6 +183,10 @@ public sealed class HouseContentTests
 
     private static int HouseholdWood(PrivateWorldRuntime world, string householdId) => world.Society.Inventory.Lots
         .Where(lot => lot.OwnerId == householdId && lot.ItemKind == "wood").Sum(lot => lot.Quantity);
+
+    private static int HouseholdQuantity(PrivateWorldRuntime world, string householdId, string kind) =>
+        world.Society.Inventory.Lots.Where(lot => lot.OwnerId == householdId && lot.ItemKind == kind)
+            .Sum(lot => lot.Quantity);
 
     private sealed class IdleProvider : IDecisionProvider
     {

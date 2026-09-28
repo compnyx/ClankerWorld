@@ -8,12 +8,16 @@ release yet.
 
 ### Added
 
+- Members can now cook a household meal at their own House. The job reserves
+  only that household's food and wood and returns the meal to it after save or
+  reload; outsiders cannot start the job there. Physical placement of the
+  ingredients and finished food is still in development.
 - A first 1×1 House design can now be built for a specific existing household.
   Its ownership survives save/load, appears on the building's map inspection,
   charges construction materials to its household, and limits storm refuge and
   lit-house warmth to that household. Legacy Shelters remain loadable in existing
-  worlds while larger Houses, physical
-  household storage and guest invitations are still being developed.
+  worlds while larger Houses, physical household storage and guest invitations
+  are still being developed.
 - Game Settings now offers a locally saved UI Scale from 100% to 200%, making
   controls and text easier to read without changing the selected map render
   resolution or terrain detail.

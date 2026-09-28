@@ -104,6 +104,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private const int ResourceInteractionRange = 1;
     private const int HarvestFoodYield = 4;
     private static readonly string LegacyStarterDigest = StarterContent.Create().PackageDigest;
+    private static readonly string House1x1DefinitionId = HouseContent.House1x1().CanonicalId;
 
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly SemaphoreSlim tickGate = new(1, 1);
@@ -693,6 +694,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var targetTick = checked(WorldTick + 1);
             StageSettlementContent();
             StageHouseContent();
+            StageHouseCookingContent();
             StageForestryContent();
             var readyPackages = contentRegistry.GetActivationCandidates(targetTick);
             var reservationPreview = WorldAssetReservationLedger.Restore(
@@ -1211,6 +1213,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 return ProductionStartResult.Rejected(normalizedRecipeId, "The production worker is not active.");
             }
 
+            if (placed?.HouseholdId is { } houseOwner && worker.HouseholdId != houseOwner)
+                return ProductionStartResult.Rejected(normalizedRecipeId,
+                    "Only a member of the House household can cook there.");
+
             if (!inhabitants.TryGetValue(normalizedWorkerId, out var physical) || physical.Position != workPosition)
             {
                 return ProductionStartResult.Rejected(normalizedRecipeId, "The worker must be standing at the build site.");
@@ -1226,6 +1232,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     recipe.Inputs,
                     $"{jobId}:input",
                     completionTick,
+                    placed?.HouseholdId ?? HouseholdId,
                     out reservationIds);
                 return reserved;
             });
@@ -1937,7 +1944,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private bool TryFindRecipeSite(
         RecipeDefinition recipe,
         out string siteId,
-        out GridPoint position)
+        out GridPoint position,
+        string? actorId = null)
     {
         if (recipe.IsCrop)
         {
@@ -1972,7 +1980,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         foreach (var placed in worldSimulation.Buildings.OrderBy(item => item.InstanceId, StringComparer.Ordinal))
         {
-            if (placed.DefinitionId != recipe.WorkstationBuildingId)
+            if (placed.DefinitionId != recipe.WorkstationBuildingId ||
+                placed.HouseholdId is not null && (actorId is null || placed.HouseholdId != HouseholdFor(actorId)))
             {
                 continue;
             }
@@ -2132,6 +2141,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         IReadOnlyList<ContentQuantity> quantities,
         string purpose,
         long expiryTick,
+        string ownerId,
         out IReadOnlyList<string> reservationIds)
     {
         var current = inventory;
@@ -2141,7 +2151,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var requested = quantities[quantityIndex];
             var remaining = requested.Amount;
             var lots = current.Lots
-                .Where(lot => lot.OwnerId == HouseholdId && lot.ItemKind == requested.ResourceId && lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0)
+                .Where(lot => lot.OwnerId == ownerId && lot.ItemKind == requested.ResourceId && lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0)
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray();
             foreach (var lot in lots)
@@ -2168,7 +2178,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 current = InventoryFixture.Reserve(
                     current,
                     reservationId,
-                    HouseholdId,
+                    ownerId,
                     lot.Id,
                     amount,
                     purpose,
@@ -2281,6 +2291,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             ? WeatherRules.SoilMoistureAt(worldSystems, cropSite, map.Height,
                 WeatherRules.RegionClimate(map, cropSite))
             : 35;
+        var productionOwner = worldSimulation.Buildings
+            .FirstOrDefault(building => building.InstanceId == job.BuildingInstanceId)?.HouseholdId ?? HouseholdId;
         ApplyInventoryTransition(inventory =>
         {
             var current = inventory;
@@ -2296,7 +2308,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     current,
                     $"{job.JobId}:output:{outputIndex.ToString("D2", System.Globalization.CultureInfo.InvariantCulture)}",
                     output.ResourceId,
-                    HouseholdId,
+                    productionOwner,
                     CropOutputQuantity(recipe, output, cropWeather, soilMoisture),
                     targetTick);
             }
@@ -2978,7 +2990,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         var recipeId = selection.DefinitionId;
         var recipe = worldContent.Recipes.SingleOrDefault(item => item.CanonicalId == recipeId);
-        if (recipe is null || !TryFindRecipeSite(recipe, out var siteId, out var sitePosition))
+        if (recipe is null || !TryFindRecipeSite(recipe, out var siteId, out var sitePosition, inhabitantId))
         {
             AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:no_valid_site");
             return;
@@ -3346,7 +3358,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             {
                 continue;
             }
-            if (!NeedsRecipeOutput(recipe) || !CanAcquireProjectInputs(recipe.Inputs) || !TryFindRecipeSite(recipe, out _, out var position))
+            var recipeOwner = recipe.WorkstationBuildingId == House1x1DefinitionId
+                ? HouseholdFor(inhabitant.Id) : null;
+            if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner) ||
+                !TryFindRecipeSite(recipe, out _, out var position, inhabitant.Id))
             {
                 continue;
             }
