@@ -30,6 +30,12 @@ release yet.
   border join the Town, and Town-assigned buildings can expand it. Existing
   founder-setup saves migrate without inferring unrecorded adult membership or
   building assignments.
+- Building plans now offer agents up to five ranked legal sites with reasons
+  for access, clear ground, Town growth, nearby materials and related purpose.
+  The agent chooses the site or declines by choosing another action; an
+  accepted tile stays with the project. If it becomes illegal, fresh choices
+  return after 60 ticks. The ranking follows the prototype's single rectangular
+  Town border and does not yet model land claims or multiple Towns.
 - After an agent dies, their assigned personal model can make one bounded final
   choice to leave frozen personal belongings on the household inheritance path
   or give the whole estate to a living agent. Invalid, unavailable, timed-out or

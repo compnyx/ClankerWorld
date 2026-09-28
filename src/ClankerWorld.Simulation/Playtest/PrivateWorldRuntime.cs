@@ -1820,36 +1820,68 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
     }
 
-    private bool TryFindBuildingPosition(BuildingDefinition definition, string actor, out GridPoint position)
+    private TownLayoutContext CreateTownLayoutContext(string actor)
     {
-        // Once the worker reaches a legal site, retain it even if another
-        // inhabitant has since vacated an earlier tile in the map scan.
-        var current = inhabitants[actor].Position;
-        if (CanPlaceBuilding(definition, current, out _) &&
-            !WorldContentSimulationRules.Footprint(definition, current).Any(point =>
-                inhabitants.Values.Any(person => person.InhabitantId != actor && person.Position == point)))
-        {
-            position = current;
-            return true;
-        }
-        for (var y = 0; y < map.Height; y++)
-        {
-            for (var x = 0; x < map.Width; x++)
+        var origin = inhabitants[actor].Position;
+        var town = towns.SingleOrDefault(item => item.ResidentIds.Contains(actor, StringComparer.Ordinal));
+        var definitions = worldContent.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
+        var occupied = map.CampObjects.Select(item => item.Position)
+            .Concat(map.Resources.Select(item => item.Position))
+            .Concat(worldSimulation.Buildings.SelectMany(building =>
             {
-                var candidate = new GridPoint(x, y);
-                if (CanPlaceBuilding(definition, candidate, out _) &&
-                    !WorldContentSimulationRules.Footprint(definition, candidate).Any(point =>
-                        inhabitants.Values.Any(person => person.InhabitantId != actor && person.Position == point)) &&
-                    FindUnoccupiedRoute(actor, inhabitants[actor].Position, candidate, 0).Count > 0)
-                {
-                    position = candidate;
-                    return true;
-                }
+                if (!definitions.TryGetValue(building.DefinitionId, out var definition))
+                    throw new InvalidDataException("A placed building has no active definition.");
+                return WorldContentSimulationRules.Footprint(definition, building.Position);
+            }))
+            .Concat(inhabitants.Values.Where(person => person.InhabitantId != actor)
+                .Select(person => person.Position))
+            .ToHashSet();
+        var resourcesForLayout = map.Resources.Select(resource => new TownLayoutResource(
+            resource,
+            resources.GetValueOrDefault(resource.Id) == ResourceState.Available));
+        var buildingsForLayout = worldSimulation.Buildings
+            .Where(building => definitions.ContainsKey(building.DefinitionId))
+            .Select(building => new TownLayoutBuilding(building, definitions[building.DefinitionId]));
+        return new TownLayoutContext(
+            map,
+            town,
+            occupied,
+            FindUnoccupiedFootCosts(actor, origin),
+            resourcesForLayout,
+            buildingsForLayout);
+    }
+
+    private IReadOnlyDictionary<GridPoint, int> FindUnoccupiedFootCosts(string inhabitantId, GridPoint origin)
+    {
+        var occupied = inhabitants.Values
+            .Where(item => item.InhabitantId != inhabitantId)
+            .Select(item => item.Position)
+            .ToHashSet();
+        var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
+        var best = new Dictionary<GridPoint, int> { [origin] = 0 };
+        var order = 0;
+        open.Enqueue(origin, (0, origin.Y, origin.X, order++));
+        while (open.TryDequeue(out var current, out var priority))
+        {
+            if (priority.Cost != best[current])
+                continue;
+            foreach (var next in map.FootNeighbors(current))
+            {
+                if (occupied.Contains(next) ||
+                    map.IsDiagonalFootStep(current, next) &&
+                    (occupied.Contains(new GridPoint(next.X, current.Y)) ||
+                     occupied.Contains(new GridPoint(current.X, next.Y))))
+                    continue;
+
+                var cost = checked(priority.Cost + map.FootStepCost(current, next));
+                if (best.TryGetValue(next, out var previous) && previous <= cost)
+                    continue;
+                best[next] = cost;
+                open.Enqueue(next, (cost, next.Y, next.X, order++));
             }
         }
 
-        position = default;
-        return false;
+        return best;
     }
 
     private bool TryFindRecipeSite(
@@ -2829,18 +2861,35 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         PlaytestInhabitantState state,
         string candidateId)
     {
-        const string buildingPrefix = "build:building:";
-        const string recipePrefix = "build:recipe:";
-        if (candidateId.StartsWith(buildingPrefix, StringComparison.Ordinal))
+        if (!TownConstructionCandidateIds.TryParse(candidateId, out var selection))
         {
-            var definitionId = candidateId[buildingPrefix.Length..];
-            var definition = worldContent.Buildings.SingleOrDefault(item => item.CanonicalId == definitionId);
-            if (definition is null || !TryFindBuildingPosition(definition, inhabitantId, out var position))
+            AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:unknown_target");
+            return;
+        }
+
+        if (selection.IsBuilding)
+        {
+            var definition = worldContent.Buildings.SingleOrDefault(item => item.CanonicalId == selection.DefinitionId);
+            var layout = CreateTownLayoutContext(inhabitantId);
+            TownConstructionSiteCandidate? rankedSite = null;
+            if (definition is not null)
             {
-                AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:no_valid_site");
+                if (selection.SitePosition is { } selectedSite)
+                    TownLayoutService.TryEvaluateConstructionSite(layout, definition, selectedSite, out rankedSite);
+                else
+                    rankedSite = TownLayoutService.RankConstructionSites(layout, definition).FirstOrDefault();
+            }
+
+            if (definition is null || rankedSite is null)
+            {
+                AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:selected_site_no_longer_legal");
+                if (selection.SitePosition is { } rejectedSite && definition is not null)
+                    AppendEvent("town_layout_site_rejected",
+                        $"{TownForResident(inhabitantId) ?? "none"}|{inhabitantId}|{definition.CanonicalId}|{rejectedSite.X}|{rejectedSite.Y}|site_unavailable");
                 return;
             }
 
+            var position = rankedSite.Position;
             if (state.Position != position)
             {
                 MoveToward(inhabitantId, state, position, "build");
@@ -2865,13 +2914,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             return;
         }
 
-        if (!candidateId.StartsWith(recipePrefix, StringComparison.Ordinal))
-        {
-            AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:unknown_target");
-            return;
-        }
-
-        var recipeId = candidateId[recipePrefix.Length..];
+        var recipeId = selection.DefinitionId;
         var recipe = worldContent.Recipes.SingleOrDefault(item => item.CanonicalId == recipeId);
         if (recipe is null || !TryFindRecipeSite(recipe, out var siteId, out var sitePosition))
         {
@@ -3195,6 +3238,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             state.Aspiration.Contains("build", StringComparison.OrdinalIgnoreCase);
         if (canBuildStructures)
         {
+            var layout = CreateTownLayoutContext(inhabitant.Id);
             foreach (var definition in worldContent.Buildings)
             {
                 if (NeedsUrgentWarmth(state) && !definition.Tags.Any(tag => tag is "shelter" or "warmth" or "cooking"))
@@ -3203,17 +3247,22 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 }
                 var instanceId = BuildInstanceId(inhabitant.Id, definition);
                 if (worldSimulation.Buildings.Any(item => item.InstanceId == instanceId) ||
-                    !CanAcquireProjectInputs(definition.BuildCosts) ||
-                    !TryFindBuildingPosition(definition, inhabitant.Id, out var position))
+                    !CanAcquireProjectInputs(definition.BuildCosts))
                 {
                     continue;
                 }
 
-                candidates.Add(new CognitionCandidate(
-                    $"build:building:{definition.CanonicalId}",
-                    $"Plan {definition.DisplayName}: acquire materials, travel, and build.",
-                    20,
-                    $"build-site:{position.X},{position.Y}"));
+                var sites = TownLayoutService.RankConstructionSites(layout, definition);
+                for (var rank = 0; rank < sites.Count; rank++)
+                {
+                    var site = sites[rank];
+                    var description = string.Join(" ", site.Reasons.Select(reason => reason.Description));
+                    candidates.Add(new CognitionCandidate(
+                        TownConstructionCandidateIds.Building(definition.CanonicalId, site.Position),
+                        $"Plan {definition.DisplayName} at ({site.Position.X}, {site.Position.Y}): {description}",
+                        20 + rank,
+                        $"build-site:{site.Position.X},{site.Position.Y}"));
+                }
             }
         }
 

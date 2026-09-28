@@ -269,6 +269,26 @@ capture or generated narrative summaries.
   its current recorded state. Stable `town_transition` telemetry reports only
   Town ID, transition, resident/building counts and border size, never names or
   provider text.
+- **TownLayoutService** is the shared legal-site and ranking boundary for
+  resident building projects. It takes one immutable layout context per
+  inhabitant decision, returns at most five ranked legal building sites by
+  default, and attaches stable reason codes/text for buildable footprint,
+  unoccupied route, Town compactness/growth, nearby available materials, open
+  meadow/forest terrain and related building purpose. A provider accepts a
+  site only by selecting its site-specific legal intention; choosing another
+  action starts no project. The accepted tile is encoded in the existing
+  project candidate ID, so this change adds no checkpoint field; an older
+  accepted building project without a site binds once to the current top legal
+  option. If the chosen tile becomes illegal, the project is blocked and fresh
+  ranked candidates return after 60 ticks; a declined offer is rebuilt from
+  current facts at the next normal cognition reevaluation. Ranking weights are
+  provisional.
+- Site scope deliberately follows the current #165 geometry/membership model:
+  a resident's single saved Town rectangle plus its one-tile margin; no wrap-
+  seam extension, ownership-claim graph or second-Town conflict check exists.
+  Legacy worlds with no saved Town retain map-wide site eligibility. Material
+  proximity and related-building purpose are ranked only from current map
+  resources and placed definitions; absent future claims/Towns are not inferred.
 - The current content path accepts bounded, validated data-only designs.
   Arbitrary executable agent code is disabled. The vision includes a
   restricted script sandbox and explicit human-mod import; neither is a

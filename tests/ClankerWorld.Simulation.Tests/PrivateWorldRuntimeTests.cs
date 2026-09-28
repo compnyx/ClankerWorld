@@ -303,7 +303,8 @@ public sealed partial class PrivateWorldRuntimeTests
         Assert.Contains(
             decisions,
             decision => decision.InhabitantId == "founder-rowan" &&
-                decision.Admission.Intention?.CandidateId == $"build:building:{building.CanonicalId}");
+                decision.Admission.Intention?.CandidateId.StartsWith(
+                    $"build:building:{building.CanonicalId}:site:", StringComparison.Ordinal) == true);
         Assert.Contains(runtime.WorldSimulation.Buildings, item => item.DefinitionId == building.CanonicalId);
         Assert.Contains(runtime.ExportState().Events, item => item.Kind == "build_completed");
         Assert.Contains(

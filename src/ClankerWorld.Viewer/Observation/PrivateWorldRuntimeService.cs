@@ -286,6 +286,19 @@ public sealed partial class PrivateWorldRuntimeService(
     private void LogTownEvent(PlaytestWorldEvent worldEvent)
     {
         if (logger is null) return;
+        if (worldEvent.Kind == "town_layout_site_rejected")
+        {
+            var fields = worldEvent.Detail.Split('|', StringSplitOptions.None);
+            if (fields.Length == 6 &&
+                int.TryParse(fields[3], out var x) &&
+                int.TryParse(fields[4], out var y) &&
+                fields[5] == "site_unavailable")
+            {
+                TownTelemetry.SiteRejected(logger, worldEvent.WorldTick, fields[0], fields[1],
+                    fields[2], x, y, fields[5]);
+            }
+            return;
+        }
         var kind = worldEvent.Kind switch
         {
             "town_resident_joined" => TownTransitionKind.ResidentJoined,

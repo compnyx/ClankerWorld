@@ -62,11 +62,14 @@ public sealed partial class PrivateWorldRuntime
     private static bool NeedsUrgentWarmth(PlaytestInhabitantState person) =>
         person.Survival is { WarmthBasisPoints: < 3_500 };
 
-    private bool IsProtectiveProject(SettlementProject? project) => project is not null &&
-        (worldContent.Buildings.Any(building => project.CandidateId == "build:building:" + building.CanonicalId &&
-            building.Tags.Any(tag => tag is "shelter" or "warmth" or "cooking")) ||
-         worldContent.Recipes.Any(recipe => project.CandidateId == "build:recipe:" + recipe.CanonicalId &&
-            recipe.Outputs.Any(output => output.ResourceId == "clothing")));
+    private bool IsProtectiveProject(SettlementProject? project) =>
+        project is not null &&
+        TownConstructionCandidateIds.TryParse(project.CandidateId, out var selection) &&
+        (selection.IsBuilding
+            ? worldContent.Buildings.Any(building => selection.DefinitionId == building.CanonicalId &&
+                building.Tags.Any(tag => tag is "shelter" or "warmth" or "cooking"))
+            : worldContent.Recipes.Any(recipe => selection.DefinitionId == recipe.CanonicalId &&
+                recipe.Outputs.Any(output => output.ResourceId == "clothing")));
 
     private WeatherKind WeatherAt(GridPoint position) => WeatherRules.At(worldSystems, position, map.Height,
         WeatherRules.RegionClimate(map, position));

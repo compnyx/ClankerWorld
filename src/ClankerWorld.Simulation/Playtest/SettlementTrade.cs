@@ -31,10 +31,11 @@ public sealed partial class PrivateWorldRuntime
         {
             return false;
         }
-        var building = project.CandidateId.StartsWith("build:building:", StringComparison.Ordinal);
-        var id = project.CandidateId[(building ? 15 : 13)..];
-        var inputs = building ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == id)?.BuildCosts
-            : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == id)?.Inputs;
+        if (!TownConstructionCandidateIds.TryParse(project.CandidateId, out var selection))
+            return false;
+        var inputs = selection.IsBuilding
+            ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.BuildCosts
+            : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.Inputs;
         return inputs?.Any(input => input.ResourceId == kind && !HasAvailableQuantities([input]) && owned < input.Amount) == true;
     }
 

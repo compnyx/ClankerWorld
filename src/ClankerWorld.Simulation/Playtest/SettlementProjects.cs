@@ -21,6 +21,7 @@ public sealed record SettlementProject(
 public sealed partial class PrivateWorldRuntime
 {
     private const int ProjectWorkTicks = 10;
+    private const int BlockedProjectRetryDelayTicks = 60;
     // The pre-energy-removal settlement package included bedding. Its digest
     // remains a valid provenance marker for three staged map resources.
     private const string LegacySettlementPackageDigest =
@@ -218,8 +219,7 @@ public sealed partial class PrivateWorldRuntime
     private static void ValidateProject(SettlementProject project, long worldTick)
     {
         if (string.IsNullOrWhiteSpace(project.CandidateId) || project.CandidateId.Length > 512 ||
-            !(project.CandidateId.StartsWith("build:building:", StringComparison.Ordinal) && project.CandidateId.Length > 15 ||
-              project.CandidateId.StartsWith("build:recipe:", StringComparison.Ordinal) && project.CandidateId.Length > 13) ||
+            !TownConstructionCandidateIds.TryParse(project.CandidateId, out _) ||
             string.IsNullOrWhiteSpace(project.Label) || project.Label.Length > 256 ||
             project.StartedTick < 0 || project.StartedTick > worldTick ||
             project.LastTransitionTick < project.StartedTick || project.LastTransitionTick > worldTick ||
@@ -233,7 +233,7 @@ public sealed partial class PrivateWorldRuntime
     private bool CanContinueProject(PlaytestInhabitantState state) =>
         AdultResident(state.InhabitantId) &&
         state.Project is { Stage: not ("completed" or "cancelled") } project &&
-        (project.Stage != "blocked" || WorldTick - project.LastTransitionTick < 60) &&
+        (project.Stage != "blocked" || WorldTick - project.LastTransitionTick < BlockedProjectRetryDelayTicks) &&
         state.HungerBasisPoints >= 3_500 &&
         !HasTradeResponse(state.InhabitantId) &&
         !HasCouncilDecision(state.InhabitantId) &&
@@ -247,25 +247,47 @@ public sealed partial class PrivateWorldRuntime
 
     private void BeginProject(string inhabitantId, PlaytestInhabitantState state, string candidateId)
     {
-        if (state.Project is not { Stage: not ("completed" or "cancelled") } existing || existing.CandidateId != candidateId)
+        if (!TownConstructionCandidateIds.TryParse(candidateId, out var selected))
+            return;
+
+        if (state.Project is { Stage: not ("completed" or "cancelled") } existing &&
+            TownConstructionCandidateIds.TryParse(existing.CandidateId, out var current) &&
+            current.IsBuilding == selected.IsBuilding && current.DefinitionId == selected.DefinitionId)
         {
-            var definitionId = candidateId[(candidateId.StartsWith("build:building:", StringComparison.Ordinal) ? 15 : 13)..];
-            var label = worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == definitionId)?.DisplayName
-                ?? worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == definitionId)?.DisplayName;
-            if (label is null)
+            if (existing.CandidateId != candidateId)
             {
-                return;
+                state = state with
+                {
+                    Project = existing with
+                    {
+                        CandidateId = candidateId,
+                        Stage = "acquiring",
+                        Blocker = null,
+                        LastTransitionTick = WorldTick,
+                    },
+                };
+                inhabitants[inhabitantId] = state;
+                AppendEvent("project_site_reselected", $"{inhabitantId}:{selected.DefinitionId}");
             }
-            state = state with { Project = new SettlementProject(candidateId, label, WorldTick, "acquiring", LastTransitionTick: WorldTick) };
-            inhabitants[inhabitantId] = state;
-            checkpointSchemaVersion = StateSchemaVersion;
-            AppendEvent("project_chosen", $"{inhabitantId}:{candidateId}");
+            else if (existing.Stage == "blocked")
+            {
+                state = state with { Project = existing with { LastTransitionTick = WorldTick } };
+                inhabitants[inhabitantId] = state;
+            }
+            ContinueProject(inhabitantId, state);
+            return;
         }
-        else if (state.Project.Stage == "blocked")
-        {
-            state = state with { Project = state.Project with { LastTransitionTick = WorldTick } };
-            inhabitants[inhabitantId] = state;
-        }
+
+        var definitionId = selected.DefinitionId;
+        var label = selected.IsBuilding
+            ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == definitionId)?.DisplayName
+            : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == definitionId)?.DisplayName;
+        if (label is null)
+            return;
+        state = state with { Project = new SettlementProject(candidateId, label, WorldTick, "acquiring", LastTransitionTick: WorldTick) };
+        inhabitants[inhabitantId] = state;
+        checkpointSchemaVersion = StateSchemaVersion;
+        AppendEvent("project_chosen", $"{inhabitantId}:{candidateId}");
         ContinueProject(inhabitantId, state);
     }
 
@@ -284,10 +306,14 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
 
-        var isBuilding = project.CandidateId.StartsWith("build:building:", StringComparison.Ordinal);
-        var definitionId = project.CandidateId[(isBuilding ? 15 : 13)..];
-        var building = isBuilding ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == definitionId) : null;
-        var recipe = isBuilding ? null : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == definitionId);
+        if (!TownConstructionCandidateIds.TryParse(project.CandidateId, out var selection))
+        {
+            SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "The construction choice is invalid" });
+            return;
+        }
+        var definitionId = selection.DefinitionId;
+        var building = selection.IsBuilding ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == definitionId) : null;
+        var recipe = selection.IsBuilding ? null : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == definitionId);
         if (building is null && recipe is null)
         {
             SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "Content is no longer active" });
@@ -307,10 +333,45 @@ public sealed partial class PrivateWorldRuntime
         }
 
         GridPoint position;
-        var hasSite = building is not null
-            ? TryFindBuildingPosition(building, inhabitantId, out position)
-            : TryFindRecipeSite(recipe!, out _, out position);
-        if (!hasSite)
+        if (building is not null)
+        {
+            var layout = CreateTownLayoutContext(inhabitantId);
+            if (selection.SitePosition is { } selectedSite)
+            {
+                if (!TownLayoutService.TryEvaluateConstructionSite(layout, building, selectedSite, out _))
+                {
+                    const string blocker = "The selected site is no longer legal; fresh ranked choices return after 60 ticks.";
+                    var newlyRejected = project.Stage != "blocked" || project.Blocker != blocker;
+                    SetProject(inhabitantId, project with
+                    {
+                        Stage = "blocked",
+                        Blocker = blocker,
+                    });
+                    if (newlyRejected)
+                    {
+                        AppendEvent("town_layout_site_rejected",
+                            $"{TownForResident(inhabitantId) ?? "none"}|{inhabitantId}|{building.CanonicalId}|{selectedSite.X}|{selectedSite.Y}|site_unavailable");
+                    }
+                    return;
+                }
+                position = selectedSite;
+            }
+            else if (TownLayoutService.RankConstructionSites(layout, building).FirstOrDefault() is { } rankedSite)
+            {
+                // Older saved projects accepted a building before the chooser
+                // included a site. Preserve them by assigning the current top
+                // legal option once, then persist that exact choice.
+                project = project with { CandidateId = TownConstructionCandidateIds.Building(building.CanonicalId, rankedSite.Position) };
+                SetProject(inhabitantId, project);
+                position = rankedSite.Position;
+            }
+            else
+            {
+                SetProject(inhabitantId, project with { Stage = "blocked", Blocker = "No legal Town construction site is currently available." });
+                return;
+            }
+        }
+        else if (!TryFindRecipeSite(recipe!, out _, out position))
         {
             SetProject(inhabitantId, project with { Stage = "blocked", Blocker = "Waiting for a free work site" });
             return;
@@ -424,15 +485,15 @@ public sealed partial class PrivateWorldRuntime
     {
         foreach (var person in inhabitants.Values.OrderBy(person => person.InhabitantId, StringComparer.Ordinal))
         {
-            if (person.InhabitantId == helperId || person.Project is not { Stage: not ("completed" or "cancelled" or "waiting") } project)
+            if (person.InhabitantId == helperId ||
+                person.Project is not { Stage: not ("completed" or "cancelled" or "waiting") } project ||
+                !TownConstructionCandidateIds.TryParse(project.CandidateId, out var selection))
             {
                 continue;
             }
-            var isBuilding = project.CandidateId.StartsWith("build:building:", StringComparison.Ordinal);
-            var definitionId = project.CandidateId[(isBuilding ? 15 : 13)..];
-            var inputs = isBuilding
-                ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == definitionId)?.BuildCosts
-                : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == definitionId)?.Inputs;
+            var inputs = selection.IsBuilding
+                ? worldContent.Buildings.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.BuildCosts
+                : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.Inputs;
             foreach (var input in inputs ?? [])
             {
                 if (!HasAvailableQuantities([input]))

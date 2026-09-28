@@ -169,6 +169,9 @@ public static class GameUiText
         if (normalized.StartsWith("build:recipe:", StringComparison.Ordinal) ||
             normalized.StartsWith("build:building:", StringComparison.Ordinal))
         {
+            var siteMarker = normalized.LastIndexOf(":site:", StringComparison.Ordinal);
+            if (siteMarker >= 0)
+                normalized = normalized[..siteMarker];
             var localId = normalized[(Math.Max(normalized.LastIndexOf('/'), normalized.LastIndexOf(':')) + 1)..];
             var versionSeparator = localId.IndexOf('@');
             if (versionSeparator >= 0)
