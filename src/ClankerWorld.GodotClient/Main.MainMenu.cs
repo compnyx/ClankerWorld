@@ -7,6 +7,8 @@ namespace ClankerWorld.GodotClient;
 public partial class Main
 {
     private readonly Control mainMenuOverlay = new();
+    private readonly ColorRect mainMenuBackground = new();
+    private readonly CenterContainer mainMenuCenter = new();
     private readonly PanelContainer mainMenuCard = new();
     private readonly Label mainMenuStatus = new();
     private readonly Button mainMenuContinueButton = new();
@@ -50,18 +52,14 @@ public partial class Main
         mainMenuOverlay.ZIndex = 180;
         AddChild(mainMenuOverlay);
 
-        var background = new ColorRect
-        {
-            Color = new Color("0D151C"),
-            MouseFilter = MouseFilterEnum.Stop,
-        };
-        background.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        mainMenuOverlay.AddChild(background);
+        mainMenuBackground.Color = new Color("0D151C");
+        mainMenuBackground.MouseFilter = MouseFilterEnum.Stop;
+        mainMenuBackground.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        mainMenuOverlay.AddChild(mainMenuBackground);
 
-        var center = new CenterContainer();
-        center.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        mainMenuOverlay.AddChild(center);
-        center.AddChild(mainMenuCard);
+        mainMenuCenter.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        mainMenuOverlay.AddChild(mainMenuCenter);
+        mainMenuCenter.AddChild(mainMenuCard);
 
         var body = new VBoxContainer { CustomMinimumSize = new Vector2(400, 0) };
         body.AddThemeConstantOverride("separation", 12);
@@ -125,6 +123,9 @@ public partial class Main
     private void ShowMainMenu()
     {
         isInWorld = false;
+        mainMenuOverlay.MouseFilter = MouseFilterEnum.Stop;
+        mainMenuBackground.MouseFilter = MouseFilterEnum.Stop;
+        mainMenuCenter.MouseFilter = MouseFilterEnum.Pass;
         mainMenuCard.Show();
         menuShade.ZIndex = 90;
         gameMenuPanel.ZIndex = 100;
@@ -171,6 +172,11 @@ public partial class Main
         returnToMainMenu = true;
         mainMenuOverlay.Show();
         mainMenuCard.Hide();
+        // Keep the title backdrop visible, but let the Settings panel behind
+        // this later-added overlay receive pointer input.
+        mainMenuOverlay.MouseFilter = MouseFilterEnum.Ignore;
+        mainMenuBackground.MouseFilter = MouseFilterEnum.Ignore;
+        mainMenuCenter.MouseFilter = MouseFilterEnum.Ignore;
         menuShade.ZIndex = 190;
         gameMenuPanel.ZIndex = 200;
         menuHeadingLabel.Text = "Game Settings";

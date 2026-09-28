@@ -274,9 +274,28 @@ public partial class Main : Control
             if (!gameMenuPanel.Visible || !gameSettingsContent.Visible || worldSettingsContent.Visible ||
                 !returnToMainMenu)
                 throw new InvalidOperationException("World Settings cannot be opened from the Main Menu.");
-            await CloseGameMenuAsync();
+            for (var frame = 0; frame < 2; frame++)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var backPoint = menuResumeButton.GetGlobalRect().GetCenter();
+            GetViewport().PushInput(new InputEventMouseMotion { Position = backPoint }, true);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var hoveredBackControl = GetViewport().GuiGetHoveredControl();
+            GetViewport().PushInput(new InputEventMouseButton
+            {
+                Position = backPoint,
+                ButtonIndex = MouseButton.Left,
+                Pressed = true,
+            }, true);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            GetViewport().PushInput(new InputEventMouseButton
+            {
+                Position = backPoint,
+                ButtonIndex = MouseButton.Left,
+                Pressed = false,
+            }, true);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!mainMenuOverlay.Visible || !mainMenuCard.Visible || gameMenuPanel.Visible)
-                throw new InvalidOperationException("Closing Game Settings must return to the Main Menu.");
+                throw new InvalidOperationException($"Clicking Back in Main Menu Settings must return to the Main Menu. Back={menuResumeButton.GetGlobalRect()}, pointer={backPoint}, hovered={hoveredBackControl?.GetPath()}");
             var displayWindow = GetWindow();
             var originalWindowSize = displayWindow.Size;
             var originalRenderSize = displayWindow.ContentScaleSize;

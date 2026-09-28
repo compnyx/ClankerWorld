@@ -77,6 +77,12 @@ the resolution evidence below.
 
 ## Original reports and resolution evidence
 
+- **Main Menu Settings clicks blocked — fixed in repository build, laptop check
+  pending:** the title overlay stayed visible above Settings in input order,
+  swallowing clicks even though the Settings panel drew in front. It now passes
+  pointer input through only while Main Menu Settings is open. A headless Godot
+  pointer-click smoke failed on the original path and passes with the fix;
+  computment's Windows playtest remains pending.
 - **Ground hover and marker hitboxes — fixed in repository build, laptop check
   pending:** bare ground gains a square tile outline; agent markers take hover
   and selection priority. Four same-tile markers fit into separate bounded
