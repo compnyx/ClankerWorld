@@ -11,7 +11,12 @@ public sealed record SettlementParenthood(string PartnerId, string Stage, long R
 public sealed partial class PrivateWorldRuntime
 {
     private static readonly string[] ChildNames = ["Ari", "Neri", "Lio", "Sage"];
+    private const int IllnessCareCooldownTicks = 8;
     private static bool ActiveParenthood(SettlementParenthood? plan) => plan?.Stage is "requested" or "preparing";
+
+    private bool RecentlyCaredForIllness(string dependent) => events.Any(item =>
+        (item.Kind is "child_cared_for" or "dependent_cared_for") && item.Detail == dependent &&
+        item.WorldTick > WorldTick - IllnessCareCooldownTicks);
 
     private bool Partners(string actor, string other) => AdultResident(actor) && AdultResident(other) && !CloseKin(actor, other) &&
         society.Checkpoint.GetInhabitant(actor).HouseholdId is { } household && society.Checkpoint.GetInhabitant(other).HouseholdId == household &&
@@ -20,11 +25,13 @@ public sealed partial class PrivateWorldRuntime
 
     private bool HasParenthoodDecision(string actor) => ReadyForLesson(actor) &&
         (inhabitants.Values.Any(person => person.Parenthood is { Stage: "requested" } plan && plan.PartnerId == actor) ||
-         ChildrenNeedingCare(actor).Any());
+         ChildrenNeedingCare(actor).Any(child => child.HungerBasisPoints < 7_000 ||
+             child.Survival is { WarmthBasisPoints: < 6_000 }));
 
     private IEnumerable<PlaytestInhabitantState> ChildrenNeedingCare(string actor) => inhabitants.Values.Where(person =>
         society.Checkpoint.GetInhabitant(person.InhabitantId).AgeBand == SocietyAgeBand.Infant &&
-        (person.HungerBasisPoints < 7_000 || person.Survival is { WarmthBasisPoints: < 6_000 }) &&
+        (person.HungerBasisPoints < 7_000 || person.Survival is { WarmthBasisPoints: < 6_000 } ||
+         person.Survival is { IllnessBasisPoints: >= 2_500 } && !RecentlyCaredForIllness(person.InhabitantId)) &&
         society.Checkpoint.Relationships.Any(item => item.Type == SocietyRelationshipType.Caregiver &&
             item.State == SocietyRelationshipState.Accepted && item.EffectiveTick <= WorldTick &&
             item.ProposerId == actor && item.TargetId == person.InhabitantId));
@@ -209,7 +216,10 @@ public sealed partial class PrivateWorldRuntime
         child = child with
         {
             Survival = (child.Survival ?? new SurvivalCondition()) with
-            { WarmthBasisPoints = Math.Min(10_000, (child.Survival?.WarmthBasisPoints ?? 10_000) + 1_000) }
+            {
+                WarmthBasisPoints = Math.Min(10_000, (child.Survival?.WarmthBasisPoints ?? 10_000) + 1_000),
+                IllnessBasisPoints = Math.Max(0, (child.Survival?.IllnessBasisPoints ?? 0) - IllnessCareReliefBasisPoints),
+            }
         };
         inhabitants[childId] = child;
         AppendEvent("child_cared_for", childId);

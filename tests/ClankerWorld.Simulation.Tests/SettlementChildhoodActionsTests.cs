@@ -35,6 +35,30 @@ public sealed class SettlementChildhoodActionsTests
     }
 
     [Fact]
+    public async Task IllnessDoesNotSuppressOrdinaryChildConversationOrChangePersonality()
+    {
+        var state = await ChildState();
+        var original = state.Inhabitants.Single(person => person.InhabitantId == Child);
+        state = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == Child ? person with
+            {
+                Survival = new(10_000, 9_000),
+                LastDecisionContext = null,
+            } : person).ToArray(),
+        };
+        var childProvider = new SelectProvider("child_converse:");
+        using var world = PrivateWorldRuntime.Restore(state,
+            id => id == Child ? childProvider : new SelectProvider("safe_idle"));
+        for (var tick = 0; tick < 45 && !world.ExportState().Events.Any(item => item.Kind == "child_converse"); tick++)
+            await world.AdvanceOneTickAsync();
+
+        Assert.Contains(childProvider.SeenCandidates, id => id.StartsWith("child_converse:", StringComparison.Ordinal));
+        Assert.Contains(world.ExportState().Events, item => item.Kind == "child_converse");
+        Assert.Equal(original.Personality, world.Inhabitants.Single(person => person.InhabitantId == Child).Personality);
+    }
+
+    [Fact]
     public async Task ChildCanCarrySpareFoodToHouseholdButCannotTakeAdultWork()
     {
         var state = await ChildState(withCarriedFood: true);

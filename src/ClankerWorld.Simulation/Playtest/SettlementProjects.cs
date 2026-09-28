@@ -216,7 +216,7 @@ public sealed partial class PrivateWorldRuntime
         !HasDependentCareDecision(state.InhabitantId) &&
         !HasLearningDecision(state.InhabitantId) &&
         !inhabitants.Keys.Any(other => TradeOpportunity(state.InhabitantId, other) is not null) &&
-        (!HasUrgentExposure(state) || IsProtectiveProject(state.Project)) &&
+        (!NeedsUrgentWarmth(state) || IsProtectiveProject(state.Project)) &&
         PendingInstructionFor(state.InhabitantId) is null;
 
     private void BeginProject(string inhabitantId, PlaytestInhabitantState state, string candidateId)
@@ -297,6 +297,12 @@ public sealed partial class PrivateWorldRuntime
         }
         if (project.WorkDone < ProjectWorkTicks)
         {
+            if (!SettlementIllnessRules.AllowsWork(inhabitantId, WorldTick,
+                    state.Survival?.IllnessBasisPoints ?? 0))
+            {
+                SetProject(inhabitantId, project with { Stage = "working", Blocker = null });
+                return;
+            }
             var work = (HasCarriedItem(inhabitantId, "tool") ? 2 : 1) + ProjectPracticeBonus(state, project);
             SetProject(inhabitantId, project with { Stage = "working", WorkDone = Math.Min(ProjectWorkTicks, project.WorkDone + work), Blocker = null });
             return;

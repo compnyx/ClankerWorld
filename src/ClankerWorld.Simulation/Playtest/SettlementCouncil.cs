@@ -39,7 +39,7 @@ public sealed partial class PrivateWorldRuntime
             : council.FoodPolicy == "essential_first" && quantity >= inhabitants.Count * 4 ? "open" : null;
     }
 
-    private bool HasCouncilDecision(string actor) => !HasUrgentExposure(inhabitants[actor]) && (
+    private bool HasCouncilDecision(string actor) => !NeedsUrgentWarmth(inhabitants[actor]) && (
         council?.Ballot is { } ballot && ballot.Electorate.Contains(actor, StringComparer.Ordinal) &&
         !ballot.Approvals.Contains(actor, StringComparer.Ordinal) && !ballot.Rejections.Contains(actor, StringComparer.Ordinal) ||
         ProposedFoodPolicy(actor) is not null);
@@ -96,7 +96,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void AddCouncilCandidates(List<CognitionCandidate> candidates, string actor)
     {
-        if (HasUrgentExposure(inhabitants[actor]))
+        if (NeedsUrgentWarmth(inhabitants[actor]))
         {
             return;
         }

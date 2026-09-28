@@ -21,7 +21,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void AddExplorationCandidate(List<CognitionCandidate> candidates, string actor, PlaytestInhabitantState person)
     {
-        if (person.HungerBasisPoints < 3_500 || HasUrgentExposure(person))
+        if (person.HungerBasisPoints < 3_500 || NeedsUrgentWarmth(person))
             return;
 
         var exploration = person.Exploration;

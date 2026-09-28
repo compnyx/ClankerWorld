@@ -64,7 +64,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void ApplyChildCandidate(string actor, PlaytestInhabitantState state, string candidate)
     {
-        if (!ChildResident(actor) || state.HungerBasisPoints < 3_500 || HasUrgentExposure(state)) return;
+        if (!ChildResident(actor) || state.HungerBasisPoints < 3_500 || NeedsUrgentWarmth(state)) return;
         if (candidate == "child_help_food")
         {
             if (state.HungerBasisPoints < 6_000 ||

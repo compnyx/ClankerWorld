@@ -199,7 +199,10 @@ public sealed partial class PrivateWorldRuntimeService(
                     if (actor is null) continue;
                     if (runtime.Inhabitants.FirstOrDefault(person => person.InhabitantId == actor)?.Survival is { } condition)
                     {
-                        LogSurvivalCondition(logger, result.WorldTick, actor, condition.WarmthBasisPoints, condition.IllnessBasisPoints);
+                        var illnessWorkPercent = SettlementIllnessRules.WorkRatePercent(condition.IllnessBasisPoints);
+                        var illnessTravelDelay = SettlementIllnessRules.TravelDelayTicks(condition.IllnessBasisPoints);
+                        LogSurvivalCondition(logger, result.WorldTick, actor, condition.WarmthBasisPoints, condition.IllnessBasisPoints,
+                            illnessWorkPercent, illnessTravelDelay);
                     }
                 }
                 foreach (var worldEvent in result.Events.Where(item => item.Kind is "fire_fuelled" or "fire_extinguished"))
@@ -231,7 +234,8 @@ public sealed partial class PrivateWorldRuntimeService(
                              "partnership_refused" or "partnership_ended" or "partnership_expired" or
                              "parenthood_requested" or "parenthood_preparing" or "parenthood_cancelled" or "parenthood_completed" or
                              "child_born" or "child_cared_for" or "caregiver_proposed" or "caregiver_assigned" or
-                             "caregiver_accepted" or "caregiver_refused" or "caregiver_proposal_expired" or "caregiver_ended"))
+                             "caregiver_accepted" or "caregiver_refused" or "caregiver_proposal_expired" or "caregiver_ended" or
+                             "dependent_cared_for"))
                 {
                     LogSettlementFamily(logger, result.WorldTick, worldEvent.Kind);
                 }
@@ -344,8 +348,9 @@ public sealed partial class PrivateWorldRuntimeService(
         string inhabitantId, string stage, int workDone, bool blocked);
 
     [LoggerMessage(EventId = 2205, Level = LogLevel.Information,
-        Message = "survival_condition tick={WorldTick} inhabitant={InhabitantId} warmth={Warmth} illness={Illness}")]
-    private static partial void LogSurvivalCondition(ILogger logger, long worldTick, string inhabitantId, int warmth, int illness);
+        Message = "survival_condition tick={WorldTick} inhabitant={InhabitantId} warmth={Warmth} illness={Illness} illness_work_percent={IllnessWorkPercent} illness_travel_delay={IllnessTravelDelay}")]
+    private static partial void LogSurvivalCondition(ILogger logger, long worldTick, string inhabitantId, int warmth, int illness,
+        int illnessWorkPercent, int illnessTravelDelay);
 
     [LoggerMessage(EventId = 2206, Level = LogLevel.Information,
         Message = "survival_environment tick={WorldTick} event={EventKind}")]

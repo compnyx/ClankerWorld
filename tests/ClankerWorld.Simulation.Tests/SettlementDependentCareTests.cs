@@ -1,4 +1,5 @@
 using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.Kernel;
 using ClankerWorld.Simulation.Society;
 using ClankerWorld.Viewer.Observation;
 
@@ -79,6 +80,112 @@ public sealed partial class SettlementParenthoodTests
             Assert.Contains(adult, result.AcceptedBy ?? []);
         }
         else Assert.DoesNotContain(child, result.AcceptedBy ?? []);
+    }
+
+    [Fact]
+    public async Task AcceptedGuardianCanTendToAnIllOlderDependent()
+    {
+        var state = await OrphanState(olderChild: true);
+        var childId = state.Society.Society.Births.Single().ChildId;
+        var adultId = state.Inhabitants.First(person => person.InhabitantId != childId).InhabitantId;
+        using var proposing = PrivateWorldRuntime.Restore(state, actor =>
+            new ParentProvider(actor == adultId ? "guardian_offer:" : actor == childId ? "guardian_accept:" : "safe_idle"));
+        for (var tick = 0; tick < 40 && !proposing.Society.Relationships.Any(edge => edge.Type == SocietyRelationshipType.Caregiver &&
+                 edge.TargetId == childId && edge.State == SocietyRelationshipState.Accepted); tick++)
+            await proposing.AdvanceOneTickAsync();
+
+        var accepted = Assert.Single(proposing.Society.Relationships, edge => edge.Type == SocietyRelationshipType.Caregiver &&
+            edge.TargetId == childId && edge.State == SocietyRelationshipState.Accepted);
+        var stateToTend = proposing.ExportState();
+        var child = stateToTend.Inhabitants.Single(person => person.InhabitantId == childId);
+        var caregiverTile = stateToTend.Map.FootNeighbors(child.Position).First(point => stateToTend.Map.IsPassable(point) &&
+            Math.Abs(point.X - child.Position.X) + Math.Abs(point.Y - child.Position.Y) == 1 &&
+            !stateToTend.Inhabitants.Any(person => person.InhabitantId != accepted.ProposerId && person.Position == point));
+        const int initialIllness = 9_000;
+        stateToTend = stateToTend with
+        {
+            Inhabitants = stateToTend.Inhabitants.Select(person => person.InhabitantId switch
+            {
+                var id when id == accepted.ProposerId => person with
+                {
+                    Position = caregiverTile,
+                    HungerBasisPoints = 9_000,
+                    Survival = new SurvivalCondition(10_000, 0),
+                    Project = null,
+                    LastDecisionContext = null,
+                    TravelCooldownTicks = 0,
+                },
+                var id when id == childId => person with
+                {
+                    HungerBasisPoints = 9_000,
+                    Survival = new SurvivalCondition(9_000, initialIllness),
+                    Project = null,
+                    LastDecisionContext = null,
+                },
+                _ => person,
+            }).ToArray(),
+        };
+        var shelter = proposing.WorldContent.Buildings.Single(item => item.LocalId == "shelter");
+        var worldTick = stateToTend.Society.Society.WorldTick;
+        using var society = SocietyWorldRuntime.Restore(stateToTend.Society);
+        foreach (var resident in society.Checkpoint.Inhabitants.Where(person => person.Status == SocietyInhabitantStatus.Active &&
+                     person.Id != accepted.ProposerId && person.Id != childId).ToArray())
+        {
+            society.Apply(checkpoint => SocietyFixture.Kill(checkpoint, resident.Id,
+                SocietyDeathCause.Accident, checkpoint.WorldTick));
+        }
+        var societyState = society.ExportState();
+        var projectInventory = societyState.Society.Inventory with
+        {
+            Lots = societyState.Society.Inventory.Lots.Where(lot => lot.ItemKind != "tool").ToArray(),
+        };
+        projectInventory = InventoryFixture.AddLot(projectInventory,
+            $"ill-dependent-project-wood:{accepted.ProposerId}", "wood", accepted.ProposerId, 8);
+        societyState = societyState with
+        {
+            Society = societyState.Society with { Inventory = projectInventory },
+        };
+        stateToTend = stateToTend with
+        {
+            Society = societyState,
+            Inhabitants = stateToTend.Inhabitants
+                .Where(person => person.InhabitantId == accepted.ProposerId || person.InhabitantId == childId).ToArray(),
+        };
+        var stateWithProject = stateToTend with
+        {
+            Inhabitants = stateToTend.Inhabitants
+                .Select(person => person.InhabitantId == accepted.ProposerId
+                ? person with
+                {
+                    Project = new("build:building:" + shelter.CanonicalId, shelter.DisplayName, worldTick,
+                        "working", LastTransitionTick: worldTick),
+                    LastDecisionContext = null,
+                }
+                : person).ToArray(),
+        };
+        var careProvider = new ParentProvider("guardian_tend:");
+        using var working = PrivateWorldRuntime.Restore(stateWithProject, actor =>
+            actor == accepted.ProposerId ? careProvider : new ParentProvider("safe_idle"));
+
+        Assert.True((await working.AdvanceOneTickAsync()).Advanced);
+
+        var progressed = working.Inhabitants.Single(person => person.InhabitantId == accepted.ProposerId).Project!;
+        Assert.True(progressed.Stage is "travelling" or "working",
+            $"Expected the existing project to continue, but it is {progressed.Stage}.");
+        Assert.True(careProvider.Calls == 0,
+            "An ill-dependent care candidate should remain optional and should not force a choice reconsideration.");
+
+        var caregiverProvider = new ParentProvider("guardian_tend:");
+        using var tending = PrivateWorldRuntime.Restore(stateToTend, actor =>
+            actor == accepted.ProposerId ? caregiverProvider : new ParentProvider("safe_idle"));
+        for (var tick = 0; tick < 8 && !tending.ExportState().Events.Any(item => item.Kind == "dependent_cared_for"); tick++)
+            await tending.AdvanceOneTickAsync();
+
+        var tended = tending.Inhabitants.Single(person => person.InhabitantId == childId);
+        Assert.Contains(tending.ExportState().Events, item => item.Kind == "dependent_cared_for" && item.Detail == childId);
+        Assert.True(tended.Survival!.IllnessBasisPoints <= initialIllness - 250,
+            $"Expected accepted-guardian care to relieve illness by at least 250 points; actual illness {tended.Survival.IllnessBasisPoints}.");
+        Assert.Equal(10_000, tended.Survival.WarmthBasisPoints);
     }
 
     [Fact]

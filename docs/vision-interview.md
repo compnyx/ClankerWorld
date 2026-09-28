@@ -809,6 +809,19 @@ new world; successive severe days can extend the interruption.
 The current candidate list includes a bounded local curiosity outing, but
 not yet purposeful discovery of distant resources, terrain and Towns.
 
+The illness prototype now uses a bounded four-tick work schedule: healthy
+agents retain full project speed, while illness bands permit 75%, 50%, or 25%
+of ordinary work opportunities; travel gains one extra cooldown tick from 25%
+through 74% illness and two at 75% or higher. Neither ordinary decisions nor
+conversation are gated by illness. Warmth above 60% and hunger above 35% allow
+12 basis points of recovery per tick, doubled near any shelter as a temporary
+home proxy; a fresh meal relieves 100 points, and completed infant or
+accepted-dependent caregiving relieves 250 while adding warmth. Exact finished-game
+rates and treatment rules remain open. An internal accepted-content catalog
+records distinct Bandage, Medicine and Clinic identifiers (Clinic footprints
+1×1 and 1×2) only; these are not active inventory/building content. No
+recipes, costs or treatment effects are specified.
+
 ### Open after the September playtest
 
 Computment finds that agents spend too much time seeking food, rest and warmth
@@ -816,9 +829,9 @@ or trying to feel safe, and wants more room for exploration, social life,
 building and invention. Define food scarcity and routine upkeep so a daily
 food economy matters without monopolizing action selection. Decide what an
 agent without any House does during a storm, how much natural cover protects,
-and how illness penalties avoid recreating an energy meter. Exploration, knowledge
-recording and trade need actual actions and information boundaries rather
-than an idle-label change.
+and which illness penalties and care/recovery rates work well without
+recreating an energy meter. Exploration, knowledge recording and trade need
+actual actions and information boundaries rather than an idle-label change.
 
 ## Buildings, land, Towns, and animals
 

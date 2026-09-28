@@ -11,13 +11,56 @@ public sealed record SurvivalCondition(int WarmthBasisPoints = 10_000, int Illne
 public sealed record CampFireState(string BuildingId, long FuelUntilTick);
 public sealed record SettlementSurvivalState(long ActivatedTick, IReadOnlyList<CampFireState> Fires);
 
+public static class SettlementIllnessRules
+{
+    public static int WorkRatePercent(int illnessBasisPoints) => Math.Clamp(illnessBasisPoints, 0, 10_000) switch
+    {
+        < 2_500 => 100,
+        < 5_000 => 75,
+        < 7_500 => 50,
+        _ => 25,
+    };
+
+    public static int TravelDelayTicks(int illnessBasisPoints) => Math.Clamp(illnessBasisPoints, 0, 10_000) switch
+    {
+        < 2_500 => 0,
+        < 7_500 => 1,
+        _ => 2,
+    };
+
+    public static bool AllowsWork(string inhabitantId, long worldTick, int illnessBasisPoints)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(inhabitantId);
+        ArgumentOutOfRangeException.ThrowIfNegative(worldTick);
+        if (WorkRatePercent(illnessBasisPoints) == 100) return true;
+        var phase = StablePhase(inhabitantId);
+        return (worldTick % 4 + phase) % 4 < WorkRatePercent(illnessBasisPoints) / 25;
+    }
+
+    private static int StablePhase(string inhabitantId)
+    {
+        uint hash = 2_166_136_261;
+        foreach (var character in inhabitantId)
+        {
+            hash = unchecked((hash ^ character) * 16_777_619);
+        }
+        return (int)(hash % 4);
+    }
+}
+
 public sealed partial class PrivateWorldRuntime
 {
     private SettlementSurvivalState? survivalState;
     private static readonly HashSet<string> PerishableKinds = new(StringComparer.Ordinal) { "food" };
+    private const int IllnessRecoveryPerTick = 12;
+    private const int ShelteredIllnessRecoveryBonusPerTick = 12;
+    private const int IllnessCareReliefBasisPoints = 250;
+    private const int ExposureIllnessIncreasePerTick = 8;
+    private const int SpoiledMealIllnessIncreaseBasisPoints = 300;
+    private const int FreshMealIllnessReliefBasisPoints = 100;
 
-    private static bool HasUrgentExposure(PlaytestInhabitantState person) =>
-        person.Survival is { WarmthBasisPoints: < 3_500 } or { IllnessBasisPoints: >= 6_500 };
+    private static bool NeedsUrgentWarmth(PlaytestInhabitantState person) =>
+        person.Survival is { WarmthBasisPoints: < 3_500 };
 
     private bool IsProtectiveProject(SettlementProject? project) => project is not null &&
         (worldContent.Buildings.Any(building => project.CandidateId == "build:building:" + building.CanonicalId &&
@@ -97,8 +140,12 @@ public sealed partial class PrivateWorldRuntime
                 IsWithinInteractionRange(person.Position, building.Position, 2)) ? 90 : 0;
             var loss = Math.Max(0, WeatherExposure(person.Position) - protection);
             var warmth = Math.Clamp(old.WarmthBasisPoints - loss + heat + (loss == 0 ? 20 : 0), 0, 10_000);
-            var illness = Math.Clamp(old.IllnessBasisPoints + (warmth < 2_500 || person.HungerBasisPoints < 500 ? 8 :
-                warmth > 6_000 && person.HungerBasisPoints > 3_500 ? -12 : 0), 0, 10_000);
+            var illnessChange = warmth < 2_500 || person.HungerBasisPoints < 500
+                ? ExposureIllnessIncreasePerTick
+                : warmth > 6_000 && person.HungerBasisPoints > 3_500
+                    ? -(IllnessRecoveryPerTick + (NearShelter(person.Position) ? ShelteredIllnessRecoveryBonusPerTick : 0))
+                    : 0;
+            var illness = Math.Clamp(old.IllnessBasisPoints + illnessChange, 0, 10_000);
             inhabitants[person.InhabitantId] = person with { Survival = old with { WarmthBasisPoints = warmth, IllnessBasisPoints = illness } };
             if (old.WarmthBasisPoints / 2_500 != warmth / 2_500 || old.IllnessBasisPoints / 2_500 != illness / 2_500)
             {
@@ -250,7 +297,8 @@ public sealed partial class PrivateWorldRuntime
         }
         var kind = FoodSource(food);
         var nutrition = Math.Clamp(condition.NutritionBasisPoints + (condition.LastMealKind is null ? 0 : condition.LastMealKind != kind ? 500 : -100), 0, 10_000);
-        var illness = Math.Clamp(condition.IllnessBasisPoints + (food.FreshnessBasisPoints < 2_500 ? 300 : -100), 0, 10_000);
+        var illness = Math.Clamp(condition.IllnessBasisPoints +
+            (food.FreshnessBasisPoints < 2_500 ? SpoiledMealIllnessIncreaseBasisPoints : -FreshMealIllnessReliefBasisPoints), 0, 10_000);
         AppendEvent("meal_eaten", $"{person.InhabitantId}:{kind}:nutrition={nutrition}");
         return condition with { NutritionBasisPoints = nutrition, LastMealKind = kind, IllnessBasisPoints = illness };
     }

@@ -8,7 +8,7 @@ public sealed partial class PrivateWorldRuntime
 {
     private const string SettlementTradePrefix = "settlement-trade:";
 
-    private bool HasTradeResponse(string actor) => !HasUrgentExposure(inhabitants[actor]) && society.Checkpoint.Inventory.Offers.Any(offer =>
+    private bool HasTradeResponse(string actor) => !NeedsUrgentWarmth(inhabitants[actor]) && society.Checkpoint.Inventory.Offers.Any(offer =>
         offer.Id.StartsWith(SettlementTradePrefix, StringComparison.Ordinal) &&
         offer.State == DirectBarterState.Open && offer.ExpiryTick >= WorldTick &&
         (offer.FirstPartyId == actor || offer.SecondPartyId == actor) &&
@@ -40,7 +40,7 @@ public sealed partial class PrivateWorldRuntime
 
     private (InventoryLot Give, InventoryLot Take)? TradeOpportunity(string actor, string other)
     {
-        if (actor == other || HasUrgentExposure(inhabitants[actor]) || HasUrgentExposure(inhabitants[other]) ||
+        if (actor == other || NeedsUrgentWarmth(inhabitants[actor]) || NeedsUrgentWarmth(inhabitants[other]) ||
             society.Checkpoint.Inventory.Offers.Any(offer =>
                 offer.State == DirectBarterState.Open &&
                 (offer.FirstPartyId == actor || offer.SecondPartyId == actor || offer.FirstPartyId == other || offer.SecondPartyId == other) ||
@@ -67,7 +67,7 @@ public sealed partial class PrivateWorldRuntime
 
     private void AddTradeCandidates(List<CognitionCandidate> candidates, string actor)
     {
-        if (HasUrgentExposure(inhabitants[actor]))
+        if (NeedsUrgentWarmth(inhabitants[actor]))
         {
             return;
         }

@@ -357,6 +357,69 @@ public sealed class SettlementSurvivalTests
     }
 
     [Fact]
+    public async Task IllnessSlowsProjectWorkWithoutPausingThePlan()
+    {
+        var healthyProgress = await ProjectProgressAtIllness(0);
+        var severelyIllProgress = await ProjectProgressAtIllness(9_000);
+
+        Assert.True(healthyProgress > severelyIllProgress,
+            $"Expected severe illness to slow project work; healthy progress {healthyProgress}, ill progress {severelyIllProgress}.");
+        Assert.True(severelyIllProgress > 0, "Severe illness should leave some project work opportunities.");
+    }
+
+    [Fact]
+    public async Task IllnessAddsTravelDelayWithoutRemovingExploration()
+    {
+        var healthySteps = await ExplorationStepsAtIllness(0);
+        var severelyIllSteps = await ExplorationStepsAtIllness(9_000);
+
+        Assert.True(healthySteps > severelyIllSteps,
+            $"Expected severe illness to add travel delay; healthy steps {healthySteps}, ill steps {severelyIllSteps}.");
+        Assert.True(severelyIllSteps > 0, "Illness should slow travel rather than remove the exploration choice.");
+    }
+
+    [Fact]
+    public async Task IllnessTelemetryReportsItsBoundedEffectsWithoutPrivateText()
+    {
+        var directory = Directory.CreateTempSubdirectory("illness-logs-");
+        try
+        {
+            using var seed = new PrivateWorldRuntime("illness-telemetry", _ => new IdleProvider());
+            seed.StageStarterContent();
+            for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
+            var state = WithWeather(seed.ExportState(), WeatherKind.Clear);
+            var actor = state.Inhabitants[0];
+            state = state with
+            {
+                Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == actor.InhabitantId ? person with
+                {
+                    HungerBasisPoints = 9_000,
+                    Personality = "private-illness-secret",
+                    Survival = new SurvivalCondition(10_000, 7_504),
+                } : person).ToArray(),
+            };
+            using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+            var presence = new OwnerClientPresenceLease(TimeSpan.FromSeconds(30));
+            presence.RecordAuthenticatedReconnect("owner");
+            var logger = new RecordingLogger<PrivateWorldRuntimeService>();
+            using var service = new PrivateWorldRuntimeService(world,
+                new PrivateWorldStateFile(Path.Combine(directory.FullName, "world.json")), presence, logger);
+
+            Assert.True(await service.TryAdvanceOnceAsync());
+
+            Assert.Contains(logger.Messages, message => message.Contains("survival_condition", StringComparison.Ordinal) &&
+                message.Contains("inhabitant=" + actor.InhabitantId + " ", StringComparison.Ordinal) &&
+                message.Contains("illness_work_percent=50", StringComparison.Ordinal) &&
+                message.Contains("illness_travel_delay=1", StringComparison.Ordinal));
+            Assert.DoesNotContain(logger.Messages, message => message.Contains("private-illness-secret", StringComparison.Ordinal));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public void FoodStorageSlowsDecayWithoutRottingTools()
     {
         using var world = new PrivateWorldRuntime("food-storage");
@@ -386,6 +449,69 @@ public sealed class SettlementSurvivalTests
         };
     }
 
+    private static async Task<int> ProjectProgressAtIllness(int illnessBasisPoints)
+    {
+        using var seed = new PrivateWorldRuntime("illness-work", _ => new IdleProvider());
+        seed.StageStarterContent();
+        for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
+        var state = WithWeather(seed.ExportState(), WeatherKind.Clear);
+        var worker = state.Inhabitants[0];
+        var position = state.Map.Tiles.First(tile => state.Map.IsPassable(tile.Position) &&
+            !state.Map.CampObjects.Any(item => item.Position == tile.Position) &&
+            !state.Map.Resources.Any(item => item.Position == tile.Position) &&
+            !state.Inhabitants.Any(person => person.Position == tile.Position)).Position;
+        var building = seed.WorldContent.Buildings.Single(item => item.LocalId == "shelter");
+        var inventory = state.Society.Society.Inventory with
+        {
+            Lots = state.Society.Society.Inventory.Lots.Where(lot => lot.ItemKind != "tool").ToArray(),
+        };
+        inventory = InventoryFixture.AddLot(inventory,
+            $"illness-work-wood:{worker.InhabitantId}", "wood", worker.InhabitantId, 8);
+        state = state with
+        {
+            Society = state.Society with
+            {
+                Society = state.Society.Society with { Inventory = inventory },
+            },
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == worker.InhabitantId ? person with
+            {
+                Position = position,
+                HungerBasisPoints = 9_000,
+                Survival = new SurvivalCondition(10_000, illnessBasisPoints),
+                Proficiency = null,
+                Project = new("build:building:" + building.CanonicalId, building.DisplayName, seed.WorldTick,
+                    "working", LastTransitionTick: seed.WorldTick),
+            } : person).ToArray(),
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+        for (var tick = 0; tick < 8; tick++) Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        var progress = world.Inhabitants.Single(person => person.InhabitantId == worker.InhabitantId).Project!.WorkDone;
+        Assert.Equal("working", world.Inhabitants.Single(person => person.InhabitantId == worker.InhabitantId).Project!.Stage);
+        return progress;
+    }
+
+    private static async Task<int> ExplorationStepsAtIllness(int illnessBasisPoints)
+    {
+        using var seed = new PrivateWorldRuntime("illness-travel", _ => new ExplorationProvider());
+        seed.StageStarterContent();
+        for (var tick = 0; tick < 3; tick++) await seed.AdvanceOneTickAsync();
+        var state = WithWeather(seed.ExportState(), WeatherKind.Clear);
+        var scout = state.Inhabitants[0];
+        state = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == scout.InhabitantId ? person with
+            {
+                HungerBasisPoints = 9_000,
+                Survival = new SurvivalCondition(10_000, illnessBasisPoints),
+                Exploration = new SettlementExploration([person.Position], [person.Position], seed.WorldTick, false),
+            } : person).ToArray(),
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new ExplorationProvider());
+        for (var tick = 0; tick < 8; tick++) Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        return world.ExportState().Events.Count(item => item.Kind == "inhabitant_moved" &&
+            item.Detail.StartsWith(scout.InhabitantId + ":", StringComparison.Ordinal));
+    }
+
     private sealed class IdleProvider : IDecisionProvider
     {
         public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
@@ -395,5 +521,21 @@ public sealed class SettlementSurvivalTests
                 Kind, ProviderEpoch, request.Observation.RunEpoch, request.Observation.DecisionGeneration,
                 request.Observation.ObservationDigest, "safe_idle", 1,
                 request.Observation.Candidates.ToDictionary(candidate => candidate.Id, candidate => candidate.Id == "safe_idle" ? 1d : 0d)));
+    }
+
+    private sealed class ExplorationProvider : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var selected = request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id == "explore") ??
+                request.Observation.Candidates.Single(candidate => candidate.Id == "safe_idle");
+            return new DeterministicDecisionProvider().DecideAsync(request with
+            {
+                Observation = request.Observation with { Candidates = [selected] },
+            }, cancellationToken);
+        }
     }
 }

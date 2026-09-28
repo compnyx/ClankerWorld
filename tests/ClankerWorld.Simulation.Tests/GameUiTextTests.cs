@@ -172,6 +172,7 @@ public sealed class GameUiTextTests
     [Theory]
     [InlineData("build:building:sha256:abcdef/building/stone-hearth@1.0.0", "build Stone hearth")]
     [InlineData("seek_food", "find food")]
+    [InlineData("guardian_tend:dependent-42", "care for an ill dependent")]
     public void InternalIdentifiersBecomeReadablePhrases(string value, string expected)
     {
         Assert.Equal(expected, GameUiText.HumanizeIdentifier(value));

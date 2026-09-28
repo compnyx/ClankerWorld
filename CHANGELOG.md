@@ -77,6 +77,10 @@ release yet.
   and severe-weather effects remain. New worlds omit bedrolls and bedding;
   older private-world saves remain loadable with hidden legacy bedroll markers
   and migrate to the current save schema when loaded.
+- Illness now slows work and travel by severity without suppressing ordinary
+  social choices. Food, shelter and caregiver actions support bounded recovery;
+  Bandage, Medicine and Clinic have catalog-only identifiers without guessed
+  recipes or treatment effects. No sleep/energy loop was added.
 - New World now refreshes the exact seed/settings preview after edits without
   requiring another button press. Stale previews cannot enable Create World;
   preview failures leave the active world unchanged.

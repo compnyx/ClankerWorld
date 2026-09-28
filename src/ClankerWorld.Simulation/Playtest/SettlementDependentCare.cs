@@ -18,6 +18,14 @@ public sealed partial class PrivateWorldRuntime
         edge.Type == SocietyRelationshipType.Caregiver && edge.State == SocietyRelationshipState.Proposed &&
         edge.Id.StartsWith("settlement-care:", StringComparison.Ordinal));
 
+    private IEnumerable<string> IllDependentsNeedingCare(string adult) => society.Checkpoint.Relationships
+        .Where(edge => edge.Type == SocietyRelationshipType.Caregiver && edge.ProposerId == adult &&
+            edge.State == SocietyRelationshipState.Accepted && edge.EffectiveTick <= WorldTick &&
+            inhabitants.TryGetValue(edge.TargetId, out var recipient) &&
+            society.Checkpoint.GetInhabitant(edge.TargetId).AgeBand != SocietyAgeBand.Infant &&
+            recipient.Survival is { IllnessBasisPoints: >= 2_500 } && !RecentlyCaredForIllness(edge.TargetId))
+        .Select(edge => edge.TargetId);
+
     private bool CanOfferCare(string adult, string child) => EligibleCaregiver(adult, child) &&
         !CareProposals().Any(edge => edge.TargetId == child) &&
         !society.Checkpoint.Relationships.Any(edge => edge.Type == SocietyRelationshipType.Caregiver &&
@@ -48,6 +56,11 @@ public sealed partial class PrivateWorldRuntime
         {
             candidates.Add(new("guardian_end:" + edge.Id, "Withdraw from this caregiving relationship or proposal.", 110));
         }
+        foreach (var dependent in IllDependentsNeedingCare(actor))
+        {
+            candidates.Add(new("guardian_tend:" + dependent,
+                "Offer warmth and practical care to your ill dependent.", 75));
+        }
         foreach (var edge in CareProposals().Where(edge => edge.TargetId == actor && EligibleCaregiver(edge.ProposerId, actor)))
         {
             candidates.Add(new("guardian_accept:" + edge.Id, $"Accept care from {society.Checkpoint.GetInhabitant(edge.ProposerId).Name}.", 3));
@@ -63,6 +76,11 @@ public sealed partial class PrivateWorldRuntime
     private void ApplyDependentCareCandidate(string actor, string candidate)
     {
         var target = candidate[(candidate.IndexOf(':', StringComparison.Ordinal) + 1)..];
+        if (candidate.StartsWith("guardian_tend:", StringComparison.Ordinal))
+        {
+            TendToIllDependent(actor, target);
+            return;
+        }
         if (candidate.StartsWith("guardian_end:", StringComparison.Ordinal))
         {
             var existing = society.Checkpoint.Relationships.FirstOrDefault(edge => edge.Id == target &&
@@ -102,5 +120,30 @@ public sealed partial class PrivateWorldRuntime
             society.Apply(checkpoint => SocietyFixture.RefuseRelationship(checkpoint, edge.Id, edge.Revision, actor));
             AppendEvent("caregiver_refused", actor);
         }
+    }
+
+    private bool CanTendToIllDependent(string adult, string dependent) => AdultResident(adult) &&
+        IllDependentsNeedingCare(adult).Contains(dependent, StringComparer.Ordinal);
+
+    private void TendToIllDependent(string adult, string dependent)
+    {
+        if (!ReadyForLesson(adult) || !CanTendToIllDependent(adult, dependent)) return;
+        var caregiver = inhabitants[adult];
+        var recipient = inhabitants[dependent];
+        if (!IsWithinInteractionRange(caregiver.Position, recipient.Position, ResourceInteractionRange))
+        {
+            MoveToward(adult, caregiver, recipient.Position, "care", ResourceInteractionRange);
+            return;
+        }
+        recipient = recipient with
+        {
+            Survival = recipient.Survival! with
+            {
+                WarmthBasisPoints = Math.Min(10_000, recipient.Survival.WarmthBasisPoints + 1_000),
+                IllnessBasisPoints = Math.Max(0, recipient.Survival.IllnessBasisPoints - IllnessCareReliefBasisPoints),
+            },
+        };
+        inhabitants[dependent] = recipient;
+        AppendEvent("dependent_cared_for", dependent);
     }
 }

@@ -2336,9 +2336,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
             var physical = inhabitants[inhabitant.Id];
             if (physical.Project is { Stage: not ("completed" or "cancelled") } project &&
-                (physical.HungerBasisPoints < 3_500 || HasUrgentExposure(physical) && !IsProtectiveProject(project)))
+                (physical.HungerBasisPoints < 3_500 || NeedsUrgentWarmth(physical) && !IsProtectiveProject(project)))
             {
-                SetProject(inhabitant.Id, project with { Stage = "paused", Blocker = HasUrgentExposure(physical) ? "Seeking warmth or recovering" : "Meeting food needs" });
+                SetProject(inhabitant.Id, project with { Stage = "paused", Blocker = NeedsUrgentWarmth(physical) ? "Seeking warmth" : "Meeting food needs" });
                 physical = inhabitants[inhabitant.Id];
             }
             var candidates = CreateCandidates(inhabitant.Id, physical);
@@ -2430,7 +2430,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     }
 
     private static string DecisionContext(PlaytestInhabitantState state, List<CognitionCandidate> candidates) =>
-        $"{state.HungerBasisPoints < 2_500}:{HasUrgentExposure(state)}:" +
+        $"{state.HungerBasisPoints < 2_500}:{NeedsUrgentWarmth(state)}:" +
         string.Join('|', candidates.Select(candidate => candidate.Id).Order(StringComparer.Ordinal));
 
     private void ApplyContinuingIntentions(IEnumerable<string> dispatchedInhabitantIds)
@@ -2480,7 +2480,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         foreach (var id in waitingIds.OrderBy(item => item, StringComparer.Ordinal))
         {
             if (!inhabitants.TryGetValue(id, out var state)) continue;
-            if (state.HungerBasisPoints >= 3_500 && !HasUrgentExposure(state))
+            if (state.HungerBasisPoints >= 3_500 && !NeedsUrgentWarmth(state))
                 continue;
             var candidate = CreateCandidates(id, state)
                 .Where(item => safe.Contains(item.Id))
@@ -2722,7 +2722,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             Position = next,
             MoveWaitTicks = 0,
-            TravelCooldownTicks = (map.FootStepCost(state.Position, next) + 99) / 100 - 1,
+            TravelCooldownTicks = (map.FootStepCost(state.Position, next) + 99) / 100 - 1 +
+                SettlementIllnessRules.TravelDelayTicks(state.Survival?.IllnessBasisPoints ?? 0),
         };
         AppendEvent("inhabitant_moved", $"{inhabitantId}:{state.Position.X},{state.Position.Y}->{next.X},{next.Y}:{reason}");
     }
@@ -2961,7 +2962,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         AddSurvivalCandidates(candidates, inhabitantId, state);
         AddDependentCareCandidates(candidates, inhabitantId);
-        if (state.HungerBasisPoints >= 3_500 && !HasUrgentExposure(state) && ChildResident(inhabitantId))
+        if (state.HungerBasisPoints >= 3_500 && !NeedsUrgentWarmth(state) && ChildResident(inhabitantId))
         {
             AddChildCandidates(candidates, inhabitantId, state);
         }
@@ -2995,7 +2996,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             foreach (var definition in worldContent.Buildings)
             {
-                if (HasUrgentExposure(state) && !definition.Tags.Any(tag => tag is "shelter" or "warmth" or "cooking"))
+                if (NeedsUrgentWarmth(state) && !definition.Tags.Any(tag => tag is "shelter" or "warmth" or "cooking"))
                 {
                     continue;
                 }
@@ -3023,7 +3024,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                      !item.Outputs.Any(output => output.ResourceId == "bedding") &&
                      (item.IsCrop ? canGrow : canProduce)))
         {
-            if (HasUrgentExposure(state) && !recipe.Outputs.Any(output => output.ResourceId == "clothing"))
+            if (NeedsUrgentWarmth(state) && !recipe.Outputs.Any(output => output.ResourceId == "clothing"))
             {
                 continue;
             }
@@ -3041,7 +3042,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     }
 
     private static int PriorityFor(PlaytestInhabitantState state) =>
-        state.HungerBasisPoints < 2_500 || HasUrgentExposure(state) ? 20 : 0;
+        state.HungerBasisPoints < 2_500 || NeedsUrgentWarmth(state) ? 20 : 0;
 
     private OwnerQueuedInstruction? PendingInstructionFor(string inhabitantId) =>
         instructionsByIdempotency.Values
