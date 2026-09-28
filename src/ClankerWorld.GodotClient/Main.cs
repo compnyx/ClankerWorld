@@ -659,6 +659,16 @@ public partial class Main : Control
             });
             if (!selectedTileText.Text.Contains("Household property: Founder's household", StringComparison.Ordinal))
                 throw new InvalidOperationException("Owned building footprints must expose their recorded household in tile inspection.");
+            placingAddedAgent = true;
+            founderSetupPanel.Show();
+            UpdateTileHover(mapStage.Position + new Vector2(currentTileSize * 2.5f, currentTileSize * 2.5f));
+            if (!founderSetupHint.Text.Contains("Household: Founder's household · Town: no Town", StringComparison.Ordinal))
+                throw new InvalidOperationException("Add Agent must preview recorded household property without inferring Town membership.");
+            UpdateTileHover(mapStage.Position + new Vector2(currentTileSize * 3.5f, currentTileSize * 3.5f));
+            if (!founderSetupHint.Text.Contains("Household: new independent household · Town: no Town", StringComparison.Ordinal))
+                throw new InvalidOperationException("Unclaimed land must preview a new independent household.");
+            founderSetupPanel.Hide();
+            placingAddedAgent = false;
             householdPropertyFilter.ButtonPressed = false;
             townBorderFilter.ButtonPressed = true;
             filtersButton.EmitSignal(BaseButton.SignalName.Pressed);
@@ -2859,7 +2869,11 @@ public partial class Main : Control
         worldOverviewPanel.Hide();
         mapCanvas.AddChild(worldOverviewPanel);
         mapCanvas.GuiInput += HandleMapInput;
-        mapCanvas.MouseExited += () => terrainLayer.SetHoveredTile(null);
+        mapCanvas.MouseExited += () =>
+        {
+            terrainLayer.SetHoveredTile(null);
+            if (placingAddedAgent) ResetAddAgentPlacementHint();
+        };
         content.AddChild(mapCanvas);
     }
 
@@ -4012,7 +4026,18 @@ public partial class Main : Control
                         Position = targetPosition,
                         ZIndex = 10,
                     };
-                    actorMarker.Activated += () => SelectInhabitant(inhabitant.Id);
+                    actorMarker.Activated += () =>
+                    {
+                        if (placingAddedAgent && founderSetupPanel.Visible)
+                        {
+                            var currentPosition = renderedMapSnapshot?.Inhabitants
+                                .FirstOrDefault(item => item.Id == inhabitant.Id)?.Position;
+                            if (currentPosition is { } position)
+                                _ = PlaceAgentAtAsync(new Vector2I(position.X, position.Y));
+                        }
+                        else
+                            SelectInhabitant(inhabitant.Id);
+                    };
                     actorMarker.MouseEntered += RefreshTileHoverAtMouse;
                     actorMarker.MouseExited += RefreshTileHoverAtMouse;
                     entityLayer.AddChild(actorMarker);
@@ -4925,6 +4950,7 @@ public partial class Main : Control
 
         var stagePosition = canvasPosition - mapStage.Position;
         var tile = TileAtCanvas(canvasPosition, snapshot);
+        PreviewAddAgentPlacement(snapshot, tile);
         if (!MapContains(snapshot, tile.X, tile.Y) ||
             inhabitantVisuals.Values.Any(marker => marker.Visible &&
                 new Rect2(marker.Position, marker.Size).HasPoint(stagePosition)))

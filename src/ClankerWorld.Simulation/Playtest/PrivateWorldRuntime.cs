@@ -1442,9 +1442,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         try
         {
             ValidateAgentPlacementUnsafe(agentId, position);
-            // Household ownership is independent from Town membership: each
-            // player-added adult starts a separate, unrelated household.
-            var householdId = "household:" + agentId;
+            // Saved household property determines starting membership. A
+            // placement outside it remains an unrelated one-person household.
+            var householdId = HouseholdPropertyAt(position) ?? "household:" + agentId;
             society.Apply(checkpoint => SocietyFixture.AddAdult(checkpoint, agentId, householdId));
             inhabitants.Add(agentId, new PlaytestInhabitantState(agentId, position, 6_500, 0,
                 "undecided", "find a purpose"));
@@ -1474,8 +1474,34 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             throw new ArgumentException("The agent ID is invalid or already used.", nameof(agentId));
         if (!map.IsBuildable(position) || map.CampObjects.Any(item => item.Position == position) ||
             map.Resources.Any(item => item.Position == position) ||
-            inhabitants.Values.Any(person => person.Position == position))
+            (inhabitants.Values.Any(person => person.Position == position) && !IsHouseAt(position)))
             throw new ArgumentException("Choose an empty passable tile for this agent.", nameof(position));
+        if (towns.Count(item => item.BorderTiles.Contains(position)) > 1)
+            throw new InvalidOperationException("Overlapping Town borders cannot determine starting membership.");
+        _ = HouseholdPropertyAt(position);
+    }
+
+    private string? HouseholdPropertyAt(GridPoint position)
+    {
+        var definitions = worldContent.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
+        var owners = worldSimulation.Buildings.Where(building => building.HouseholdId is not null &&
+                definitions.TryGetValue(building.DefinitionId, out var definition) &&
+                WorldContentSimulationRules.Footprint(definition, building.Position).Contains(position))
+            .Select(building => building.HouseholdId!)
+            .Distinct(StringComparer.Ordinal)
+            .Take(2).ToArray();
+        if (owners.Length > 1)
+            throw new InvalidOperationException("Overlapping household property cannot determine starting membership.");
+        return owners.FirstOrDefault();
+    }
+
+    private bool IsHouseAt(GridPoint position)
+    {
+        var definitions = worldContent.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
+        return worldSimulation.Buildings.Any(building =>
+            definitions.TryGetValue(building.DefinitionId, out var definition) &&
+            definition.Tags.Contains("house", StringComparer.Ordinal) &&
+            WorldContentSimulationRules.Footprint(definition, building.Position).Contains(position));
     }
 
     public bool RenameAgent(string agentId, string name)

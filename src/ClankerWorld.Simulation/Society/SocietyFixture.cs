@@ -167,9 +167,9 @@ public static partial class SocietyFixture
         Validate(checkpoint);
         var id = NormalizeRequiredText(inhabitantId, nameof(inhabitantId));
         var home = NormalizeRequiredText(householdId, nameof(householdId));
-        if (checkpoint.Inhabitants.Any(person => person.Id == id) ||
-            checkpoint.Households.Any(household => household.Id == home))
-            throw new InvalidOperationException("The new agent or household ID already exists.");
+        if (checkpoint.Inhabitants.Any(person => person.Id == id))
+            throw new InvalidOperationException("The new agent ID already exists.");
+        var existingHousehold = checkpoint.Households.FirstOrDefault(household => household.Id == home);
 
         var age = checkpoint.Config.FounderStartingAge;
         var lifeBirth = checked(checkpoint.LifeTickAt(checkpoint.WorldTick) -
@@ -181,7 +181,13 @@ public static partial class SocietyFixture
             HouseholdId = home,
             NeedsName = true,
         };
-        var household = new SocietyHousehold(home, "New household", [id], []);
+        var household = existingHousehold is null
+            ? new SocietyHousehold(home, "New household", [id], [])
+            : existingHousehold with
+            {
+                MemberIds = existingHousehold.MemberIds.Append(id)
+                .Order(StringComparer.Ordinal).ToArray()
+            };
         var membership = new SocietyRelationship(
             $"{home}:membership:{id}", 1, SocietyRelationshipType.HouseholdMembership,
             home, id, SocietyRelationshipState.Accepted,
@@ -190,7 +196,9 @@ public static partial class SocietyFixture
         var next = checkpoint with
         {
             Inhabitants = checkpoint.Inhabitants.Append(person).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
-            Households = checkpoint.Households.Append(household).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
+            Households = existingHousehold is null
+                ? checkpoint.Households.Append(household).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray()
+                : checkpoint.Households.Select(item => item.Id == home ? household : item).ToArray(),
             Relationships = checkpoint.Relationships.Append(membership).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
         };
         return Commit(next, "agent_added", $"{id}:{home}", id);

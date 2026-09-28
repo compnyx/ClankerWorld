@@ -7,6 +7,50 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class FounderSetupTests
 {
     [Fact]
+    public async Task AddedAdultOnRecordedHouseholdPropertyJoinsThatHouseholdAndEnclosingTown()
+    {
+        using var world = new PrivateWorldRuntime("new-agent-house-property", startPace: WorldStartPace.FounderSetup);
+        foreach (var position in new[]
+                 {
+                     new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2),
+                 })
+            world.PlaceFounder("founder:" + Guid.NewGuid().ToString("N"), position);
+        world.StartWorld();
+        Assert.True(world.StageStarterContent());
+        for (var tick = 0; tick < 8; tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        var state = world.ExportState();
+        var house = world.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        var site = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+            state.Map.IsBuildable(point) &&
+            TownBorderRules.IsWithinOrAdjacent(world.Towns.Single(), point, house.Width, house.Height) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.Position == point));
+        var placed = world.PlaceBuilding("starter-house-alpha", house.CanonicalId, site, "household:camp-alpha");
+        Assert.True(placed.Applied, placed.Failure);
+
+        var agentId = "agent:" + Guid.NewGuid().ToString("N");
+        var householdCount = world.Society.Households.Count;
+        Assert.Equal("household:camp-alpha", world.AddAgent(agentId, site));
+        Assert.Equal(householdCount, world.Society.Households.Count);
+        Assert.Contains(agentId, world.Society.GetHousehold("household:camp-alpha").MemberIds);
+        Assert.Contains(agentId, world.Towns.Single().ResidentIds);
+        var secondAgentId = "agent:" + Guid.NewGuid().ToString("N");
+        Assert.Equal("household:camp-alpha", world.AddAgent(secondAgentId, site));
+        Assert.Equal(householdCount, world.Society.Households.Count);
+        Assert.Equal(site, world.Inhabitants.Single(item => item.InhabitantId == secondAgentId).Position);
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Equal("household:camp-alpha", restored.Society.GetInhabitant(agentId).HouseholdId);
+        Assert.Equal("household:camp-alpha", restored.Society.GetInhabitant(secondAgentId).HouseholdId);
+        Assert.Contains(agentId, restored.Towns.Single().ResidentIds);
+        Assert.Contains(secondAgentId, restored.Towns.Single().ResidentIds);
+    }
+
+    [Fact]
     public async Task EmptyBaseCampPersistsFounderProgressAndOnlyStartsOnExplicitCommand()
     {
         var directory = Directory.CreateTempSubdirectory("clankerworld-founders-");
