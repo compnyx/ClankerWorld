@@ -1,4 +1,5 @@
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Kernel;
 using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Viewer.Observation;
 
@@ -6,6 +7,59 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class FounderSetupTests
 {
+    [Fact]
+    public async Task TownAdultWithoutHouseholdCannotSpendFoundingStockAndOwnsPersonalProduction()
+    {
+        using var seed = new PrivateWorldRuntime("town-adult-personal-stock", startPace: WorldStartPace.FounderSetup);
+        foreach (var position in new[]
+                 {
+                     new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2),
+                 })
+            seed.PlaceFounder("founder:" + Guid.NewGuid().ToString("N"), position);
+        seed.StartWorld();
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 8; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+
+        var state = seed.ExportState();
+        var workshop = seed.WorldContent.Buildings.Single(building => building.LocalId == "workshop");
+        var tools = seed.WorldContent.Recipes.Single(recipe => recipe.LocalId == "tools");
+        var site = state.Map.Tiles.Select(tile => tile.Position).First(point =>
+            state.Map.IsBuildable(point) &&
+            TownBorderRules.IsWithinOrAdjacent(seed.Towns.Single(), point, workshop.Width, workshop.Height) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.Position == point));
+        var building = seed.PlaceBuilding("town-workshop", workshop.CanonicalId, site);
+        Assert.True(building.Applied, building.Failure);
+        var agentId = "agent:" + Guid.NewGuid().ToString("N");
+        Assert.Null(seed.AddAgent(agentId, site));
+        Assert.Contains(seed.Society.Inventory.Lots, lot =>
+            lot.OwnerId == "household:camp-alpha" && lot.ItemKind == "wood" && lot.Quantity >= 3);
+        var borrowed = seed.StartProduction(tools.CanonicalId, "town-workshop", agentId);
+        Assert.False(borrowed.Applied);
+
+        state = seed.ExportState();
+        state = state with
+        {
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Inventory = InventoryFixture.AddLot(state.Society.Society.Inventory,
+                        "wood:personal-builder", "wood", agentId, 3),
+                },
+            },
+        };
+        using var stocked = PrivateWorldRuntime.Restore(state);
+        var started = stocked.StartProduction(tools.CanonicalId, "town-workshop", agentId);
+        Assert.True(started.Applied, started.Failure);
+        for (var tick = 0; tick < tools.DurationTicks; tick++)
+            Assert.True((await stocked.AdvanceOneTickAsync()).Advanced);
+        var output = stocked.Society.Inventory.Lots.Single(lot => lot.Id == started.JobId + ":output:00");
+        Assert.Equal(agentId, output.OwnerId);
+    }
+
     [Fact]
     public async Task AddedAdultOnRecordedHouseholdPropertyJoinsThatHouseholdAndEnclosingTown()
     {
@@ -91,24 +145,42 @@ public sealed class FounderSetupTests
             Assert.True(tick.Advanced);
             var map = resumedSetup.ExportState().Map;
             var position = map.Tiles.Select(tile => tile.Position).First(point =>
-                map.IsPassable(point) &&
+                map.IsBuildable(point) &&
+                resumedSetup.Towns.Single().BorderTiles.Contains(point) &&
                 !map.CampObjects.Any(item => item.Position == point) &&
                 !map.Resources.Any(item => item.Position == point) &&
                 !resumedSetup.Inhabitants.Any(item => item.Position == point));
             var agentId = "agent:" + Guid.NewGuid().ToString("N");
+            var householdCount = resumedSetup.Society.Households.Count;
             var householdId = resumedSetup.AddAgent(agentId, position);
-            Assert.Equal("household:" + agentId, householdId);
-            Assert.Equal(agentId, resumedSetup.Society.Households.Single(item => item.Id == householdId).MemberIds.Single());
+            Assert.Null(householdId);
+            Assert.Equal(householdCount, resumedSetup.Society.Households.Count);
+            Assert.Null(resumedSetup.Society.GetInhabitant(agentId).HouseholdId);
+            Assert.Contains(agentId, resumedSetup.Towns.Single().ResidentIds);
+            var outside = map.Tiles.Select(tile => tile.Position).First(point =>
+                map.IsBuildable(point) &&
+                !resumedSetup.Towns.Single().BorderTiles.Contains(point) &&
+                !map.CampObjects.Any(item => item.Position == point) &&
+                !map.Resources.Any(item => item.Position == point) &&
+                !resumedSetup.Inhabitants.Any(item => item.Position == point));
+            var independentId = "agent:" + Guid.NewGuid().ToString("N");
+            var independentHouseholdId = resumedSetup.AddAgent(independentId, outside);
+            Assert.Equal("household:" + independentId, independentHouseholdId);
+            Assert.DoesNotContain(independentId, resumedSetup.Towns.Single().ResidentIds);
             Assert.Equal(4, resumedSetup.Society.Inhabitants.Count(item => item.Id.StartsWith("founder:", StringComparison.Ordinal)));
             Assert.Throws<ArgumentException>(() => resumedSetup.AddAgent(agentId, new GridPoint(5, 2)));
             Assert.True(resumedSetup.RenameAgent(agentId, "Nova"));
             Assert.False(resumedSetup.RenameAgent(agentId, "Nova"));
             Assert.Throws<ArgumentException>(() => resumedSetup.RenameAgent(agentId, "  "));
+            Assert.Equal(position, resumedSetup.Inhabitants.Single(item => item.InhabitantId == agentId).Position);
+            Assert.True((await resumedSetup.AdvanceOneTickAsync()).Advanced);
+            var positionAfterTick = resumedSetup.Inhabitants.Single(item => item.InhabitantId == agentId).Position;
             file.Save(resumedSetup);
             using var reloaded = file.LoadOrCreate("new-camp");
-            Assert.Equal(householdId, reloaded.Society.GetInhabitant(agentId).HouseholdId);
+            Assert.Null(reloaded.Society.GetInhabitant(agentId).HouseholdId);
+            Assert.Equal(independentHouseholdId, reloaded.Society.GetInhabitant(independentId).HouseholdId);
             Assert.Equal("Nova", reloaded.Society.GetInhabitant(agentId).Name);
-            Assert.Equal(position, reloaded.Inhabitants.Single(item => item.InhabitantId == agentId).Position);
+            Assert.Equal(positionAfterTick, reloaded.Inhabitants.Single(item => item.InhabitantId == agentId).Position);
         }
         finally
         {

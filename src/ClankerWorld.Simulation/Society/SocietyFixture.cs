@@ -162,14 +162,15 @@ public static partial class SocietyFixture
     }
 
     public static SocietyOperationResult AddAdult(
-        SocietyCheckpoint checkpoint, string inhabitantId, string householdId)
+        SocietyCheckpoint checkpoint, string inhabitantId, string? householdId)
     {
         Validate(checkpoint);
         var id = NormalizeRequiredText(inhabitantId, nameof(inhabitantId));
-        var home = NormalizeRequiredText(householdId, nameof(householdId));
+        var home = householdId is null ? null : NormalizeRequiredText(householdId, nameof(householdId));
         if (checkpoint.Inhabitants.Any(person => person.Id == id))
             throw new InvalidOperationException("The new agent ID already exists.");
-        var existingHousehold = checkpoint.Households.FirstOrDefault(household => household.Id == home);
+        var existingHousehold = home is null ? null :
+            checkpoint.Households.FirstOrDefault(household => household.Id == home);
 
         var age = checkpoint.Config.FounderStartingAge;
         var lifeBirth = checked(checkpoint.LifeTickAt(checkpoint.WorldTick) -
@@ -181,27 +182,35 @@ public static partial class SocietyFixture
             HouseholdId = home,
             NeedsName = true,
         };
-        var household = existingHousehold is null
-            ? new SocietyHousehold(home, "New household", [id], [])
-            : existingHousehold with
-            {
-                MemberIds = existingHousehold.MemberIds.Append(id)
-                .Order(StringComparer.Ordinal).ToArray()
-            };
-        var membership = new SocietyRelationship(
-            $"{home}:membership:{id}", 1, SocietyRelationshipType.HouseholdMembership,
-            home, id, SocietyRelationshipState.Accepted,
-            SocietyConsentState.ProtectedLifecycle, checkpoint.WorldTick, checkpoint.WorldTick,
-            "household", home, new[] { home, id }.Order(StringComparer.Ordinal).ToArray());
+        var households = checkpoint.Households;
+        var relationships = checkpoint.Relationships;
+        if (home is not null)
+        {
+            var household = existingHousehold is null
+                ? new SocietyHousehold(home, "New household", [id], [])
+                : existingHousehold with
+                {
+                    MemberIds = existingHousehold.MemberIds.Append(id)
+                        .Order(StringComparer.Ordinal).ToArray(),
+                };
+            households = existingHousehold is null
+                ? checkpoint.Households.Append(household).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray()
+                : checkpoint.Households.Select(item => item.Id == home ? household : item).ToArray();
+            var membership = new SocietyRelationship(
+                $"{home}:membership:{id}", 1, SocietyRelationshipType.HouseholdMembership,
+                home, id, SocietyRelationshipState.Accepted,
+                SocietyConsentState.ProtectedLifecycle, checkpoint.WorldTick, checkpoint.WorldTick,
+                "household", home, new[] { home, id }.Order(StringComparer.Ordinal).ToArray());
+            relationships = checkpoint.Relationships.Append(membership)
+                .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
+        }
         var next = checkpoint with
         {
             Inhabitants = checkpoint.Inhabitants.Append(person).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
-            Households = existingHousehold is null
-                ? checkpoint.Households.Append(household).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray()
-                : checkpoint.Households.Select(item => item.Id == home ? household : item).ToArray(),
-            Relationships = checkpoint.Relationships.Append(membership).OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
+            Households = households,
+            Relationships = relationships,
         };
-        return Commit(next, "agent_added", $"{id}:{home}", id);
+        return Commit(next, "agent_added", $"{id}:{home ?? "no_household"}", id);
     }
 
     public static SocietyOperationResult RenameInhabitant(

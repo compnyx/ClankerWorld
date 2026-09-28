@@ -35,7 +35,9 @@ public sealed partial class PrivateWorldRuntime
             item.State == SocietyRelationshipState.Accepted && item.EffectiveTick <= WorldTick &&
             item.ProposerId == actor && item.TargetId == person.InhabitantId));
 
-    private bool FamilyResourcesReady(string actor) => AccessibleShelters(actor).Any() &&
+    private bool FamilyResourcesReady(string actor) =>
+        society.Checkpoint.GetInhabitant(actor).HouseholdId is not null &&
+        AccessibleShelters(actor).Any() &&
         society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == HouseholdFor(actor) && IsEdibleFood(lot.ItemKind))
             .Sum(AvailableLotQuantity) >= society.Checkpoint.Inhabitants.Count(person => person.HouseholdId == HouseholdFor(actor) &&
                 person.Status == SocietyInhabitantStatus.Active) * 2 + 4 &&

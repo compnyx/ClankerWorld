@@ -356,7 +356,8 @@ public sealed partial class PrivateWorldRuntime
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
         var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true ||
             recipe?.WorkstationBuildingId == House1x1DefinitionId
-            ? HouseholdFor(inhabitantId) : HouseholdId;
+            ? HouseholdFor(inhabitantId) : society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId is null
+                ? inhabitantId : HouseholdId;
         var missing = inputs.FirstOrDefault(input => !HasAvailableQuantities([input], constructionOwner));
         if (missing.Amount > 0)
         {
@@ -453,7 +454,7 @@ public sealed partial class PrivateWorldRuntime
         var project = state.Project!;
         var carried = society.Checkpoint.Inventory.Lots.FirstOrDefault(lot => lot.OwnerId == inhabitantId &&
             lot.ItemKind == input.ResourceId && AvailableLotQuantity(lot) > 0);
-        if (carried is not null)
+        if (carried is not null && constructionOwner != inhabitantId)
         {
             var camp = map.GetObject("storage").Position;
             SetProject(inhabitantId, project with { Stage = "delivering", Blocker = $"Taking {input.ResourceId} to household storage" });
@@ -537,7 +538,9 @@ public sealed partial class PrivateWorldRuntime
                     item.Tags.Contains("house", StringComparer.Ordinal)) ||
                 !selection.IsBuilding && worldContent.Recipes.Any(item =>
                     item.CanonicalId == selection.DefinitionId && item.WorkstationBuildingId == House1x1DefinitionId)
-                ? HouseholdFor(person.InhabitantId) : HouseholdId;
+                ? HouseholdFor(person.InhabitantId) :
+                    society.Checkpoint.GetInhabitant(person.InhabitantId).HouseholdId is null
+                        ? person.InhabitantId : HouseholdId;
             foreach (var input in inputs ?? [])
             {
                 if (!HasAvailableQuantities([input], constructionOwner))

@@ -185,6 +185,12 @@ public partial class Main
                     ResolveWorldUri(), authority, deviceId, signer, CancellationToken.None);
                 placingAddedAgent = false;
                 founderSetupPanel.Hide();
+                if (receipt.HouseholdId is null)
+                {
+                    var townName = snapshot.Towns.FirstOrDefault(item =>
+                        item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y))?.Name ?? "a Town";
+                    return $"Agent joined {townName} without a household";
+                }
                 var newHousehold = receipt.HouseholdId == "household:" + agentId;
                 var householdName = snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == receipt.HouseholdId)?.Name
                     ?? receipt.HouseholdId;
@@ -276,7 +282,7 @@ public partial class Main
 
     private void ResetAddAgentPlacementHint()
     {
-        founderSetupHint.Text = "Choose this adult’s provider, model, and key. Point at a passable tile to preview affiliation: an owned building footprint joins that household; otherwise the adult starts an independent household. Saved Town borders set Town membership. Occupied House tiles can be shared.";
+        founderSetupHint.Text = "Choose this adult’s provider, model, and key. Point at a passable tile to preview affiliation: owned building property joins that household; unclaimed Town land joins the Town without a household; outside Town borders starts an independent household. Occupied House tiles can be shared.";
     }
 
     private void PreviewAddAgentPlacement(OwnerWorldSnapshot snapshot, Vector2I tile)
@@ -295,11 +301,12 @@ public partial class Main
         var ownerId = snapshot.PlacedBuildings.FirstOrDefault(item => item.HouseholdId is not null &&
             tile.X >= item.Position.X && tile.X < item.Position.X + item.Width &&
             tile.Y >= item.Position.Y && tile.Y < item.Position.Y + item.Height)?.HouseholdId;
-        var home = ownerId is null ? "new independent household" :
-            snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == ownerId)?.Name ?? ownerId;
         var town = snapshot.Towns.FirstOrDefault(item =>
-            item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y))?.Name ?? "no Town";
-        founderSetupHint.Text = $"Tile {tile.X}, {tile.Y} · Household: {home} · Town: {town}. " +
+            item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y));
+        var home = ownerId is not null
+            ? snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == ownerId)?.Name ?? ownerId
+            : town is null ? "new independent household" : "none";
+        founderSetupHint.Text = $"Tile {tile.X}, {tile.Y} · Household: {home} · Town: {town?.Name ?? "no Town"}. " +
             "Placement requires a passable tile, no conflicting occupant outside a House, and server validation.";
     }
 

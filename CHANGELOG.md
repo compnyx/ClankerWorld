@@ -12,8 +12,9 @@ release yet.
   under the pointer and reveals their map overlays. Placing an adult on an
   owned building footprint joins that household and the enclosing Town, if
   any; even an occupied House tile can accept another member. Placement
-  elsewhere still starts a separate household, and unclaimed Town land does
-  not become household property merely because an agent joins the Town.
+  on unclaimed Town land joins the Town without a household or access to a
+  founding household's private stock; outside Town borders, it starts a new
+  independent household. Moving later does not change that affiliation.
 - The top-bar Filters panel can hide the saved Town-border outline and show
   household-owned building footprints with stable household colors. It never
   tints unclaimed land as property; selecting a tile names its recorded

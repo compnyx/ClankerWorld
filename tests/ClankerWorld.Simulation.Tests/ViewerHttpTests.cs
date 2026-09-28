@@ -94,11 +94,14 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                 adult, OwnerHttpBinding.AgentPlacementPayload(adult));
             Assert.Equal(HttpStatusCode.OK, added.StatusCode);
             var addedReceipt = await added.Content.ReadFromJsonAsync<OwnerAgentPlacementReceipt>();
-            Assert.Equal("household:" + agentId, addedReceipt!.HouseholdId);
+            Assert.Null(addedReceipt!.HouseholdId);
             Assert.Equal(5, runtime.Inhabitants.Count);
+            Assert.Null(runtime.Society.GetInhabitant(agentId).HouseholdId);
+            Assert.Contains(agentId, runtime.Towns.Single().ResidentIds);
             var observedAdult = host.Services.GetRequiredService<OwnerWorldObservationStore>()
                 .GetSnapshot().Inhabitants.Single(person => person.Id == agentId);
             Assert.Equal("active", observedAdult.Lifecycle);
+            Assert.Equal("unhoused", observedAdult.DecisionFactors.Single(factor => factor.Key == "household").Detail);
             using var duplicate = await SendSignedAsync(host, client, key, device.DeviceId, agentPath,
                 adult, OwnerHttpBinding.AgentPlacementPayload(adult));
             Assert.Equal(HttpStatusCode.BadRequest, duplicate.StatusCode);

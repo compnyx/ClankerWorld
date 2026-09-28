@@ -1049,7 +1049,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         GridPoint position,
         string eventKind,
         string? assignedTownId = null,
-        string? householdId = null)
+        string? householdId = null,
+        string? constructionOwnerId = null)
     {
         try
         {
@@ -1098,7 +1099,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 inventory,
                 definition.BuildCosts,
                 $"building:{normalizedInstanceId}",
-                householdId ?? HouseholdId));
+                householdId ?? constructionOwnerId ?? HouseholdId));
             var placed = new PlacedBuilding(
                 normalizedInstanceId,
                 definition.CanonicalId,
@@ -1237,7 +1238,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     recipe.Inputs,
                     $"{jobId}:input",
                     completionTick,
-                    placed?.HouseholdId ?? HouseholdId,
+                    ProductionOwnerFor(placed, normalizedWorkerId),
                     out reservationIds,
                     houseRecipe ? placed!.InstanceId : null);
                 return reserved;
@@ -1436,19 +1437,21 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             throw new ArgumentException("Choose an empty passable tile for this founder.", nameof(position));
     }
 
-    public string AddAgent(string agentId, GridPoint position)
+    public string? AddAgent(string agentId, GridPoint position)
     {
         gate.Wait();
         try
         {
             ValidateAgentPlacementUnsafe(agentId, position);
-            // Saved household property determines starting membership. A
-            // placement outside it remains an unrelated one-person household.
-            var householdId = HouseholdPropertyAt(position) ?? "household:" + agentId;
+            var town = towns.SingleOrDefault(item => item.BorderTiles.Contains(position));
+            // The Town border gives residency, not household membership.
+            // Only recorded household property forces an existing household;
+            // outside every Town, the adult begins an independent one.
+            var householdId = HouseholdPropertyAt(position) ??
+                (town is null ? "household:" + agentId : null);
             society.Apply(checkpoint => SocietyFixture.AddAdult(checkpoint, agentId, householdId));
             inhabitants.Add(agentId, new PlaytestInhabitantState(agentId, position, 6_500, 0,
                 "undecided", "find a purpose"));
-            var town = towns.SingleOrDefault(item => item.BorderTiles.Contains(position));
             if (town is not null) AddTownResident(town.Id, agentId, "agent_joined");
             else AppendEvent("town_membership_evaluated", $"{agentId}:unaffiliated");
             AppendEvent("agent_added", agentId);
@@ -2338,7 +2341,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             : 35;
         var productionBuilding = worldSimulation.Buildings
             .FirstOrDefault(building => building.InstanceId == job.BuildingInstanceId);
-        var productionOwner = productionBuilding?.HouseholdId ?? HouseholdId;
+        var productionOwner = ProductionOwnerFor(productionBuilding, job.WorkerId);
         ApplyInventoryTransition(inventory =>
         {
             var current = inventory;
@@ -3034,7 +3037,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 position,
                 "build_completed",
                 TownForResident(inhabitantId),
-                houseOwner);
+                houseOwner,
+                society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId is null ? inhabitantId : null);
             if (!placement.Applied)
             {
                 AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:{placement.Failure}");
@@ -3236,7 +3240,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AppendEvent("fruit_harvested", $"{inhabitantId}:{source.Id}:{HarvestFoodYield}:picked");
     }
 
-    private string HouseholdFor(string actor) => society.Checkpoint.GetInhabitant(actor).HouseholdId ?? HouseholdId;
+    private string HouseholdFor(string actor) => society.Checkpoint.GetInhabitant(actor).HouseholdId ?? actor;
+
+    private string ProductionOwnerFor(PlacedBuilding? building, string workerId) =>
+        building?.HouseholdId ??
+        (society.Checkpoint.GetInhabitant(workerId).HouseholdId is null ? workerId : HouseholdId);
 
     private PlacedBuilding? HouseForHousehold(string householdId) => worldSimulation.Buildings
         .Where(building => building.HouseholdId == householdId)
@@ -3249,7 +3257,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private static int HouseholdStockInteractionRange(InventoryLot lot) =>
         lot.StorageBuildingId is null ? ResourceInteractionRange : 0;
 
-    private InventoryLot? AvailableSharedFood(string actor) => MayCollectSharedFood(actor)
+    private InventoryLot? AvailableSharedFood(string actor) =>
+        society.Checkpoint.GetInhabitant(actor).HouseholdId is not null && MayCollectSharedFood(actor)
         ? PreferredFood(HouseholdFor(actor), actor).FirstOrDefault(lot =>
             (lot.StorageBuildingId is null ||
              society.Checkpoint.GetInhabitant(actor).HouseholdId == lot.OwnerId) &&
@@ -3406,7 +3415,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 }
                 var instanceId = BuildInstanceId(inhabitant.Id, definition);
                 var constructionOwner = definition.Tags.Contains("house", StringComparer.Ordinal)
-                    ? inhabitant.HouseholdId : null;
+                    ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
                 if (worldSimulation.Buildings.Any(item => item.InstanceId == instanceId) ||
                     !CanAcquireProjectInputs(definition.BuildCosts, constructionOwner))
                 {
@@ -3440,7 +3449,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 continue;
             }
             var recipeOwner = recipe.WorkstationBuildingId == House1x1DefinitionId
-                ? inhabitant.HouseholdId : null;
+                ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
             if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner) ||
                 !TryFindRecipeSite(recipe, out var siteId, out var position, inhabitant.Id) ||
                 recipe.WorkstationBuildingId == House1x1DefinitionId &&

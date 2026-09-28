@@ -90,7 +90,7 @@ public sealed record OwnerFounderPlacementReceipt(string FounderId, string House
 public sealed record OwnerAgentPlacementAction(
     string AgentId, int X, int Y, OwnerProviderConfigurationAction Cognition);
 
-public sealed record OwnerAgentPlacementReceipt(string AgentId, string HouseholdId);
+public sealed record OwnerAgentPlacementReceipt(string AgentId, string? HouseholdId);
 
 public sealed record OwnerAgentRenameAction(string AgentId, string Name);
 
