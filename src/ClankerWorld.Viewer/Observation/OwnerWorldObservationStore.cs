@@ -23,6 +23,7 @@ public sealed class OwnerWorldObservationStore
         "seeded-map.read.v1",
         "inhabitant-inspection.read.v1",
         "spatial-knowledge.read.v1",
+        "owner-map-layer-delta.v1",
         "owner-device-pairing.v1",
         "owner-observation.read.v1",
         "owner-control.request.v1",
@@ -85,12 +86,14 @@ public sealed class OwnerWorldObservationStore
     }
 
     public ViewerReconnectBaseline GetReconnectBaseline(long afterEventId,
-        string? knownTerrainWorldId = null, string? knownTerrainDigest = null)
+        string? knownTerrainWorldId = null, string? knownTerrainDigest = null,
+        string? knownMapLayersDigest = null)
     {
         if (privateRuntime is not null)
         {
             var state = privateRuntime.ExportState();
-            var privateSnapshot = ToSnapshot(state, knownTerrainWorldId, knownTerrainDigest);
+            var privateSnapshot = ToSnapshot(state, knownTerrainWorldId, knownTerrainDigest,
+                knownMapLayersDigest);
             return new ViewerReconnectBaseline(
                 privateSnapshot,
                 new ViewerEventSlice(
@@ -192,7 +195,8 @@ public sealed class OwnerWorldObservationStore
     }
 
     private static ViewerWorldSnapshot ToSnapshot(PrivateWorldRuntimeState state,
-        string? knownTerrainWorldId = null, string? knownTerrainDigest = null)
+        string? knownTerrainWorldId = null, string? knownTerrainDigest = null,
+        string? knownMapLayersDigest = null)
     {
         var map = state.Map;
         var ecology = state.WorldSystems?.Ecology.Resources.ToDictionary(resource => resource.Id, StringComparer.Ordinal);
@@ -219,6 +223,9 @@ public sealed class OwnerWorldObservationStore
         var terrainUnchanged = state.Geography is not null &&
             string.Equals(knownTerrainWorldId, state.Society.Society.WorldId, StringComparison.Ordinal) &&
             string.Equals(knownTerrainDigest, map.ManifestDigest, StringComparison.Ordinal);
+        var mapLayersDigest = state.Geography is null ? null : MapLayerManifestCodec.Digest(map);
+        var mapLayersUnchanged = terrainUnchanged && mapLayersDigest is not null &&
+            string.Equals(knownMapLayersDigest, mapLayersDigest, StringComparison.Ordinal);
         var packedTerrain = state.Geography is null || terrainUnchanged ? null : PackTerrain(map);
         var campWeather = state.WorldSystems is { } currentSystems
             ? WeatherRules.At(currentSystems,
@@ -261,6 +268,8 @@ public sealed class OwnerWorldObservationStore
             latestEventId)
         {
             PackedTerrain = packedTerrain,
+            PackedMapLayers = state.Geography is null || mapLayersUnchanged ? null : PackMapLayers(map),
+            MapLayersDigest = mapLayersDigest,
             WrapsEastWest = state.Geography?.WrapEastWest == true,
             Inhabitants = activeInhabitants
                 .Select(inhabitant => ToPlaytestInhabitant(state, inhabitant, physicalById[inhabitant.Id]))
@@ -403,6 +412,17 @@ public sealed class OwnerWorldObservationStore
             bytes[tile.Position.Y * map.Width + tile.Position.X] = checked((byte)tile.Terrain);
         return new ViewerPackedTerrain(map.Width, map.Height, "terrain-kind-v1",
             Convert.ToBase64String(bytes));
+    }
+
+    internal static ViewerPackedMapLayers? PackMapLayers(SeededMap map)
+    {
+        if (map.ClimateZones is not { } climate || map.ElevationLevels is not { } elevation ||
+            map.HydrologyKinds is not { } hydrology || map.SurfaceKinds is not { } surface ||
+            map.VegetationKinds is not { } vegetation) return null;
+        return new ViewerPackedMapLayers(map.Width, map.Height, "map-layers-v1",
+            Convert.ToBase64String(climate), Convert.ToBase64String(elevation),
+            Convert.ToBase64String(hydrology), Convert.ToBase64String(surface),
+            Convert.ToBase64String(vegetation));
     }
 
     private static ViewerWeatherRegion[] CreateWeatherRegions(WorldSystemsState systems, SeededMap map)

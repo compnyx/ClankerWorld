@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Simulation.World;
 using ClankerWorld.Viewer.Control;
@@ -72,6 +73,8 @@ public sealed partial class ViewerHttpTests
                 var preview = (await previewed.Content.ReadFromJsonAsync<ViewerWorldPreview>())!;
                 Assert.Equal(256, preview.Terrain.Width);
                 Assert.True(preview.ResourceSites > 20);
+                Assert.NotNull(preview.PackedMapLayers);
+                Assert.NotNull(preview.MapLayersDigest);
                 Assert.Contains(selectionLog.Messages, message => message.Contains(
                     "world_preview outcome=generated width=256", StringComparison.Ordinal));
                 Assert.Null(host.Services.GetRequiredService<PrivateWorldRuntime>().ExportState().Geography);
@@ -87,6 +90,7 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(WorldSizePreset.Small, runtime.ExportState().Geography?.Size);
                 Assert.Equal(256, runtime.ExportState().Map.Width);
                 Assert.Equal(preview.ManifestDigest, runtime.ExportState().Map.ManifestDigest);
+                Assert.Equal(preview.MapLayersDigest, MapLayerManifestCodec.Digest(runtime.ExportState().Map));
                 Assert.Equal(preview.ResourceSites, runtime.ExportState().Map.Resources.Count);
                 Assert.Equal(preview.Camp.X, runtime.ExportState().Map.GetObject("storage").Position.X);
                 Assert.Equal(preview.Camp.Y, runtime.ExportState().Map.GetObject("storage").Position.Y);
@@ -103,22 +107,29 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(entry.WorldId, view.Baseline.Snapshot.WorldId);
                 Assert.Equal(256, view.Baseline.Snapshot.PackedTerrain?.Width);
                 Assert.Equal(preview.Terrain.Data, view.Baseline.Snapshot.PackedTerrain?.Data);
+                Assert.Equal(preview.PackedMapLayers, view.Baseline.Snapshot.PackedMapLayers);
+                Assert.Equal(preview.MapLayersDigest, view.Baseline.Snapshot.MapLayersDigest);
                 Assert.Equal(create.WrapEastWest, view.Baseline.Snapshot.WrapsEastWest);
                 Assert.Empty(view.Baseline.Snapshot.Tiles);
                 var cachedReconnect = new OwnerReconnectAction(0, entry.WorldId,
-                    view.Baseline.Snapshot.MapManifestDigest);
+                    view.Baseline.Snapshot.MapManifestDigest, view.Baseline.Snapshot.MapLayersDigest);
                 using var observedAgain = await SendSignedAsync(host, client, key, device.DeviceId,
                     "/api/v1/owner/reconnect", cachedReconnect,
                     OwnerHttpBinding.ReconnectPayload(cachedReconnect));
                 Assert.Equal(HttpStatusCode.OK, observedAgain.StatusCode);
                 var cachedView = (await observedAgain.Content.ReadFromJsonAsync<ViewerOwnerReconnect>())!;
                 Assert.Null(cachedView.Baseline.Snapshot.PackedTerrain);
+                Assert.Null(cachedView.Baseline.Snapshot.PackedMapLayers);
                 Assert.Empty(cachedView.Baseline.Snapshot.Tiles);
                 Assert.Equal(view.Baseline.Snapshot.MapManifestDigest,
                     cachedView.Baseline.Snapshot.MapManifestDigest);
-                Assert.True((await observed.Content.ReadAsByteArrayAsync()).Length -
-                    (await observedAgain.Content.ReadAsByteArrayAsync()).Length >=
-                    view.Baseline.Snapshot.PackedTerrain!.Data.Length);
+                Assert.Equal(view.Baseline.Snapshot.MapLayersDigest,
+                    cachedView.Baseline.Snapshot.MapLayersDigest);
+                var firstObservationBytes = (await observed.Content.ReadAsByteArrayAsync()).Length;
+                var cachedObservationBytes = (await observedAgain.Content.ReadAsByteArrayAsync()).Length;
+                Assert.True(firstObservationBytes - cachedObservationBytes >=
+                    view.Baseline.Snapshot.PackedTerrain!.Data.Length +
+                    view.Baseline.Snapshot.PackedMapLayers!.Elevation.Length);
                 Assert.Empty(providers.CaptureRuntimeConfiguration().Assignments ?? []);
                 Assert.Equal(5, host.Services.GetRequiredService<WorldAutosaveStore>().Capture().IntervalMinutes);
                 Assert.DoesNotContain("test-secret-key", File.ReadAllText(Path.Combine(

@@ -287,7 +287,17 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         // Geography already binds that choice, while the v1 terrain manifest
         // remains byte-compatible with existing saves.
         runtime.map = state.Geography is null ? state.Map :
-            state.Map with { WrapsEastWest = state.Geography.WrapEastWest };
+            state.Map with
+            {
+                WrapsEastWest = state.Geography.WrapEastWest,
+                // Schema 19 saved only climate and the flattened terrain. Its
+                // deterministic generator still recovers the original layers
+                // without changing the v1 manifest or resource topology.
+                ElevationLevels = state.Map.ElevationLevels ?? runtime.map.ElevationLevels,
+                HydrologyKinds = state.Map.HydrologyKinds ?? runtime.map.HydrologyKinds,
+                SurfaceKinds = state.Map.SurfaceKinds ?? runtime.map.SurfaceKinds,
+                VegetationKinds = state.Map.VegetationKinds ?? runtime.map.VegetationKinds,
+            };
         runtime.eventHistoryFloor = state.EventHistoryFloor;
         runtime.historyArchiveHead = state.HistoryArchiveHead;
         runtime.checkpointSchemaVersion = StateSchemaVersion;

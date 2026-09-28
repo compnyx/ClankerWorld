@@ -40,14 +40,23 @@ public partial class WorldOverview : Control
         // atlas resolution instead of millions of canvas rectangles.
         var atlasWidth = Math.Min(mapWidth, 256);
         var atlasHeight = Math.Min(mapHeight, 128);
-        var votes = new int[checked(atlasWidth * atlasHeight * 11)];
+        var pixelCount = checked(atlasWidth * atlasHeight);
+        var colors = new float[checked(pixelCount * 4)];
+        var counts = new int[pixelCount];
         for (var y = 0; y < mapHeight; y++)
         {
             var atlasY = y * atlasHeight / mapHeight;
             for (var x = 0; x < mapWidth; x++)
             {
                 var atlasX = x * atlasWidth / mapWidth;
-                votes[((atlasY * atlasWidth + atlasX) * 11) + world.At(x, y)]++;
+                var pixel = atlasY * atlasWidth + atlasX;
+                var color = world.DisplayColorAt(x, y);
+                var offset = pixel * 4;
+                colors[offset] += color.R;
+                colors[offset + 1] += color.G;
+                colors[offset + 2] += color.B;
+                colors[offset + 3] += color.A;
+                counts[pixel]++;
             }
         }
         var image = Image.CreateEmpty(atlasWidth, atlasHeight, false, Image.Format.Rgba8);
@@ -55,11 +64,11 @@ public partial class WorldOverview : Control
         {
             for (var x = 0; x < atlasWidth; x++)
             {
-                var offset = (y * atlasWidth + x) * 11;
-                var dominant = 0;
-                for (var kind = 1; kind < 11; kind++)
-                    if (votes[offset + kind] > votes[offset + dominant]) dominant = kind;
-                image.SetPixel(x, y, WorldTerrainMap.ColorFor((byte)dominant));
+                var pixel = y * atlasWidth + x;
+                var offset = pixel * 4;
+                var scale = 1f / Math.Max(1, counts[pixel]);
+                image.SetPixel(x, y, new Color(colors[offset] * scale, colors[offset + 1] * scale,
+                    colors[offset + 2] * scale, colors[offset + 3] * scale));
             }
         }
         atlasTexture = ImageTexture.CreateFromImage(image);

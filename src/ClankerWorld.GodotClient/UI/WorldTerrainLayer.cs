@@ -34,7 +34,7 @@ public partial class WorldTerrainLayer : Control
         var image = Image.CreateEmpty(map.Width, map.Height, false, Image.Format.Rgba8);
         for (var y = 0; y < map.Height; y++)
             for (var x = 0; x < map.Width; x++)
-                image.SetPixel(x, y, WorldTerrainMap.ColorFor(map.At(x, y)));
+                image.SetPixel(x, y, map.DisplayColorAt(x, y));
         paletteTexture = ImageTexture.CreateFromImage(image);
         trees = new byte[checked(map.Width * map.Height)];
         weatherRegions.Clear();
@@ -177,12 +177,12 @@ public partial class WorldTerrainLayer : Control
         {
             for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
             {
-                var kind = world.At(wrapsEastWest ? Mod(x, world.Width) : x, y);
+                var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
+                var kind = world.At(mapX, y);
                 var position = new Vector2(x * stride, y * stride);
-                DrawRect(new Rect2(position, new Vector2(tileSize, tileSize)), WorldTerrainMap.ColorFor(kind));
-                if (tileSize >= 28 && kind is 2 or 3 or 4 or 10)
+                DrawRect(new Rect2(position, new Vector2(tileSize, tileSize)), world.DisplayColorAt(mapX, y));
+                if (tileSize >= 28 && world.DisplayMarkerAt(mapX, y) is { } marker)
                 {
-                    var marker = kind is 3 or 10 ? "▲" : "≈";
                     DrawString(ThemeDB.FallbackFont, position + new Vector2(tileSize * 0.4f, tileSize * 0.65f),
                         marker, fontSize: Math.Clamp(tileSize / 5, 12, 28), modulate: new Color("E6F0E8"));
                 }

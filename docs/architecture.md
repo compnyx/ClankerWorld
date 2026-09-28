@@ -39,18 +39,28 @@ held world ID and map digest, so unchanged terrain is omitted and the client
 reuses its verified map; first connection, world switch and digest changes
 send a full map. This whole-map delta avoids routine retransmission, but
 viewport/chunk transfer and control-receipt caching remain large-world work.
-The simulation can project Small/Medium deterministic generated geography into
-its existing physical-map contract, place an empty camp on a clear 64×64
-region, then carry generation options through save/reload and starting-agent setup.
-This bridge maps rivers, lakes, ocean, mountain and peak, plus provisional
-sand, forest and snow ground. It saves an independent per-tile climate-zone
-layer in the map manifest; surface and vegetation are still collapsed into
-ground kinds, not full layers. Signed New World preview/create options select
-balanced, uniform or dominant climate and optional latitude cooling. The larger
-geography presets remain compact generator outputs, not playable-map promises.
+The simulation projects Small/Medium deterministic generated geography into
+its existing physical-map contract, places an empty camp on a clear 64×64
+region, then carries generation options through save/reload and starting-agent setup.
+It persists separate row-major climate-zone, elevation, hydrology, surface,
+and vegetation-cover layers beside the stable v1 terrain projection. Individual
+trees remain resources/objects, not vegetation-cover values. Generated movement
+uses hydrology and elevation; building eligibility also reads surface. Camera
+and overview ground drawing use surface, vegetation cover, hydrology and
+elevation, while the v1 terrain projection remains the manifest/save
+compatibility summary and the fallback for fixture/legacy maps. Its manifest
+digest and byte encoding remain unchanged for Small/Medium save compatibility.
+Older generated saves recover missing layers from their saved deterministic
+generation options on restore. Owner observations and New World previews carry
+the layers independently; signed reconnects reuse them only with a matching
+layer digest as well as the existing world/terrain claim. Signed New World
+preview/create options select balanced, uniform or dominant climate and
+optional latitude cooling. The larger geography presets remain compact
+generator outputs, not playable-map promises.
 Generated maps also choose bounded resource sites per 16×16 ground
-cell, with food/fiber/seed/stone/wood biased by the projected ground. Starter
-camp resources remain reachable; remote sites need not be reachable on foot.
+cell, with food/fiber/seed/stone/wood biased by their surface and vegetation
+layers. Starter camp resources remain reachable; remote sites need not be
+reachable on foot.
 The simulation creates 64×64 chunk manifests across the generated map, each
 holding only its own resource metadata; the tiny fixture retains one chunk.
 Food and project-material selection currently consider the camp's foot-accessible

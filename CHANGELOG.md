@@ -9,6 +9,11 @@ release yet.
 ### Fixed
 
 - Turning Jev off now keeps agents' saved social memories useful in personal-model decisions. Each agent receives only a small, relevant set of its own non-forgotten memories; provider failures do not add or share memories.
+- Generated Small/Medium maps now keep climate, elevation, water, surface and
+  vegetation cover distinct through saves, previews and owner observations.
+  Ground drawing and movement use those facts separately; individual trees
+  remain objects. Older generated saves recover the missing layers without
+  changing their terrain manifest or resource layout.
 - Agents can cross narrow river tiles on foot only between opposite dry banks.
   They no longer walk along a channel or cut diagonally through its water;
   wider rivers remain impassable without later transport or bridges.
@@ -23,15 +28,15 @@ release yet.
   parenthood and council actions for children even if a model or owner request
   tries to select one; infants still make no personal-model decisions.
 - Added a reviewable selected-tile inspection prototype. Clicking ground
-  highlights the tile and shows observed terrain, objects, resources,
-  buildings, regional weather and moisture. Elevation and fertility are
-  explicitly unavailable until authoritative fields exist; final layout and
-  fields remain subject to owner playtest.
+  highlights the tile and shows terrain kind, separate generated climate,
+  elevation, surface, hydrology and vegetation cover, objects, resources,
+  buildings, regional weather and moisture. Fertility remains explicitly
+  unavailable; final layout and fields remain subject to owner playtest.
 - Signed owner reconnects now use a versioned terrain-cache claim. After an
   initial generated-map transfer, unchanged terrain bytes are omitted from
-  routine observations; clients reuse only a matching world ID and manifest
-  and fetch a full map after reconnect without a cache, world switch or map
-  change. Ordinary world events and dynamic objects remain fresh.
+  routine observations; clients reuse only a matching world, terrain manifest
+  and map-layer digest, and fetch fresh map data after a cache miss or change.
+  Ordinary world events and dynamic objects remain fresh.
 - Private-world saves now store generated terrain in versioned 64×64 byte
   chunks with per-chunk integrity hashes rather than one JSON object per tile.
   Existing v1 saves load and migrate atomically to v2/schema 19; damaged or

@@ -465,7 +465,7 @@ public partial class Main
                 return;
             }
             worldPreview.MarkerTile = new Vector2(result.Camp.X, result.Camp.Y);
-            worldPreview.SetWorld(WorldTerrainMap.FromPacked(result.Terrain));
+            worldPreview.SetWorld(WorldTerrainMap.FromPacked(result.Terrain, result.PackedMapLayers));
             worldPreview.Show();
             previewedWorldOptions = action;
             worldCreateButton.Disabled = false;

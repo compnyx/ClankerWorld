@@ -79,7 +79,11 @@ public sealed class WorldSelectionCoordinator(
             var camp = map.GetObject("storage").Position;
             WorldSelectionTelemetry.Previewed(logger, map.Width, map.Height);
             return new ViewerWorldPreview(OwnerWorldObservationStore.PackTerrain(map),
-                new ViewerPosition(camp.X, camp.Y), map.ManifestDigest, map.Resources.Count);
+                new ViewerPosition(camp.X, camp.Y), map.ManifestDigest, map.Resources.Count)
+            {
+                PackedMapLayers = OwnerWorldObservationStore.PackMapLayers(map),
+                MapLayersDigest = MapLayerManifestCodec.Digest(map),
+            };
         }
     }
 

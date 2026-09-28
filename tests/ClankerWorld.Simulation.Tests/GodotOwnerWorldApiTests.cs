@@ -18,6 +18,11 @@ public sealed class GodotOwnerWorldApiTests
             OwnerWorldActionPayload.Reconnect(new OwnerReconnectAction(5)));
         Assert.Equal(OwnerHttpBinding.ReconnectPayload(new ServerReconnectAction(5, "world-1", digest)),
             OwnerWorldActionPayload.Reconnect(new OwnerReconnectAction(5, "world-1", digest)));
+        var mapLayersDigest = new string('b', 64);
+        Assert.Equal(OwnerHttpBinding.ReconnectPayload(new ServerReconnectAction(5, "world-1", digest,
+                mapLayersDigest)),
+            OwnerWorldActionPayload.Reconnect(new OwnerReconnectAction(5, "world-1", digest,
+                mapLayersDigest)));
     }
 
     [Fact]
@@ -25,6 +30,9 @@ public sealed class GodotOwnerWorldApiTests
     {
         var first = CreateCoherentReconnect();
         var packed = new OwnerWorldPackedTerrain(1, 1, "terrain-kind-v1", "AA==");
+        var packedLayers = new OwnerWorldPackedMapLayers(1, 1, "map-layers-v1",
+            "AA==", "AQ==", "AA==", "AA==", "AQ==");
+        var layerDigest = new string('b', 64);
         first = first with
         {
             Handshake = first.Handshake with
@@ -33,7 +41,11 @@ public sealed class GodotOwnerWorldApiTests
             },
             Baseline = first.Baseline with
             {
-                Snapshot = first.Baseline.Snapshot with { Tiles = [], PackedTerrain = packed },
+                Snapshot = first.Baseline.Snapshot with
+                {
+                    Tiles = [], PackedTerrain = packed, PackedMapLayers = packedLayers,
+                    MapLayersDigest = layerDigest,
+                },
             },
         };
         var session = new OwnerWorldObservationSession();
@@ -42,12 +54,27 @@ public sealed class GodotOwnerWorldApiTests
         {
             Baseline = first.Baseline with
             {
-                Snapshot = first.Baseline.Snapshot with { Tiles = [], PackedTerrain = null },
+                Snapshot = first.Baseline.Snapshot with
+                {
+                    Tiles = [], PackedTerrain = null, PackedMapLayers = null,
+                    MapLayersDigest = layerDigest,
+                },
                 Events = first.Baseline.Events with { AfterEventId = 5, Events = [] },
             },
         };
         Assert.True(session.TryAccept(delta, 5, out var deltaFailure), deltaFailure);
         Assert.Same(packed, session.Current!.Baseline.Snapshot.PackedTerrain);
+        Assert.Same(packedLayers, session.Current.Baseline.Snapshot.PackedMapLayers);
+        Assert.Equal(layerDigest, session.Current.Baseline.Snapshot.MapLayersDigest);
+        Assert.False(session.TryAccept(delta with
+        {
+            Baseline = delta.Baseline with
+            {
+                Snapshot = delta.Baseline.Snapshot with { MapLayersDigest = new string('c', 64) },
+            },
+        }, 5, out var layersFailure));
+        Assert.Contains("map-layer cache", layersFailure, StringComparison.Ordinal);
+        Assert.Same(packedLayers, session.Current.Baseline.Snapshot.PackedMapLayers);
         Assert.False(session.TryAccept(delta with
         {
             Baseline = delta.Baseline with

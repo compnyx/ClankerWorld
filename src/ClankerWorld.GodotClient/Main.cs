@@ -84,6 +84,7 @@ public partial class Main : Control
     private WorldTerrainMap? terrainMap;
     private string? terrainWorldId;
     private string? terrainManifestDigest;
+    private string? terrainLayersDigest;
     private readonly Control mapCanvas = new();
     private readonly Control mapStage = new();
     private readonly PanelContainer worldOverviewPanel = new();
@@ -393,6 +394,14 @@ public partial class Main : Control
             var sample = new OwnerWorldSnapshot("ui-test", 0, "ui-map", Enumerable.Range(0, 16)
                 .Select(index => new OwnerWorldTile(index % 4, index / 4, "meadow")).ToArray(), [], [sampleResource], null, 0)
             {
+                PackedTerrain = new OwnerWorldPackedTerrain(4, 4, "terrain-kind-v1",
+                    Convert.ToBase64String(new byte[16])),
+                PackedMapLayers = new OwnerWorldPackedMapLayers(4, 4, "map-layers-v1",
+                    Convert.ToBase64String(Enumerable.Repeat((byte)2, 16).ToArray()),
+                    Convert.ToBase64String(Enumerable.Repeat((byte)123, 16).ToArray()),
+                    Convert.ToBase64String(new byte[16]),
+                    Convert.ToBase64String(Enumerable.Repeat((byte)1, 16).ToArray()),
+                    Convert.ToBase64String(Enumerable.Repeat((byte)3, 16).ToArray())),
                 PlacedBuildings = [new("test-hall", "test-definition", new(0, 2), 0, "Test hall", ["shelter"], 2, 1)],
                 ContentPackages = [new("owner-building-ui-test", "1.0.0", "sha256:test", "proposed", null, null, null, null,
                     "sha256:manifest", "Mira's shelter study", "builder-test")],
@@ -445,9 +454,21 @@ public partial class Main : Control
             });
             if (!selectedTilePanel.Visible || terrainLayer.SelectedTile != new Vector2I(1, 1) ||
                 !selectedTileText.Text.Contains("8 available", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Elevation: unavailable", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Climate: Temperate", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Elevation: 123/255", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Hydrology: Land", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Terrain kind: Meadow", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Surface: Sand", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Vegetation: Scrub", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Fertility: unavailable", StringComparison.Ordinal))
-                throw new InvalidOperationException("Selected-tile inspection must show observed resources and mark unavailable terrain facts honestly.");
+                throw new InvalidOperationException("Selected-tile inspection must show separate map facts and mark unavailable fertility honestly.");
+            var renderedSurface = terrainMap?.DisplayColorAt(1, 1) ?? Colors.Transparent;
+            var expectedSurface = new Color("AA985F");
+            if (terrainMap?.SurfaceAt(1, 1) != 1 ||
+                Math.Abs(renderedSurface.R - expectedSurface.R) > 0.001f ||
+                Math.Abs(renderedSurface.G - expectedSurface.G) > 0.001f ||
+                Math.Abs(renderedSurface.B - expectedSurface.B) > 0.001f)
+                throw new InvalidOperationException("The rendered map must use its separate surface and vegetation layers.");
             var marker = mapObjectVisuals["resource:wood"];
             var identity = marker.GetInstanceId();
             var entered = false;
@@ -535,6 +556,9 @@ public partial class Main : Control
             var crowded = sample with
             {
                 WorldId = "ui-marker-bounds",
+                PackedTerrain = null,
+                PackedMapLayers = null,
+                MapLayersDigest = null,
                 Tiles = Enumerable.Range(0, 64 * 64)
                     .Select(index => new OwnerWorldTile(index % 64, index / 64, "meadow")).ToArray(),
                 Inhabitants = Enumerable.Range(0, 4)
@@ -568,6 +592,9 @@ public partial class Main : Control
             RenderMap(sample with
             {
                 WorldId = "ui-navigation",
+                PackedTerrain = null,
+                PackedMapLayers = null,
+                MapLayersDigest = null,
                 Tiles = Enumerable.Range(0, 192)
                     .Select(index => new OwnerWorldTile(index % 16, index / 16, "meadow")).ToArray(),
                 Resources = [],
@@ -627,6 +654,8 @@ public partial class Main : Control
                 Tiles = [],
                 PackedTerrain = new OwnerWorldPackedTerrain(256, 128, "terrain-kind-v1",
                     Convert.ToBase64String(largeTerrain)),
+                PackedMapLayers = null,
+                MapLayersDigest = null,
                 Authoring = new OwnerWorldAuthoringState(true, 0, 0, 0, "ui-large-map-v1",
                     "ui-large-map-v1", "clear", "spring", []),
                 WeatherRegionSize = 32,
@@ -1099,8 +1128,14 @@ public partial class Main : Control
             var requestedCursor = observationSession.EventCursor;
             var cachedTerrain = observationSession.Current is { } held &&
                 held.Handshake.ServerCapabilities.Contains("owner-terrain-delta.v1", StringComparer.Ordinal) &&
-                held.Baseline.Snapshot.PackedTerrain is not null
+                held.Baseline.Snapshot.PackedTerrain is not null &&
+                (held.Baseline.Snapshot.MapLayersDigest is null ||
+                 held.Baseline.Snapshot.PackedMapLayers is not null)
                 ? held.Baseline.Snapshot : null;
+            var cachedMapLayersDigest = cachedTerrain is not null &&
+                observationSession.Current!.Handshake.ServerCapabilities.Contains(
+                    "owner-map-layer-delta.v1", StringComparer.Ordinal)
+                ? cachedTerrain.MapLayersDigest : null;
             var reconnect = await ownerApi.ReconnectAsync(
                 ResolveWorldUri(),
                 registration.Authority,
@@ -1108,6 +1143,7 @@ public partial class Main : Control
                 requestedCursor,
                 cachedTerrain?.WorldId,
                 cachedTerrain?.MapManifestDigest,
+                cachedMapLayersDigest,
                 deviceKey,
                 CancellationToken.None);
             if (!observationSession.TryAccept(reconnect, requestedCursor, out var failure))
@@ -3308,14 +3344,17 @@ public partial class Main : Control
 
         var manifest = snapshot.Authoring?.CurrentMapManifestDigest ?? snapshot.MapManifestDigest;
         if (terrainMap is null || !string.Equals(terrainWorldId, snapshot.WorldId, StringComparison.Ordinal) ||
-            !string.Equals(terrainManifestDigest, manifest, StringComparison.Ordinal))
+            !string.Equals(terrainManifestDigest, manifest, StringComparison.Ordinal) ||
+            !string.Equals(terrainLayersDigest, snapshot.MapLayersDigest, StringComparison.Ordinal) ||
+            (!terrainMap.HasMapLayers && snapshot.PackedMapLayers is not null))
         {
             var (width, height) = MapDimensions(snapshot);
             terrainMap = snapshot.PackedTerrain is { } packed
-                ? WorldTerrainMap.FromPacked(packed)
-                : WorldTerrainMap.FromTiles(snapshot.Tiles, width, height);
+                ? WorldTerrainMap.FromPacked(packed, snapshot.PackedMapLayers)
+                : WorldTerrainMap.FromTiles(snapshot.Tiles, width, height, snapshot.PackedMapLayers);
             terrainWorldId = snapshot.WorldId;
             terrainManifestDigest = manifest;
+            terrainLayersDigest = snapshot.MapLayersDigest;
             terrainLayer.SetWorld(terrainMap);
             worldOverview.SetWorld(terrainMap);
         }
@@ -4206,12 +4245,21 @@ public partial class Main : Control
                     tile.Y >= item.Position.Y && tile.Y < item.Position.Y + item.Height)
                 .Select(item => item.DisplayName ?? Pretty(item.DefinitionId)))
             .ToArray();
+        var climate = WorldTerrainMap.ClimateName(terrainMap.ClimateAt(tile.X, tile.Y)) ?? "unavailable";
+        var elevation = terrainMap.ElevationAt(tile.X, tile.Y);
+        var hydrology = WorldTerrainMap.HydrologyName(terrainMap.HydrologyAt(tile.X, tile.Y)) ?? "unavailable";
+        var surface = WorldTerrainMap.SurfaceName(terrainMap.SurfaceAt(tile.X, tile.Y)) ?? "unavailable";
+        var vegetation = WorldTerrainMap.VegetationName(terrainMap.VegetationAt(tile.X, tile.Y)) ?? "unavailable";
         selectedTileText.Text =
             $"Tile {tile.X}, {tile.Y}\n" +
-            $"Ground: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}\n" +
+            $"Terrain kind: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}\n" +
+            $"Climate: {climate}\n" +
+            $"Surface: {surface}\n" +
+            $"Hydrology: {hydrology}\n" +
+            $"Vegetation: {vegetation}\n" +
             $"Weather: {Pretty(region?.Weather ?? snapshot.Authoring?.Weather ?? "unavailable")}\n" +
             $"Regional soil moisture: {(region?.SoilMoisture is { } moisture ? moisture + "/100" : "unavailable")}\n" +
-            $"Elevation: unavailable\n" +
+            $"Elevation: {(elevation is { } level ? level + "/255" : "unavailable")}\n" +
             $"Fertility: unavailable\n" +
             $"Objects: {(objects.Length == 0 ? "none observed" : string.Join(", ", objects))}";
     }

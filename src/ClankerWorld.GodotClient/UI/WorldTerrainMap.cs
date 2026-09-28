@@ -2,22 +2,36 @@ using Godot;
 
 namespace ClankerWorld.GodotClient.UI;
 
-/// <summary>Compact, indexed terrain shared by the local camera and the overview.</summary>
+/// <summary>Compact, indexed map facts shared by the local camera and overview.</summary>
 public sealed class WorldTerrainMap
 {
     private readonly byte[] terrain;
+    private readonly byte[]? climate;
+    private readonly byte[]? elevation;
+    private readonly byte[]? hydrology;
+    private readonly byte[]? surface;
+    private readonly byte[]? vegetation;
 
-    private WorldTerrainMap(int width, int height, byte[] terrain)
+    private WorldTerrainMap(int width, int height, byte[] terrain, byte[]? climate = null,
+        byte[]? elevation = null, byte[]? hydrology = null, byte[]? surface = null,
+        byte[]? vegetation = null)
     {
         Width = width;
         Height = height;
         this.terrain = terrain;
+        this.climate = climate;
+        this.elevation = elevation;
+        this.hydrology = hydrology;
+        this.surface = surface;
+        this.vegetation = vegetation;
     }
 
     public int Width { get; }
     public int Height { get; }
+    public bool HasMapLayers => climate is not null;
 
-    public static WorldTerrainMap FromTiles(IReadOnlyList<OwnerWorldTile> tiles, int width, int height)
+    public static WorldTerrainMap FromTiles(IReadOnlyList<OwnerWorldTile> tiles, int width, int height,
+        OwnerWorldPackedMapLayers? layers = null)
     {
         ArgumentNullException.ThrowIfNull(tiles);
         if (width <= 0 || height <= 0) throw new ArgumentOutOfRangeException(nameof(width));
@@ -40,10 +54,11 @@ public sealed class WorldTerrainMap
                 _ => 0,
             };
         }
-        return new WorldTerrainMap(width, height, terrain);
+        return WithLayers(width, height, terrain, layers);
     }
 
-    public static WorldTerrainMap FromPacked(OwnerWorldPackedTerrain packed)
+    public static WorldTerrainMap FromPacked(OwnerWorldPackedTerrain packed,
+        OwnerWorldPackedMapLayers? layers = null)
     {
         ArgumentNullException.ThrowIfNull(packed);
         if (packed.Encoding != "terrain-kind-v1" || packed.Width <= 0 || packed.Height <= 0)
@@ -67,10 +82,95 @@ public sealed class WorldTerrainMap
                 9 => 9, // snow
                 _ => throw new InvalidDataException("The packed world terrain contains an unknown kind."),
             };
-        return new WorldTerrainMap(packed.Width, packed.Height, terrain);
+        return WithLayers(packed.Width, packed.Height, terrain, layers);
     }
 
     public byte At(int x, int y) => terrain[y * Width + x];
+    public byte? ClimateAt(int x, int y) => LayerAt(climate, x, y);
+    public byte? ElevationAt(int x, int y) => LayerAt(elevation, x, y);
+    public byte? HydrologyAt(int x, int y) => LayerAt(hydrology, x, y);
+    public byte? SurfaceAt(int x, int y) => LayerAt(surface, x, y);
+    public byte? VegetationAt(int x, int y) => LayerAt(vegetation, x, y);
+
+    /// <summary>Render independent surface/cover facts, falling back to the v1 projection for old maps.</summary>
+    public Color DisplayColorAt(int x, int y)
+    {
+        var index = y * Width + x;
+        if (!HasMapLayers) return ColorFor(terrain[index]);
+        var waterKind = hydrology![index];
+        if (waterKind != 0)
+            return waterKind switch
+            {
+                1 => new Color("325F89"),
+                2 => new Color("598FB3"),
+                3 => new Color("4786AB"),
+                _ => new Color("9B5463"),
+            };
+
+        var ground = surface![index] switch
+        {
+            0 => WorldMapPalette.TerrainColor("meadow"),
+            1 => new Color("BAA77B"),
+            2 => new Color("756D68"),
+            3 => new Color("CCD7D1"),
+            4 => new Color("4B7FA7"),
+            _ => new Color("9B5463"),
+        };
+        if (elevation![index] >= 245) ground = new Color("AEB2B0");
+        else if (elevation[index] >= 215) ground = new Color("756D68");
+
+        return vegetation![index] switch
+        {
+            2 when surface[index] == 0 => new Color("426D4B"),
+            3 when surface[index] == 0 => new Color("988857"),
+            4 when surface[index] == 0 => new Color("869586"),
+            3 when surface[index] == 1 => new Color("AA985F"),
+            4 when surface[index] == 3 => new Color("D6DDD4"),
+            _ => ground,
+        };
+    }
+
+    public string? DisplayMarkerAt(int x, int y)
+    {
+        var index = y * Width + x;
+        if (!HasMapLayers)
+            return terrain[index] switch
+            {
+                2 or 4 => "≈",
+                3 or 10 => "▲",
+                _ => null,
+            };
+        return hydrology![index] == 0
+            ? elevation![index] >= 215 ? "▲" : null
+            : hydrology[index] <= 3 ? "≈" : null;
+    }
+
+    private byte? LayerAt(byte[]? layer, int x, int y) =>
+        x >= 0 && x < Width && y >= 0 && y < Height && layer is not null
+            ? layer[y * Width + x] : null;
+
+    private static WorldTerrainMap WithLayers(int width, int height, byte[] terrain,
+        OwnerWorldPackedMapLayers? layers)
+    {
+        if (layers is null) return new WorldTerrainMap(width, height, terrain);
+        if (layers.Width != width || layers.Height != height || layers.Encoding != "map-layers-v1")
+            throw new InvalidDataException("The packed world map layers have an unsupported encoding or dimensions.");
+        var length = checked(width * height);
+        var climate = DecodeLayer(layers.Climate, length, 5, "climate");
+        var elevation = DecodeLayer(layers.Elevation, length, null, "elevation");
+        var hydrology = DecodeLayer(layers.Hydrology, length, 3, "hydrology");
+        var surface = DecodeLayer(layers.Surface, length, 4, "surface");
+        var vegetation = DecodeLayer(layers.Vegetation, length, 4, "vegetation");
+        return new WorldTerrainMap(width, height, terrain, climate, elevation, hydrology, surface, vegetation);
+    }
+
+    private static byte[] DecodeLayer(string encoded, int expectedLength, int? maximumValue, string name)
+    {
+        var bytes = Convert.FromBase64String(encoded);
+        if (bytes.Length != expectedLength || maximumValue is { } max && bytes.Any(value => value > max))
+            throw new InvalidDataException($"The packed world {name} layer is invalid.");
+        return bytes;
+    }
 
     public static string NameFor(byte kind) => kind switch
     {
@@ -85,6 +185,45 @@ public sealed class WorldTerrainMap
         9 => "Snow",
         10 => "Peak",
         _ => "Unavailable",
+    };
+
+    public static string? ClimateName(byte? value) => value switch
+    {
+        0 => "Tropical",
+        1 => "Dry",
+        2 => "Temperate",
+        3 => "Cold",
+        4 => "Polar",
+        _ => null,
+    };
+
+    public static string? SurfaceName(byte? value) => value switch
+    {
+        0 => "Grass",
+        1 => "Sand",
+        2 => "Rock",
+        3 => "Snow",
+        4 => "Water",
+        _ => null,
+    };
+
+    public static string? HydrologyName(byte? value) => value switch
+    {
+        0 => "Land",
+        1 => "Ocean",
+        2 => "Lake",
+        3 => "River",
+        _ => null,
+    };
+
+    public static string? VegetationName(byte? value) => value switch
+    {
+        0 => "None",
+        1 => "Grass",
+        2 => "Forest",
+        3 => "Scrub",
+        4 => "Tundra",
+        _ => null,
     };
 
     public static Color ColorFor(byte kind) => kind switch

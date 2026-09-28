@@ -34,7 +34,8 @@ public sealed record OwnerSignedHttpRequest<TAction>(
     where TAction : class;
 
 public sealed record OwnerReconnectAction(long AfterEventId,
-    string? KnownTerrainWorldId = null, string? KnownTerrainDigest = null);
+    string? KnownTerrainWorldId = null, string? KnownTerrainDigest = null,
+    string? KnownMapLayersDigest = null);
 
 public sealed record OwnerControlAction(string Operation);
 public sealed record OwnerManualSaveAction(string Operation, string Value);
@@ -162,13 +163,19 @@ public static class OwnerHttpBinding
     }
 
     public static string ReconnectPayload(OwnerReconnectAction action) =>
-        action.KnownTerrainWorldId is null && action.KnownTerrainDigest is null
-            ? string.Join('\n', "clankerworld.owner-reconnect.v1",
-                $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}")
-            : string.Join('\n', "clankerworld.owner-reconnect.v2",
+        action.KnownMapLayersDigest is not null
+            ? string.Join('\n', "clankerworld.owner-reconnect.v3",
                 $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}",
                 $"terrain-world-id={EncodeRequired(action.KnownTerrainWorldId!, nameof(action.KnownTerrainWorldId))}",
-                $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}");
+                $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}",
+                $"map-layers-digest={EncodeRequired(action.KnownMapLayersDigest, nameof(action.KnownMapLayersDigest))}")
+            : action.KnownTerrainWorldId is null && action.KnownTerrainDigest is null
+                ? string.Join('\n', "clankerworld.owner-reconnect.v1",
+                    $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}")
+                : string.Join('\n', "clankerworld.owner-reconnect.v2",
+                    $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}",
+                    $"terrain-world-id={EncodeRequired(action.KnownTerrainWorldId!, nameof(action.KnownTerrainWorldId))}",
+                    $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}");
 
     public static string EmptyPayload(string operation) => string.Join(
         '\n',

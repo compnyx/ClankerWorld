@@ -1,7 +1,9 @@
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.World;
 
 namespace ClankerWorld.Simulation.Playtest;
 
@@ -10,6 +12,7 @@ internal sealed class PrivateWorldTerrainChunkCodec : JsonConverter<SeededMap>
 {
     private const int ChunkSize = 64;
     private const string Encoding = "terrain-chunks/v1";
+    private const string LayerEncoding = "brotli-byte-layers/v1";
 
     private sealed record Chunk(int X, int Y, int Width, int Height, byte[] Data, string Sha256);
 
@@ -23,6 +26,12 @@ internal sealed class PrivateWorldTerrainChunkCodec : JsonConverter<SeededMap>
         string? TerrainEncoding,
         IReadOnlyList<Chunk>? TerrainChunks,
         byte[]? ClimateZones,
+        string? MapLayerEncoding,
+        string? MapLayersSha256,
+        byte[]? ElevationLevels,
+        byte[]? HydrologyKinds,
+        byte[]? SurfaceKinds,
+        byte[]? VegetationKinds,
         bool WrapsEastWest);
 
     public override SeededMap Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -66,12 +75,29 @@ internal sealed class PrivateWorldTerrainChunkCodec : JsonConverter<SeededMap>
         }
         if (occupied.Any(value => !value))
             throw new InvalidDataException("The private-world terrain chunks leave missing tiles.");
-        return new SeededMap(packed.Width, packed.Height, packed.GenerationAttempt, tiles,
+        if (packed.MapLayerEncoding is not null and not LayerEncoding)
+            throw new InvalidDataException("The private-world map-layer encoding is unsupported.");
+        var length = checked(packed.Width * packed.Height);
+        var elevation = DecodeLayer(packed.ElevationLevels, packed.MapLayerEncoding, length);
+        var hydrology = DecodeLayer(packed.HydrologyKinds, packed.MapLayerEncoding, length);
+        var surface = DecodeLayer(packed.SurfaceKinds, packed.MapLayerEncoding, length);
+        var vegetation = DecodeLayer(packed.VegetationKinds, packed.MapLayerEncoding, length);
+        ValidateLayers(packed.Width, packed.Height, packed.ClimateZones, elevation,
+            hydrology, surface, vegetation);
+        var map = new SeededMap(packed.Width, packed.Height, packed.GenerationAttempt, tiles,
             packed.CampObjects, packed.Resources, packed.ManifestDigest)
         {
             ClimateZones = packed.ClimateZones,
+            ElevationLevels = elevation,
+            HydrologyKinds = hydrology,
+            SurfaceKinds = surface,
+            VegetationKinds = vegetation,
             WrapsEastWest = packed.WrapsEastWest,
         };
+        if (packed.MapLayersSha256 is { } expectedLayerDigest &&
+            !string.Equals(MapLayerManifestCodec.Digest(map), expectedLayerDigest, StringComparison.Ordinal))
+            throw new InvalidDataException("The private-world map layers are damaged.");
+        return map;
     }
 
     public override void Write(Utf8JsonWriter writer, SeededMap value, JsonSerializerOptions options)
@@ -92,6 +118,8 @@ internal sealed class PrivateWorldTerrainChunkCodec : JsonConverter<SeededMap>
         }
         if (occupied.Any(present => !present))
             throw new InvalidDataException("The private-world terrain has missing tiles.");
+        ValidateLayers(value.Width, value.Height, value.ClimateZones, value.ElevationLevels,
+            value.HydrologyKinds, value.SurfaceKinds, value.VegetationKinds);
 
         var chunks = new List<Chunk>();
         for (var y = 0; y < value.Height; y += ChunkSize)
@@ -107,6 +135,43 @@ internal sealed class PrivateWorldTerrainChunkCodec : JsonConverter<SeededMap>
             }
         JsonSerializer.Serialize(writer, new PackedMap(value.Width, value.Height, value.GenerationAttempt,
             value.CampObjects, value.Resources, value.ManifestDigest, Encoding, chunks,
-            value.ClimateZones, value.WrapsEastWest), options);
+            value.ClimateZones, LayerEncoding, MapLayerManifestCodec.Digest(value), CompressLayer(value.ElevationLevels),
+            CompressLayer(value.HydrologyKinds), CompressLayer(value.SurfaceKinds),
+            CompressLayer(value.VegetationKinds), value.WrapsEastWest), options);
+    }
+
+    private static byte[]? CompressLayer(byte[]? data)
+    {
+        if (data is null) return null;
+        var compressed = new byte[BrotliEncoder.GetMaxCompressedLength(data.Length)];
+        if (!BrotliEncoder.TryCompress(data, compressed, out var written, quality: 4, window: 22))
+            throw new InvalidDataException("The private-world map layer could not be compressed.");
+        return compressed[..written];
+    }
+
+    private static byte[]? DecodeLayer(byte[]? data, string? encoding, int expectedLength)
+    {
+        if (data is null) return null;
+        if (encoding is null) return data; // Early uncompressed layer drafts.
+        var decoded = new byte[expectedLength];
+        if (!BrotliDecoder.TryDecompress(data, decoded, out var written) || written != expectedLength)
+            throw new InvalidDataException("The private-world map layer is damaged.");
+        return decoded;
+    }
+
+    private static void ValidateLayers(int width, int height, byte[]? climate, byte[]? elevation,
+        byte[]? hydrology, byte[]? surface, byte[]? vegetation)
+    {
+        var length = checked(width * height);
+        if (climate?.Length is { } climateLength && climateLength != length ||
+            elevation?.Length is { } elevationLength && elevationLength != length ||
+            hydrology?.Length is { } hydrologyLength && hydrologyLength != length ||
+            surface?.Length is { } surfaceLength && surfaceLength != length ||
+            vegetation?.Length is { } vegetationLength && vegetationLength != length ||
+            climate?.Any(value => !Enum.IsDefined((ClimateZone)value)) == true ||
+            hydrology?.Any(value => !Enum.IsDefined((WaterKind)value)) == true ||
+            surface?.Any(value => !Enum.IsDefined((SurfaceKind)value)) == true ||
+            vegetation?.Any(value => !Enum.IsDefined((VegetationCover)value)) == true)
+            throw new InvalidDataException("The private-world map layers are invalid.");
     }
 }

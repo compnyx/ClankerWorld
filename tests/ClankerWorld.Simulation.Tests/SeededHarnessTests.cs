@@ -1,5 +1,6 @@
 using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Simulation.Kernel;
+using ClankerWorld.Simulation.World;
 
 namespace ClankerWorld.Simulation.Tests;
 
@@ -138,6 +139,54 @@ public sealed class SeededHarnessTests
             [new MovementActor("walker", new GridPoint(2, 1), 0)],
             [new MovementIntent("walker", new GridPoint(2, 2))]);
         Assert.Equal(new GridPoint(2, 1), alongChannel.GetActor("walker").Position);
+    }
+
+    [Fact]
+    public void LayeredTerrainRulesUseElevationAndHydrologyInsteadOfTheLegacyTerrainProjection()
+    {
+        const int width = 5;
+        const int height = 3;
+        var mountainWest = new GridPoint(1, 1);
+        var river = new GridPoint(2, 1);
+        var mountainEast = new GridPoint(3, 1);
+        var peak = new GridPoint(4, 1);
+        var index = (GridPoint point) => point.Y * width + point.X;
+        var elevation = Enumerable.Repeat((byte)100, width * height).ToArray();
+        var hydrology = Enumerable.Repeat((byte)WaterKind.Land, width * height).ToArray();
+        var surface = Enumerable.Repeat((byte)SurfaceKind.Grass, width * height).ToArray();
+        var vegetation = Enumerable.Repeat((byte)VegetationCover.Grass, width * height).ToArray();
+        elevation[index(mountainWest)] = 220;
+        elevation[index(mountainEast)] = 220;
+        surface[index(mountainWest)] = (byte)SurfaceKind.Rock;
+        surface[index(mountainEast)] = (byte)SurfaceKind.Rock;
+        vegetation[index(mountainWest)] = (byte)VegetationCover.None;
+        vegetation[index(mountainEast)] = (byte)VegetationCover.None;
+        elevation[index(peak)] = 250;
+        surface[index(peak)] = (byte)SurfaceKind.Rock;
+        vegetation[index(peak)] = (byte)VegetationCover.None;
+        hydrology[index(river)] = (byte)WaterKind.River;
+        surface[index(river)] = (byte)SurfaceKind.Water;
+        vegetation[index(river)] = (byte)VegetationCover.None;
+        var layered = TerrainMap(width, height, _ => TerrainKind.Meadow) with
+        {
+            ElevationLevels = elevation,
+            HydrologyKinds = hydrology,
+            SurfaceKinds = surface,
+            VegetationKinds = vegetation,
+        };
+
+        Assert.True(layered.IsPassable(mountainWest));
+        Assert.Equal(200, layered.FootTravelCost(mountainWest));
+        Assert.False(layered.IsBuildable(mountainWest));
+        Assert.True(layered.IsPassable(river));
+        Assert.Equal(200, layered.FootTravelCost(river));
+        Assert.False(layered.IsBuildable(river));
+        Assert.True(layered.CanFootStep(mountainWest, river));
+        Assert.True(layered.CanFootStep(river, mountainEast));
+        Assert.False(layered.IsPassable(peak));
+        Assert.False(layered.IsBuildable(peak));
+        Assert.Throws<ArgumentOutOfRangeException>(() => layered.FootTravelCost(peak));
+        Assert.True(layered.IsBuildable(new GridPoint(0, 1)));
     }
 
     [Fact]

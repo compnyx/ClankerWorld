@@ -19,6 +19,8 @@ public sealed record OwnerWorldPosition(int X, int Y);
 
 public sealed record OwnerWorldTile(int X, int Y, string Terrain);
 public sealed record OwnerWorldPackedTerrain(int Width, int Height, string Encoding, string Data);
+public sealed record OwnerWorldPackedMapLayers(int Width, int Height, string Encoding,
+    string Climate, string Elevation, string Hydrology, string Surface, string Vegetation);
 
 public sealed record OwnerWorldObject(string Id, string Kind, OwnerWorldPosition Position);
 
@@ -225,6 +227,8 @@ public sealed record OwnerWorldSnapshot(
     long LatestEventId)
 {
     public OwnerWorldPackedTerrain? PackedTerrain { get; init; }
+    public OwnerWorldPackedMapLayers? PackedMapLayers { get; init; }
+    public string? MapLayersDigest { get; init; }
     public bool WrapsEastWest { get; init; }
     public IReadOnlyList<OwnerWorldStockpile> Stockpiles { get; init; } = [];
     public OwnerWorldCouncil? Council { get; init; }
@@ -269,7 +273,8 @@ public sealed record OwnerWorldReconnectBaseline(OwnerWorldSnapshot Snapshot, Ow
 public sealed record OwnerWorldReconnect(OwnerWorldHandshake Handshake, OwnerWorldReconnectBaseline Baseline);
 
 public sealed record OwnerReconnectAction(long AfterEventId,
-    string? KnownTerrainWorldId = null, string? KnownTerrainDigest = null);
+    string? KnownTerrainWorldId = null, string? KnownTerrainDigest = null,
+    string? KnownMapLayersDigest = null);
 
 public sealed record OwnerControlAction(string Operation);
 public sealed record OwnerManualSaveAction(string Operation, string Value);
@@ -283,7 +288,11 @@ public sealed record CatalogWorld(string Id, string Name, string WorldId, string
     string? CompatibilityReason = null);
 public sealed record WorldCatalogSnapshot(string ActiveId, IReadOnlyList<CatalogWorld> Worlds);
 public sealed record OwnerWorldPreview(OwnerWorldPackedTerrain Terrain, OwnerWorldPosition Camp,
-    string ManifestDigest, int ResourceSites = 0);
+    string ManifestDigest, int ResourceSites = 0)
+{
+    public OwnerWorldPackedMapLayers? PackedMapLayers { get; init; }
+    public string? MapLayersDigest { get; init; }
+}
 public sealed record ManualWorldSave(string Id, string Name, DateTimeOffset CreatedUtc, long WorldTick,
     bool IsAutosave = false);
 public sealed record ManualSaveLoadReceipt(string LoadedId, string BackupId, long WorldTick);
@@ -574,7 +583,30 @@ public sealed class OwnerWorldObservationSession
                 failure = "The owner terrain cache cannot satisfy this reconnect baseline.";
                 return false;
             }
-            var merged = baseline.Snapshot with { PackedTerrain = cached.PackedTerrain };
+            var merged = baseline.Snapshot with
+            {
+                PackedTerrain = cached.PackedTerrain,
+                PackedMapLayers = baseline.Snapshot.PackedMapLayers ??
+                    (baseline.Snapshot.MapLayersDigest is null ||
+                     string.Equals(baseline.Snapshot.MapLayersDigest, cached.MapLayersDigest, StringComparison.Ordinal)
+                        ? cached.PackedMapLayers : null),
+            };
+            response = response with { Baseline = baseline with { Snapshot = merged } };
+        }
+
+        baseline = response.Baseline;
+        if (baseline.Snapshot.MapLayersDigest is { } expectedLayersDigest &&
+            baseline.Snapshot.PackedMapLayers is null)
+        {
+            var cached = Current?.Baseline.Snapshot;
+            if (cached?.PackedMapLayers is null ||
+                !string.Equals(cached.WorldId, baseline.Snapshot.WorldId, StringComparison.Ordinal) ||
+                !string.Equals(cached.MapLayersDigest, expectedLayersDigest, StringComparison.Ordinal))
+            {
+                failure = "The owner map-layer cache cannot satisfy this reconnect baseline.";
+                return false;
+            }
+            var merged = baseline.Snapshot with { PackedMapLayers = cached.PackedMapLayers };
             response = response with { Baseline = baseline with { Snapshot = merged } };
         }
 
@@ -591,13 +623,19 @@ public sealed class OwnerWorldObservationSession
 public static class OwnerWorldActionPayload
 {
     public static string Reconnect(OwnerReconnectAction action) =>
-        action.KnownTerrainWorldId is null && action.KnownTerrainDigest is null
-            ? string.Join('\n', "clankerworld.owner-reconnect.v1",
-                $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}")
-            : string.Join('\n', "clankerworld.owner-reconnect.v2",
+        action.KnownMapLayersDigest is not null
+            ? string.Join('\n', "clankerworld.owner-reconnect.v3",
                 $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}",
                 $"terrain-world-id={EncodeRequired(action.KnownTerrainWorldId!, nameof(action.KnownTerrainWorldId))}",
-                $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}");
+                $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}",
+                $"map-layers-digest={EncodeRequired(action.KnownMapLayersDigest, nameof(action.KnownMapLayersDigest))}")
+            : action.KnownTerrainWorldId is null && action.KnownTerrainDigest is null
+                ? string.Join('\n', "clankerworld.owner-reconnect.v1",
+                    $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}")
+                : string.Join('\n', "clankerworld.owner-reconnect.v2",
+                    $"after-event-id={action.AfterEventId.ToString(CultureInfo.InvariantCulture)}",
+                    $"terrain-world-id={EncodeRequired(action.KnownTerrainWorldId!, nameof(action.KnownTerrainWorldId))}",
+                    $"terrain-digest={EncodeRequired(action.KnownTerrainDigest!, nameof(action.KnownTerrainDigest))}");
 
     public static string Control(string operation) => string.Join(
         '\n',
@@ -932,10 +970,12 @@ public sealed class OwnerWorldApi
         long afterEventId,
         string? knownTerrainWorldId,
         string? knownTerrainDigest,
+        string? knownMapLayersDigest,
         IOwnerDeviceSigner deviceKey,
         CancellationToken cancellationToken)
     {
-        var action = new OwnerReconnectAction(afterEventId, knownTerrainWorldId, knownTerrainDigest);
+        var action = new OwnerReconnectAction(afterEventId, knownTerrainWorldId, knownTerrainDigest,
+            knownMapLayersDigest);
         return pairing.SendSignedActionAsync<OwnerReconnectAction, OwnerWorldReconnect>(
             serverUri,
             authority,

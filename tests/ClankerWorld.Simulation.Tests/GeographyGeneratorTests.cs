@@ -13,6 +13,49 @@ public sealed class GeographyGeneratorTests
     [Theory]
     [InlineData(WorldSizePreset.Small)]
     [InlineData(WorldSizePreset.Medium)]
+    public void GeneratedLayersStayIndependentAcrossWrappedMapAndOwnerProjection(WorldSizePreset size)
+    {
+        var options = new GeographyOptions("layered-world", size, WrapEastWest: true);
+        var geography = GeographyGenerator.Generate(options);
+        var map = GeneratedCampMapGenerator.Generate(options);
+        Assert.True(map.WrapsEastWest);
+        foreach (var tile in map.Tiles)
+        {
+            var source = geography.At(tile.Position.X, tile.Position.Y);
+            Assert.Equal(source.Climate, map.ClimateAt(tile.Position));
+            Assert.Equal(source.Elevation, map.ElevationAt(tile.Position));
+            Assert.Equal(source.Water, map.HydrologyAt(tile.Position));
+        }
+        var forest = map.Tiles.First(tile => map.VegetationAt(tile.Position) == VegetationCover.Forest);
+        Assert.Equal(SurfaceKind.Grass, map.SurfaceAt(forest.Position));
+        Assert.Equal(VegetationCover.Forest, map.VegetationAt(forest.Position));
+        var river = map.Tiles.First(tile => map.HydrologyAt(tile.Position) == WaterKind.River);
+        Assert.Equal(SurfaceKind.Water, map.SurfaceAt(river.Position));
+        Assert.Equal(WaterKind.River, map.HydrologyAt(river.Position));
+        Assert.Equal(VegetationCover.None, map.VegetationAt(river.Position));
+
+        using var world = new PrivateWorldRuntime(options.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: options);
+        var reloaded = world.ExportState().Map;
+        Assert.Equal(map.ManifestDigest, reloaded.ManifestDigest);
+        Assert.Equal(map.ClimateZones, reloaded.ClimateZones);
+        Assert.Equal(map.ElevationLevels, reloaded.ElevationLevels);
+        Assert.Equal(map.HydrologyKinds, reloaded.HydrologyKinds);
+        Assert.Equal(map.SurfaceKinds, reloaded.SurfaceKinds);
+        Assert.Equal(map.VegetationKinds, reloaded.VegetationKinds);
+        var projection = new OwnerWorldObservationStore(world).GetSnapshot();
+        var layers = Assert.IsType<ViewerPackedMapLayers>(projection.PackedMapLayers);
+        Assert.Equal((map.Width, map.Height), (layers.Width, layers.Height));
+        Assert.Equal(map.ClimateZones, Convert.FromBase64String(layers.Climate));
+        Assert.Equal(map.ElevationLevels, Convert.FromBase64String(layers.Elevation));
+        Assert.Equal(map.HydrologyKinds, Convert.FromBase64String(layers.Hydrology));
+        Assert.Equal(map.SurfaceKinds, Convert.FromBase64String(layers.Surface));
+        Assert.Equal(map.VegetationKinds, Convert.FromBase64String(layers.Vegetation));
+    }
+
+    [Theory]
+    [InlineData(WorldSizePreset.Small)]
+    [InlineData(WorldSizePreset.Medium)]
     public void GeneratedGeographySupportsAnEmptyPlayableCampAndNoBuildHighGround(WorldSizePreset size)
     {
         var map = GeneratedCampMapGenerator.Generate(new GeographyOptions(

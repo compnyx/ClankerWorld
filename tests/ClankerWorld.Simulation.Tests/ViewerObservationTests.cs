@@ -17,12 +17,34 @@ public sealed class ViewerObservationTests
         var store = new OwnerWorldObservationStore(runtime);
         var initial = store.GetReconnectBaseline(0).Snapshot;
         Assert.NotNull(initial.PackedTerrain);
+        Assert.NotNull(initial.PackedMapLayers);
+        Assert.Equal(MapLayerManifestCodec.Digest(runtime.ExportState().Map), initial.MapLayersDigest);
+        var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web);
+        var client = System.Text.Json.JsonSerializer.Deserialize<ClankerWorld.GodotClient.UI.OwnerWorldSnapshot>(
+            System.Text.Json.JsonSerializer.Serialize(initial, options), options)!;
+        Assert.Equal(initial.PackedMapLayers!.Width, client.PackedMapLayers!.Width);
+        Assert.Equal(initial.PackedMapLayers.Height, client.PackedMapLayers.Height);
+        Assert.Equal(initial.PackedMapLayers.Encoding, client.PackedMapLayers.Encoding);
+        Assert.Equal(initial.PackedMapLayers.Climate, client.PackedMapLayers.Climate);
+        Assert.Equal(initial.PackedMapLayers.Elevation, client.PackedMapLayers.Elevation);
+        Assert.Equal(initial.PackedMapLayers.Hydrology, client.PackedMapLayers.Hydrology);
+        Assert.Equal(initial.PackedMapLayers.Surface, client.PackedMapLayers.Surface);
+        Assert.Equal(initial.PackedMapLayers.Vegetation, client.PackedMapLayers.Vegetation);
+        Assert.Equal(initial.MapLayersDigest, client.MapLayersDigest);
         Assert.Contains("owner-terrain-delta.v1", store.GetOwnerHandshake().ServerCapabilities);
+        Assert.Contains("owner-map-layer-delta.v1", store.GetOwnerHandshake().ServerCapabilities);
 
-        var unchanged = store.GetReconnectBaseline(0, initial.WorldId, initial.MapManifestDigest).Snapshot;
+        var unchanged = store.GetReconnectBaseline(0, initial.WorldId, initial.MapManifestDigest,
+            initial.MapLayersDigest).Snapshot;
         Assert.Null(unchanged.PackedTerrain);
+        Assert.Null(unchanged.PackedMapLayers);
         Assert.Empty(unchanged.Tiles);
         Assert.Equal(initial.MapManifestDigest, unchanged.MapManifestDigest);
+        Assert.Equal(initial.MapLayersDigest, unchanged.MapLayersDigest);
+        var layersUnchangedButTerrainClaimedWithoutTheLayerDigest = store.GetReconnectBaseline(0,
+            initial.WorldId, initial.MapManifestDigest, new string('0', 64)).Snapshot;
+        Assert.Null(layersUnchangedButTerrainClaimedWithoutTheLayerDigest.PackedTerrain);
+        Assert.NotNull(layersUnchangedButTerrainClaimedWithoutTheLayerDigest.PackedMapLayers);
         Assert.NotNull(store.GetReconnectBaseline(0, "other-world", initial.MapManifestDigest).Snapshot.PackedTerrain);
         Assert.NotNull(store.GetReconnectBaseline(0, initial.WorldId, "wrong-digest").Snapshot.PackedTerrain);
     }

@@ -16,8 +16,15 @@ public sealed record ViewerTile(int X, int Y, string Terrain);
 
 /// <summary>Row-major terrain-kind bytes, base64-encoded for owner JSON.</summary>
 public sealed record ViewerPackedTerrain(int Width, int Height, string Encoding, string Data);
+/// <summary>Independent row-major byte layers; terrain remains a compatibility projection.</summary>
+public sealed record ViewerPackedMapLayers(int Width, int Height, string Encoding,
+    string Climate, string Elevation, string Hydrology, string Surface, string Vegetation);
 public sealed record ViewerWorldPreview(ViewerPackedTerrain Terrain, ViewerPosition Camp,
-    string ManifestDigest, int ResourceSites = 0);
+    string ManifestDigest, int ResourceSites = 0)
+{
+    public ViewerPackedMapLayers? PackedMapLayers { get; init; }
+    public string? MapLayersDigest { get; init; }
+}
 
 public sealed record ViewerMapObject(string Id, string Kind, ViewerPosition Position);
 
@@ -225,6 +232,8 @@ public sealed record ViewerWorldSnapshot(
     long LatestEventId)
 {
     public ViewerPackedTerrain? PackedTerrain { get; init; }
+    public ViewerPackedMapLayers? PackedMapLayers { get; init; }
+    public string? MapLayersDigest { get; init; }
     public bool WrapsEastWest { get; init; }
     public IReadOnlyList<ViewerStockpile> Stockpiles { get; init; } = [];
     public ViewerCouncil? Council { get; init; }
