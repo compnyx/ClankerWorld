@@ -262,7 +262,12 @@ public sealed record SocietyEstate(
     long CreatedTick,
     long ExpiryTick,
     IReadOnlyList<string> BeneficiaryIds,
-    bool Settled = false);
+    bool Settled = false,
+    IReadOnlyList<SocietyEstateLot>? FrozenLots = null,
+    string? WillStatus = null,
+    string? WillBeneficiaryId = null);
+
+public sealed record SocietyEstateLot(string LotId, string ItemKind, int Quantity);
 
 public sealed record SocietyBirthRecord(
     string RequestId,

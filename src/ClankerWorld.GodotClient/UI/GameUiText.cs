@@ -94,6 +94,7 @@ public static class GameUiText
             "destination_reached" or
             "movement_blocked" or
             "inhabitant_idle" => false,
+            "estate_will_started" => false,
             _ when kind.StartsWith("cognition_", StringComparison.Ordinal) => false,
             _ when kind.StartsWith("hosted_decision_", StringComparison.Ordinal) => false,
             _ when kind.StartsWith("instruction_", StringComparison.Ordinal) => false,

@@ -397,6 +397,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             PrivateWorldRuntimeState baseline;
             long baselineEventId;
             PendingHostedDecision[] completed = [];
+            PendingWillDecision[] completedWills = [];
+            string[] activeWillIds = [];
+            IReadOnlyDictionary<string, string> inactiveWillReasons = new Dictionary<string, string>();
             await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
@@ -415,7 +418,35 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                             CancelPendingHosted(id);
                         }
                     }
+                    foreach (var (id, pending) in pendingWills.ToArray())
+                    {
+                        var estate = society.Checkpoint.Estates.FirstOrDefault(item => item.Id == id);
+                        if (estate is null || estate.WillStatus != "pending")
+                        {
+                            CancelPendingWill(id);
+                            continue;
+                        }
+                        if (society.Checkpoint.RunEpoch != pending.Request.Observation.RunEpoch)
+                        {
+                            CancelPendingWill(id, "run_epoch_changed");
+                            continue;
+                        }
+                        try
+                        {
+                            var currentProvider = providerFactory?.Invoke(estate.DeceasedId) ?? new DeterministicDecisionProvider();
+                            if (currentProvider.KindFor(pending.Request.Observation) != DecisionProviderKind.LargeLanguageModel ||
+                                currentProvider.ProviderEpoch != pending.Request.ProviderEpoch)
+                                CancelPendingWill(id, "provider_changed");
+                        }
+                        catch (Exception exception) when (exception is not OutOfMemoryException)
+                        {
+                            CancelPendingWill(id, "provider_unavailable");
+                        }
+                    }
                     completed = pendingHosted.Values.Where(item => item.Task.IsCompleted).ToArray();
+                    completedWills = pendingWills.Values.Where(item => item.Task.IsCompleted).ToArray();
+                    activeWillIds = pendingWills.Keys.ToArray();
+                    inactiveWillReasons = new Dictionary<string, string>(pendingWillCancellationReasons, StringComparer.Ordinal);
                 }
                 baseline = CaptureState();
                 baselineEventId = nextEventId;
@@ -434,7 +465,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             using var proposed = RestoreCore(baseline, providerFactory,
                 maxCognitionDispatchPerCycle, minimumCognitionConfidence,
                 trustedPreparedState: true);
-            var result = await proposed.AdvancePreparedTickAsync(deferHosted, completed, cancellationToken).ConfigureAwait(false);
+            var result = await proposed.AdvancePreparedTickAsync(deferHosted, completed, completedWills,
+                activeWillIds, inactiveWillReasons, cancellationToken).ConfigureAwait(false);
             await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
@@ -454,11 +486,23 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 CommitPreparedTick(proposed);
                 if (deferHosted)
                 {
+                    foreach (var id in pendingWills.Keys.Where(id =>
+                                 society.Checkpoint.Estates.All(estate => estate.Id != id || estate.WillStatus != "pending"))
+                             .ToArray())
+                        CancelPendingWill(id);
                     foreach (var item in completed)
                     {
                         pendingHosted.Remove(item.Request.Observation.InhabitantId);
                         item.Cancellation.Dispose();
                     }
+                    foreach (var item in completedWills)
+                    {
+                        pendingWills.Remove(item.EstateId);
+                        item.Cancellation.Dispose();
+                    }
+                    foreach (var id in inactiveWillReasons.Keys)
+                        pendingWillCancellationReasons.Remove(id);
+                    if (commitPermitted is null || commitPermitted()) StartWillDecisions();
                     if (commitPermitted is null || commitPermitted()) StartHostedDecisions();
                 }
                 return result with { Events = events.Where(item => item.EventId >= baselineEventId).ToArray() };
@@ -521,6 +565,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         try
         {
             foreach (var id in pendingHosted.Keys.ToArray()) CancelPendingHosted(id);
+            foreach (var id in pendingWills.Keys.ToArray()) CancelPendingWill(id);
         }
         finally { gate.Release(); }
     }
@@ -576,6 +621,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 // checkpoint was taken while it was running.
                 restored.Pause();
                 foreach (var id in pendingHosted.Keys.ToArray()) CancelPendingHosted(id);
+                foreach (var id in pendingWills.Keys.ToArray()) CancelPendingWill(id);
                 CommitPreparedTick(restored);
             }
             finally { gate.Release(); }
@@ -599,6 +645,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     maxCognitionDispatchPerCycle, minimumCognitionConfidence);
                 restored.Pause();
                 foreach (var id in pendingHosted.Keys.ToArray()) CancelPendingHosted(id);
+                foreach (var id in pendingWills.Keys.ToArray()) CancelPendingWill(id);
                 CommitPreparedTick(restored);
             }
             finally { gate.Release(); }
@@ -608,6 +655,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
     private async ValueTask<PrivateWorldStepResult> AdvancePreparedTickAsync(
         bool deferHosted, IReadOnlyList<PendingHostedDecision> completed,
+        IReadOnlyList<PendingWillDecision> completedWills, IReadOnlyList<string> activeWillIds,
+        IReadOnlyDictionary<string, string> inactiveWillReasons,
         CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -645,6 +694,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
             assetReservations = reservationPreview;
             society.AdvanceTo(targetTick);
+            if (deferHosted) await ProcessWillDecisionsAsync(completedWills, activeWillIds, inactiveWillReasons);
             var previousClimate = worldSystems.Climate;
             worldSystems = WorldSystemsRules.AdvanceOneTick(worldSystems);
             SyncEcologyResourceStates();
@@ -1230,6 +1280,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 throw new InvalidOperationException("Pause the world before changing Jev assistance.");
             if (jevEnabled == enabled) return false;
             foreach (var id in pendingHosted.Keys.ToArray()) CancelPendingHosted(id);
+            foreach (var id in pendingWills.Keys.ToArray()) CancelPendingWill(id);
             jevEnabled = enabled;
             jevPolicyRevision = checked(jevPolicyRevision + 1);
             checkpointSchemaVersion = StateSchemaVersion;
@@ -1252,6 +1303,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             if (!wasPaused && result.Checkpoint.IsPaused)
             {
                 foreach (var id in pendingHosted.Keys.ToArray()) CancelPendingHosted(id);
+                foreach (var id in pendingWills.Keys.ToArray()) CancelPendingWill(id);
                 AppendEvent("paused", "owner_request");
             }
         }
@@ -1510,6 +1562,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     public void Dispose()
     {
         foreach (var id in pendingHosted.Keys.ToArray()) CancelPendingHosted(id);
+        foreach (var id in pendingWills.Keys.ToArray()) CancelPendingWill(id);
         society.Dispose();
         gate.Dispose();
         tickGate.Dispose();

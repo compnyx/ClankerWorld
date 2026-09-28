@@ -608,6 +608,7 @@ public sealed class OwnerWorldObservationStore
     {
         var lastPhysical = archived.LastPhysical;
         var position = ToPosition(lastPhysical.Position);
+        var estate = state.Society.Society.Estates.FirstOrDefault(item => item.DeceasedId == inhabitant.Id);
         return new ViewerInhabitant(
             inhabitant.Id,
             inhabitant.Name,
@@ -624,6 +625,10 @@ public sealed class OwnerWorldObservationStore
                 new("role", inhabitant.CurrentRole.ToString().ToLowerInvariant()),
                 new("death-tick", archived.DeathTick.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 new("death-cause", inhabitant.DeathCause?.ToString().ToLowerInvariant() ?? "unknown"),
+                new("will-status", estate?.WillStatus ?? "not_requested"),
+                new("will-heir", estate?.WillBeneficiaryId is { } heirId
+                    ? state.Society.Society.Inhabitants.FirstOrDefault(item => item.Id == heirId)?.Name ?? heirId
+                    : ""),
             ],
             new ViewerRoute("deceased", null, null, [], string.Empty),
             new ViewerSpatialKnowledge(position, [position], [position]),

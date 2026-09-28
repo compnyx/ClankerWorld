@@ -115,6 +115,18 @@ continuing to update. Global events have no map destination.
 | Multiplayer/public worlds | **Excluded** | Single-player only by owner decision | Multiple paired owner devices are not multiplayer |
 | Executable generated mods | **Planned/disabled** | Data-only packages are fail-closed | No sandbox has been selected; arbitrary generated code does not run on the host |
 
+The private-world death path now freezes the deceased agent's personally owned
+inventory lots and offers one final decision to that agent's explicitly assigned
+planning model. The bounded first contract can leave the estate on the existing
+household-beneficiary path or name one living agent for the whole estate. The
+selected recipient and original lot IDs/quantities are validated by society
+authority; unavailable, invalid, cancelled, timed-out, or interrupted calls
+fall back to the household path. Pending work is never reissued after a save
+reload, and completed estate settlement remains idempotent. The deceased card
+shows will status/heir, and the Event Log shows the final outcome. Per-lot
+bequests, debt, minors, no-household policy, and inheritance-specific law are
+still open; no inheritance-law type is implemented yet.
+
 ## Decided-vision reconciliation
 
 This is the current code audit against [decided finished-game behavior](vision-interview.md),

@@ -761,6 +761,43 @@ public static partial class SocietyFixture
         return Kill(checkpoint with { WorldTick = tick }, inhabitantId, cause, tick);
     }
 
+    public static SocietyOperationResult MarkWillStarted(SocietyCheckpoint checkpoint, string estateId)
+    {
+        Validate(checkpoint);
+        var estate = checkpoint.GetEstate(estateId);
+        if (estate.Settled || estate.WillStatus is not null)
+            return new SocietyOperationResult(checkpoint, null, []);
+        var next = checkpoint with { Estates = checkpoint.Estates.Select(item => item.Id == estateId
+            ? item with { WillStatus = "pending" } : item).ToArray() };
+        return Commit(next, "estate_will_started", estateId, estateId);
+    }
+
+    public static SocietyOperationResult ResolveWill(
+        SocietyCheckpoint checkpoint, string estateId, string? beneficiaryId, string outcome)
+    {
+        Validate(checkpoint);
+        var estate = checkpoint.GetEstate(estateId);
+        if (estate.WillStatus != "pending" || estate.Settled)
+            return new SocietyOperationResult(checkpoint, null, []);
+        var validSnapshot = estate.FrozenLots is not null &&
+            estate.FrozenLots.All(frozen => checkpoint.Inventory.Lots.Any(lot =>
+                lot.Id == frozen.LotId && lot.OwnerId == estate.Id &&
+                lot.ItemKind == frozen.ItemKind && lot.Quantity == frozen.Quantity)) &&
+            checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == estate.Id).Count() == estate.FrozenLots.Count;
+        var validBeneficiary = beneficiaryId is not null &&
+            checkpoint.Inhabitants.Any(item => item.Id == beneficiaryId && item.Status == SocietyInhabitantStatus.Active);
+        var accepted = validSnapshot && validBeneficiary && outcome == "accepted";
+        var next = checkpoint with { Estates = checkpoint.Estates.Select(item => item.Id == estateId
+            ? item with
+            {
+                BeneficiaryIds = accepted ? [beneficiaryId!] : item.BeneficiaryIds,
+                WillStatus = accepted ? "accepted" : "default",
+                WillBeneficiaryId = accepted ? beneficiaryId : null,
+            } : item).ToArray() };
+        return Commit(next, accepted ? "estate_will_accepted" : "estate_will_default",
+            $"{estateId}:{(accepted ? beneficiaryId : outcome)}", estateId);
+    }
+
     public static SocietyOperationResult Pause(SocietyCheckpoint checkpoint)
     {
         Validate(checkpoint);
@@ -812,6 +849,24 @@ public static partial class SocietyFixture
         EnsureCanonicalIds(checkpoint.Memories.Select(item => item.Id), "memories");
         EnsureCanonicalIds(checkpoint.Estates.Select(item => item.Id), "estates");
         EnsureCanonicalIds(checkpoint.Births.Select(item => item.RequestId), "births");
+        foreach (var estate in checkpoint.Estates)
+        {
+            if (estate.CreatedTick < 0 || estate.ExpiryTick < estate.CreatedTick ||
+                !checkpoint.Inhabitants.Any(item => item.Id == estate.DeceasedId &&
+                    item.Status == SocietyInhabitantStatus.Dead) ||
+                estate.WillStatus is not (null or "pending" or "accepted" or "default") ||
+                (estate.WillStatus == "accepted" &&
+                    (estate.WillBeneficiaryId is null ||
+                     !estate.BeneficiaryIds.Contains(estate.WillBeneficiaryId, StringComparer.Ordinal))) ||
+                (estate.WillStatus != "accepted" && estate.WillBeneficiaryId is not null))
+                throw new InvalidDataException("An estate record is malformed.");
+            if (estate.FrozenLots is { } frozen)
+            {
+                EnsureCanonicalIds(frozen.Select(item => item.LotId), $"estate:{estate.Id}:lots");
+                if (frozen.Any(item => string.IsNullOrWhiteSpace(item.ItemKind) || item.Quantity <= 0))
+                    throw new InvalidDataException("An estate snapshot is malformed.");
+            }
+        }
         foreach (var household in checkpoint.Households)
         {
             EnsureCanonicalIds(household.MemberIds, $"household:{household.Id}:members");
@@ -869,6 +924,9 @@ public static partial class SocietyFixture
             .Distinct(StringComparer.Ordinal)
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToArray();
+        var frozenLots = checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == inhabitant.Id)
+            .OrderBy(lot => lot.Id, StringComparer.Ordinal)
+            .Select(lot => new SocietyEstateLot(lot.Id, lot.ItemKind, lot.Quantity)).ToArray();
         var inventory = MoveOwnedLotsToEstate(checkpoint.Inventory, inhabitant.Id, estateId, deathTick);
         var relationships = checkpoint.Relationships.Select(relationship =>
                 relationship.ProposerId == inhabitant.Id || relationship.TargetId == inhabitant.Id
@@ -904,7 +962,8 @@ public static partial class SocietyFixture
                     deathTick,
                     checked(deathTick + checkpoint.Config.EstateEscrowDays *
                         (long)checkpoint.Config.TicksPerWorldDay),
-                    householdBeneficiaries))
+                    householdBeneficiaries,
+                    FrozenLots: frozenLots))
                 .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray(),
             Inventory = inventory,
         };
@@ -928,7 +987,8 @@ public static partial class SocietyFixture
         long targetTick)
     {
         var current = checkpoint;
-        foreach (var estate in checkpoint.Estates.Where(item => !item.Settled && item.ExpiryTick <= targetTick)
+        foreach (var estate in checkpoint.Estates.Where(item => !item.Settled &&
+                     item.WillStatus != "pending" && item.ExpiryTick <= targetTick)
                      .OrderBy(item => item.Id, StringComparer.Ordinal))
         {
             var beneficiaries = estate.BeneficiaryIds

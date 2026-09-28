@@ -195,6 +195,15 @@ Jev-assisted memory compaction is not implemented yet.
   Owner observations expose the archive for inspection without treating it as
   a living map entity. Earlier deaths with no physical archive cannot be
   reconstructed from an old save.
+- Society freezes personal inventory lot IDs, kinds and quantities when death
+  moves those lots into estate escrow. After the committed death tick, the
+  private-world runtime can dispatch one cancellable final choice through the
+  deceased agent's personal planning provider, outside the tick transaction.
+  Society validates the candidate, living recipient, and still-escrowed frozen
+  estate before a will can replace household beneficiaries. The persisted
+  pending marker is never reissued on restore: interrupted work resolves to
+  the default on the next active tick. A deadline or provider failure does the
+  same. Estate settlement waits for a pending will and commits only once.
 - Saves are versioned and atomically replaced after committed state changes.
   Restores must fail visibly on unsupported or mismatched state rather than
   silently substitute content or credentials. The current host keeps bounded

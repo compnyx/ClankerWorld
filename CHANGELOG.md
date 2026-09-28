@@ -6,6 +6,14 @@ release yet.
 
 ## Unreleased
 
+### Added
+
+- After an agent dies, their assigned personal model can make one bounded final
+  choice to leave frozen personal belongings on the household inheritance path
+  or give the whole estate to a living agent. Invalid, unavailable, timed-out or
+  interrupted choices use the household default. The result survives saves and
+  appears on the deceased agent card and in the Event Log.
+
 ### Fixed
 
 - Turning Jev off now keeps agents' saved social memories useful in personal-model decisions. Each agent receives only a small, relevant set of its own non-forgotten memories; provider failures do not add or share memories.

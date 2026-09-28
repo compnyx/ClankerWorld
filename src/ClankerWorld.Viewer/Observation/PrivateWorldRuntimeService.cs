@@ -34,6 +34,10 @@ public sealed partial class PrivateWorldRuntimeService(
         Message = "hosted_decision tick={WorldTick} inhabitant={InhabitantId} outcome={Outcome}")]
     private static partial void LogHostedDecision(ILogger logger, long worldTick, string inhabitantId, string outcome);
 
+    [LoggerMessage(EventId = 2255, Level = LogLevel.Information,
+        Message = "estate_will tick={WorldTick} estate={EstateId} deceased={DeceasedId} outcome={Outcome} reason={Reason}")]
+    private static partial void LogEstateWill(ILogger logger, long worldTick, string estateId, string deceasedId, string outcome, string reason);
+
     [LoggerMessage(EventId = 2253, Level = LogLevel.Information,
         Message = "autosave outcome=created save={SaveId} tick={WorldTick}")]
     private static partial void LogAutosaveCreated(ILogger logger, string saveId, long worldTick);
@@ -114,6 +118,18 @@ public sealed partial class PrivateWorldRuntimeService(
                     var split = worldEvent.Detail.Split(':', 2);
                     LogHostedDecision(logger, result.WorldTick, split[0],
                         worldEvent.Kind["hosted_decision_".Length..] + (split.Length > 1 ? ":" + split[1] : ""));
+                }
+                foreach (var worldEvent in result.Events.Where(item => item.Kind.StartsWith("estate_will_", StringComparison.Ordinal)))
+                {
+                    var estate = runtime.Society.Estates.FirstOrDefault(item =>
+                        worldEvent.Detail == item.Id || worldEvent.Detail.StartsWith(item.Id + ":", StringComparison.Ordinal));
+                    if (estate is not null)
+                    {
+                        var outcome = worldEvent.Kind["estate_will_".Length..];
+                        var reason = EstateWillReason(worldEvent, estate.Id, outcome);
+                        LogEstateWill(logger, result.WorldTick, estate.Id, estate.DeceasedId,
+                            outcome, reason);
+                    }
                 }
                 var actors = runtime.Inhabitants.Select(person => person.InhabitantId).OrderByDescending(id => id.Length).ToArray();
                 string? EventActor(string detail) => actors.FirstOrDefault(id => detail == id || detail.StartsWith(id + ":", StringComparison.Ordinal));
@@ -220,6 +236,23 @@ public sealed partial class PrivateWorldRuntimeService(
         }
 
         return result.Advanced;
+    }
+
+    private static string EstateWillReason(PlaytestWorldEvent worldEvent, string estateId, string outcome)
+    {
+        if (outcome == "started") return "decision_dispatch_attempted";
+        if (outcome == "accepted") return "valid_heir_selected";
+        if (outcome != "default" || !worldEvent.Detail.StartsWith(estateId + ":", StringComparison.Ordinal))
+            return "unspecified";
+
+        var reason = worldEvent.Detail[(estateId.Length + 1)..];
+        return reason is "empty_estate" or "no_personal_model" or "timeout_or_cancelled" or
+            "household_selected" or "invalid_response" or "deadline" or "interrupted" or
+            "provider_changed" or "provider_unavailable" or "run_epoch_changed" or
+            "invalid_estate_or_heir" || reason.StartsWith("provider_", StringComparison.Ordinal) && reason.Length <= 64 ||
+            reason.StartsWith("setup_", StringComparison.Ordinal) && reason.Length <= 64
+            ? reason
+            : "unspecified";
     }
 
     private async Task MonitorTickGateAsync(CancellationTokenSource tickCancellation, CancellationToken monitorToken)

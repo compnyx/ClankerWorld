@@ -3647,6 +3647,8 @@ public partial class Main : Control
         var ageDays = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "age-days")?.Detail;
         var deathTick = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "death-tick")?.Detail;
         var deathCause = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "death-cause")?.Detail;
+        var willStatus = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "will-status")?.Detail;
+        var willHeir = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "will-heir")?.Detail;
         var isDeceased = string.Equals(inhabitant.Lifecycle, "dead", StringComparison.OrdinalIgnoreCase);
         modelSettingsButton.Disabled = isDeceased || registration is null;
         if (selectedAgentModelScroll.Visible && SelectedCognitionTarget() != inhabitant.Id)
@@ -3658,7 +3660,10 @@ public partial class Main : Control
             (deathTick is not null && long.TryParse(deathTick, CultureInfo.InvariantCulture, out var finalTick)
                 ? $" · {DisplayWorldClock(finalTick)}" : "");
         var intention = isDeceased
-            ? $"Life ended{(deathCause is null ? "" : " · " + Pretty(deathCause))}. No current thoughts or activity."
+            ? $"Life ended{(deathCause is null ? "" : " · " + Pretty(deathCause))}. No current thoughts or activity." +
+              (willStatus == "accepted" ? $" Final will: personal estate to {willHeir}." :
+                  willStatus == "pending" ? " Final will pending." :
+                  willStatus == "default" ? " Personal estate follows household inheritance." : "")
             : waitingForDecision
             ? "Decision pending."
             : inhabitant.PublicIntention is { } publicIntention
@@ -4584,6 +4589,8 @@ public partial class Main : Control
             "inhabitant_slept" => $"{NameAt(0)} slept.",
             "child_born" => $"{NameAt(0)} was born.",
             "inhabitant_removed" => $"{NameAt(0)} died.",
+            "estate_will_accepted" => "A final will directed a personal estate.",
+            "estate_will_default" => "A personal estate followed household inheritance.",
             "inhabitant_building_proposed" => $"{NameAt(0)} proposed a new building design.",
             "settlement_founded" => "A new settlement was founded.",
             "paused" => "The world was paused.",
