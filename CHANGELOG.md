@@ -95,11 +95,12 @@ release yet.
   memories and trust. The world rejects adult-only work, trade, partnerships,
   parenthood and council actions for children even if a model or owner request
   tries to select one; infants still make no personal-model decisions.
-- Added a reviewable selected-tile inspection prototype. Clicking ground
+- Added selected-tile inspection. Clicking ground
   highlights the tile and shows terrain kind, separate generated climate,
   elevation, surface, hydrology and vegetation cover, objects, resources,
   buildings, regional weather and moisture. Fertility remains explicitly
-  unavailable; final layout and fields remain subject to owner playtest.
+  unavailable. The owner accepted this direction; future field and layout
+  refinements can follow the underlying world systems.
 - Signed owner reconnects now use a versioned terrain-cache claim. After an
   initial generated-map transfer, unchanged terrain bytes are omitted from
   routine observations; clients reuse only a matching world, terrain manifest

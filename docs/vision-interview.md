@@ -125,10 +125,15 @@ reopen the decided player-local distribution goal.
 - Enter a visually coherent generated world. The player can see its whole
   geography from the start; there is no player fog of war. Individual agents
   may know only what they have experienced or learned.
-- **Preferred from playtesting:** selecting a tile should reveal its biome,
-  terrain, object, local weather/temperature, fertility, elevation, and other
-  meaningful facts. Show only facts the simulation actually knows; the exact
-  panel and unavailable-field treatment remain to be designed.
+- **Decided after reviewing the tile-inspection prototype:** selecting ground
+  should open an inspection panel with meaningful, authoritative world facts.
+  Keep terrain kind separate from generated climate, elevation, hydrology,
+  surface and vegetation cover; show present objects, resources, buildings,
+  regional weather and soil moisture from their own observations. Mark absent
+  or unprojected facts such as fertility and exact temperature unavailable,
+  never infer them from terrain color. Player inspection does not teach an
+  agent those facts. The exact final layout and future biome/fertility fields
+  remain open as those systems become real.
 - One continuous pixel-art world view supports mouse-wheel zoom and WASD
   panning. On an east/west-wrapped world, the camera should pan continuously
   across the seam in either direction. There is **no separate simplified
