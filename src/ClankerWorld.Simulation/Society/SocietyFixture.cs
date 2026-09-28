@@ -1009,14 +1009,14 @@ public static partial class SocietyFixture
         SocietyAgentBelief belief,
         bool allowSupersedes)
     {
-        if (!IsCanonicalBoundedText(belief.Id, 128) || !IsCanonicalBoundedText(belief.OwnerId, 128) ||
+        if (!IsSafeBeliefId(belief.Id) || !IsCanonicalBoundedText(belief.OwnerId, 128) ||
             !IsCanonicalBoundedText(belief.Statement, 512) ||
             belief.Statement.Any(char.IsControl) || !Enum.IsDefined(belief.Provenance) ||
             belief.ConfidenceBasisPoints is < 0 or > 10_000 || belief.FormedTick < 0 ||
             belief.FormedTick > checkpoint.WorldTick || belief.SourceEventId is <= 0 ||
             belief.SupersededTick is < 0 || belief.SupersededTick > checkpoint.WorldTick ||
-            belief.SupersededByBeliefId is { } superseding && !IsCanonicalBoundedText(superseding, 128) ||
-            belief.SupersedesBeliefId is { } superseded && !IsCanonicalBoundedText(superseded, 128))
+            belief.SupersededByBeliefId is { } superseding && !IsSafeBeliefId(superseding) ||
+            belief.SupersedesBeliefId is { } superseded && !IsSafeBeliefId(superseded))
             throw new InvalidDataException("An agent belief has invalid bounded fields.");
 
         if (!checkpoint.Inhabitants.Any(item => item.Id == belief.OwnerId) ||
@@ -1059,6 +1059,12 @@ public static partial class SocietyFixture
     private static bool IsCanonicalBoundedText(string? value, int maximumLength) =>
         value is { Length: > 0 } && value.Length <= maximumLength &&
         value == value.Trim() && !value.Any(char.IsControl);
+
+    // Belief IDs appear in operational telemetry. Keep caller-provided prose
+    // and other private content out of this identifier channel.
+    private static bool IsSafeBeliefId(string? value) =>
+        IsCanonicalBoundedText(value, 128) &&
+        value!.All(character => char.IsAsciiLetterOrDigit(character) || character is ':' or '-' or '_');
 
     private static SocietyOperationResult Kill(
         SocietyCheckpoint checkpoint,

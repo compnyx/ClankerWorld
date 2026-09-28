@@ -123,6 +123,9 @@ public sealed class AgentBeliefLedgerTests
         Assert.Throws<InvalidDataException>(() => world.RecordAgentBelief(new SocietyAgentBelief(
             "belief:unknown-source", "founder-scout", "Someone moved the tool.",
             SocietyBeliefProvenance.Inference, 5_000, 0, SourceEventId: 999)));
+        Assert.Throws<InvalidDataException>(() => world.RecordAgentBelief(new SocietyAgentBelief(
+            "belief:private medical detail", "founder-scout", "A private detail.",
+            SocietyBeliefProvenance.Inference, 5_000, 0)));
         Assert.Empty(world.Society.Beliefs ?? []);
 
         var belief = world.RecordAgentBelief(new SocietyAgentBelief(

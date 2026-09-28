@@ -191,6 +191,8 @@ Jev-assisted memory compaction is not implemented yet.
   hearsay, or inference provenance and confidence. Corrections retain the old
   belief as superseded history without appending a public event or changing
   world facts; the owner inspection projection shows that evidence and status.
+  Belief telemetry records a safe-format belief ID, owner ID, provenance,
+  confidence and outcome, never statements or source prose.
   Beliefs are not yet generated from conversations or shared automatically,
   and broad episodic recall and Jev-assisted compaction remain unimplemented.
 - Live physical actors remain separate from saved deceased records. On death,
