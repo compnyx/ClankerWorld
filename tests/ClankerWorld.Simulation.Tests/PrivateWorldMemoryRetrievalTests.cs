@@ -87,6 +87,37 @@ public sealed class PrivateWorldMemoryRetrievalTests
     }
 
     [Fact]
+    public async Task FullSalienceIndexDoesNotRescoreSourcesOutsideItsRetainedWindow()
+    {
+        using var seed = new PrivateWorldRuntime("memory-compaction-window");
+        var state = seed.ExportState();
+        var memories = Enumerable.Range(0, 260).Select(index => new SocietySocialMemory(
+            $"memory-{index:D3}", "founder-scout", "founder-mira", "A private remembered place.", "private", 0))
+            .ToArray();
+        var indexed = memories.Take(256).Select(memory => new SocietyAgentMemoryImportance(
+            memory.Id, SocietyMemorySourceKind.Experience, 0, 5_000, 8_000, 0)).ToArray();
+        state = state with
+        {
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Memories = memories,
+                    MemoryCompactions = [new SocietyAgentMemoryCompaction("founder-scout", indexed)],
+                },
+            },
+        };
+        var observed = new List<InhabitantObservation>();
+        using var world = PrivateWorldRuntime.Restore(state, _ => new CapturingProvider(observed));
+
+        Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        var scout = observed.Single(item => item.InhabitantId == "founder-scout");
+        Assert.Empty(scout.MemoryCompactionCandidates ?? []);
+        Assert.Equal(indexed, world.Society.MemoryCompactions!.Single().Sources);
+    }
+
+    [Fact]
     public async Task JevCompactsOnlyOwnerSourcesAndTheNextPersonalDecisionKeepsBeliefEvidence()
     {
         using var seed = new PrivateWorldRuntime("memory-compaction");
