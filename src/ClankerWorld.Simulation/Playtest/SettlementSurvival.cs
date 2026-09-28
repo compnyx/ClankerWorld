@@ -92,13 +92,15 @@ public sealed partial class PrivateWorldRuntime
         lot.OwnerId == actor && lot.ItemKind == kind && AvailableLotQuantity(lot) > 0);
 
     private InventoryLot? SharedItem(string kind, string actor) => society.Checkpoint.Inventory.Lots.FirstOrDefault(lot =>
-        lot.OwnerId == HouseholdFor(actor) && lot.ItemKind == kind && AvailableLotQuantity(lot) > 0);
+        lot.OwnerId == HouseholdFor(actor) && lot.ItemKind == kind && AvailableLotQuantity(lot) > 0 &&
+        (lot.StorageBuildingId is null || society.Checkpoint.GetInhabitant(actor).HouseholdId == lot.OwnerId));
 
     private IEnumerable<PlacedBuilding> BuildingsWithTag(string tag) => worldSimulation.Buildings.Where(building =>
         worldContent.Buildings.Any(definition => definition.CanonicalId == building.DefinitionId && definition.Tags.Contains(tag, StringComparer.Ordinal)));
 
     private IEnumerable<PlacedBuilding> AccessibleShelters(string actor) => BuildingsWithTag("shelter")
-        .Where(building => building.HouseholdId is null || building.HouseholdId == HouseholdFor(actor));
+        .Where(building => building.HouseholdId is null ||
+            building.HouseholdId == society.Checkpoint.GetInhabitant(actor).HouseholdId);
 
     private bool NearShelter(string actor, GridPoint point) => AccessibleShelters(actor).Any(building =>
         IsWithinInteractionRange(point, building.Position,
@@ -141,7 +143,8 @@ public sealed partial class PrivateWorldRuntime
         .DistinctBy(building => building.InstanceId);
 
     private IEnumerable<PlacedBuilding> AccessibleHeatingBuildings(string actor) => HeatingBuildings()
-        .Where(building => building.HouseholdId is null || building.HouseholdId == HouseholdFor(actor));
+        .Where(building => building.HouseholdId is null ||
+            building.HouseholdId == society.Checkpoint.GetInhabitant(actor).HouseholdId);
 
     private void AdvanceSettlementSurvival()
     {

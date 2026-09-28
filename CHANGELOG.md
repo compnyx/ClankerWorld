@@ -8,6 +8,13 @@ release yet.
 
 ### Added
 
+- Adult household members can carry bounded loads of older camp supplies to
+  their own House. The load remains with its carrier through save/reload and
+  appears in the House's inspected stock only after the carrier reaches home;
+  invalid delivery destinations are rejected on reload. Residents without a
+  household cannot use the first household's House through the legacy camp
+  fallback. Other gathering and production paths still need physical delivery
+  before all household supplies consistently live at the House.
 - Meals finished at a House now record that House as their physical stock
   location. Its map inspection shows only items actually recorded there, and
   household members enter the House tile to collect those meals, cook, or take

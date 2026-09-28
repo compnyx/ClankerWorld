@@ -57,10 +57,12 @@ public sealed partial class PrivateWorldRuntime
             if (++reachable == 3) break;
         }
 
+        var householdId = society.Checkpoint.GetInhabitant(actor).HouseholdId;
+        var house = householdId is null ? null : HouseForHousehold(householdId);
         if (state.HungerBasisPoints >= 6_000 && PreferredFood(actor, actor).Any(lot => AvailableLotQuantity(lot) > 1) &&
             FindUnoccupiedRoute(actor, state.Position,
-                HouseForHousehold(HouseholdFor(actor))?.Position ?? map.GetObject("storage").Position,
-                HouseForHousehold(HouseholdFor(actor)) is null ? ResourceInteractionRange : 0).Count > 0)
+                house?.Position ?? map.GetObject("storage").Position,
+                house is null ? ResourceInteractionRange : 0).Count > 0)
             candidates.Add(new("child_help_food", "Carry one spare food serving back to the household store.", 26));
     }
 
@@ -72,7 +74,8 @@ public sealed partial class PrivateWorldRuntime
             if (state.HungerBasisPoints < 6_000 ||
                 PreferredFood(actor, actor).FirstOrDefault(lot => AvailableLotQuantity(lot) > 1) is not { } lot)
                 return;
-            var house = HouseForHousehold(HouseholdFor(actor));
+            var householdId = society.Checkpoint.GetInhabitant(actor).HouseholdId;
+            var house = householdId is null ? null : HouseForHousehold(householdId);
             var store = house?.Position ?? map.GetObject("storage").Position;
             var interactionRange = house is null ? ResourceInteractionRange : 0;
             if (!IsWithinInteractionRange(state.Position, store, interactionRange))

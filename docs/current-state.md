@@ -217,9 +217,16 @@ returns food to that household. Cooked output records its House location and
 appears in that building's inspected stock. Agents enter the House tile to
 collect located food/equipment, cook, or receive refuge. Multiple household
 members can share that tile without an occupancy cap; children carry spare food
-to their household House when one exists. Older household lots remain unlocated.
-Legacy Shelters remain loadable. Houses are not yet guaranteed at world start;
-hauling and physical ingredient access, expansion and guest entry are unfinished.
+to their household House when one exists. Adults can carry bounded loads of
+older unlocated household stock from camp to the House; stock stays with the
+carrier through save/reload and only appears in the House after delivery.
+The current four-unit load is a prototype rule, not an accepted carrying
+capacity. House access requires recorded household membership even when an
+unassigned resident can still use the old camp fallback.
+Other resource-production and gathering paths do not yet physically deliver
+goods to House storage. Legacy Shelters remain loadable. Houses are not yet
+guaranteed at world start; physical ingredient access, expansion and guest entry
+are unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities
 reuse prototype values; they are not accepted finished-game recipes or
 storage-capacity decisions.

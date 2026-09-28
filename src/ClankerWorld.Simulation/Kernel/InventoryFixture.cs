@@ -43,7 +43,8 @@ public sealed record InventoryLot(
     int FreshnessBasisPoints,
     long LastProcessedTick,
     string? ProvenanceLotId = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StorageBuildingId = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StorageBuildingId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? DeliveryBuildingId = null);
 
 public sealed record InventoryReservation(
     string Id,
@@ -328,7 +329,8 @@ public static class InventoryFixture
         string lotId,
         int quantity,
         string purpose,
-        string? destinationStorageBuildingId = null)
+        string? destinationStorageBuildingId = null,
+        string? destinationDeliveryBuildingId = null)
     {
         ValidateCheckpoint(checkpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(transferId);
@@ -345,7 +347,12 @@ public static class InventoryFixture
         EnsureOwnerAndAvailableQuantity(checkpoint, source, senderId, quantity);
         var lots = quantity == source.Quantity
             ? checkpoint.Lots.Select(lot => lot.Id == source.Id
-                    ? lot with { OwnerId = recipientId, StorageBuildingId = destinationStorageBuildingId }
+                    ? lot with
+                    {
+                        OwnerId = recipientId,
+                        StorageBuildingId = destinationStorageBuildingId,
+                        DeliveryBuildingId = destinationDeliveryBuildingId,
+                    }
                     : lot)
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray()
@@ -359,6 +366,7 @@ public static class InventoryFixture
                     Quantity = quantity,
                     ProvenanceLotId = source.Id,
                     StorageBuildingId = destinationStorageBuildingId,
+                    DeliveryBuildingId = destinationDeliveryBuildingId,
                 })
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray();
@@ -527,7 +535,7 @@ public static class InventoryFixture
         if (source.Quantity == quantity)
         {
             return lots.Select(lot => lot.Id == source.Id
-                    ? lot with { OwnerId = recipientId, StorageBuildingId = null } : lot)
+                    ? lot with { OwnerId = recipientId, StorageBuildingId = null, DeliveryBuildingId = null } : lot)
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal).ToArray();
         }
 
@@ -544,6 +552,7 @@ public static class InventoryFixture
             Quantity = quantity,
             ProvenanceLotId = source.Id,
             StorageBuildingId = null,
+            DeliveryBuildingId = null,
         };
         return lots.Select(lot => lot.Id == source.Id ? lot with { Quantity = lot.Quantity - quantity } : lot)
             .Append(transferred).OrderBy(lot => lot.Id, StringComparer.Ordinal).ToArray();
@@ -634,6 +643,10 @@ public static class InventoryFixture
             if (lot.StorageBuildingId is { } storageBuildingId &&
                 (string.IsNullOrWhiteSpace(storageBuildingId) || storageBuildingId != storageBuildingId.Trim()))
                 throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid storage building ID.");
+            if (lot.DeliveryBuildingId is { } deliveryBuildingId &&
+                (string.IsNullOrWhiteSpace(deliveryBuildingId) || deliveryBuildingId != deliveryBuildingId.Trim() ||
+                 lot.StorageBuildingId is not null))
+                throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid delivery building ID.");
             if (lot.Quantity <= 0 || lot.LastProcessedTick < 0 ||
                 lot.ConditionBasisPoints is < 0 or > 10_000 || lot.FreshnessBasisPoints is < 0 or > 10_000)
             {

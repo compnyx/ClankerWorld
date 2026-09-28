@@ -120,6 +120,108 @@ public sealed class HouseContentTests
     }
 
     [Fact]
+    public async Task HouseholdStockIsCarriedFromCampBeforeItAppearsAtTheHouse()
+    {
+        using var seed = new PrivateWorldRuntime("house-haul", _ => new IdleProvider(),
+            startPace: WorldStartPace.FounderSetup);
+        var founderPositions = new[]
+        {
+            new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2),
+        };
+        for (var index = 0; index < founderPositions.Length; index++)
+            seed.PlaceFounder("founder:" + (index + 1).ToString("x32", CultureInfo.InvariantCulture), founderPositions[index]);
+        seed.StartWorld();
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 8; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+
+        var initial = seed.ExportState();
+        var actor = initial.Society.Society.Inhabitants.First(person =>
+            person.HouseholdId == "household:camp-alpha").Id;
+        var camp = initial.Map.GetObject("storage").Position;
+        var occupied = initial.Inhabitants.Where(person => person.InhabitantId != actor)
+            .Select(person => person.Position).ToHashSet();
+        var reachable = new HashSet<GridPoint> { camp };
+        var pending = new Queue<GridPoint>();
+        pending.Enqueue(camp);
+        while (pending.TryDequeue(out var current))
+        {
+            foreach (var next in initial.Map.FootNeighbors(current))
+            {
+                if (occupied.Contains(next) ||
+                    initial.Map.IsDiagonalFootStep(current, next) &&
+                    (occupied.Contains(new GridPoint(next.X, current.Y)) ||
+                     occupied.Contains(new GridPoint(current.X, next.Y))))
+                    continue;
+                if (reachable.Add(next)) pending.Enqueue(next);
+            }
+        }
+        var site = reachable.OrderBy(point => initial.Map.FootDistance(camp, point))
+            .ThenBy(point => point.Y).ThenBy(point => point.X).First(point =>
+            initial.Map.IsBuildable(point) &&
+            !initial.Map.CampObjects.Any(item => item.Position == point) &&
+            !initial.Map.Resources.Any(item => item.Position == point) &&
+            !initial.Inhabitants.Any(person => person.Position == point));
+        var house = seed.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        Assert.True(seed.PlaceBuilding("haul-home-alpha", house.CanonicalId, site, "household:camp-alpha").Applied);
+        var staged = seed.ExportState();
+        var foodBefore = staged.Society.Society.Inventory.Lots
+            .Where(lot => lot.OwnerId == "household:camp-alpha" && lot.ItemKind == "food")
+            .Sum(lot => lot.Quantity);
+        staged = staged with
+        {
+            Inhabitants = staged.Inhabitants.Select(person => person.InhabitantId == actor
+                ? person with { Position = camp, HungerBasisPoints = 9_000 } : person).ToArray(),
+        };
+        using var world = PrivateWorldRuntime.Restore(staged,
+            id => id == actor ? new PreferredCandidateProvider("haul_household_stock") : new IdleProvider());
+        for (var tick = 0; tick < 20 && !world.ExportState().Events.Any(item =>
+                 item.Kind == "household_stock_picked_up" && item.Detail.StartsWith(actor + ":", StringComparison.Ordinal)); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        Assert.Contains(world.ExportState().Events, item => item.Kind == "household_stock_picked_up" &&
+            item.Detail.StartsWith(actor + ":", StringComparison.Ordinal));
+        var carried = world.Society.Inventory.Lots.Single(lot =>
+            lot.OwnerId == actor && lot.DeliveryBuildingId == "haul-home-alpha");
+        Assert.Null(carried.StorageBuildingId);
+        Assert.Empty(new OwnerWorldObservationStore(world).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "haul-home-alpha").StoredItems!);
+
+        var midJourney = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
+        var invalid = midJourney with
+        {
+            Society = midJourney.Society with
+            {
+                Society = midJourney.Society.Society with
+                {
+                    Inventory = midJourney.Society.Society.Inventory with
+                    {
+                        Lots = midJourney.Society.Society.Inventory.Lots.Select(lot => lot.Id == carried.Id
+                            ? lot with { DeliveryBuildingId = "missing-house" } : lot).ToArray(),
+                    },
+                },
+            },
+        };
+        Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(invalid));
+
+        using var resumed = PrivateWorldRuntime.Restore(midJourney,
+            id => id == actor ? new PreferredCandidateProvider("haul_household_stock") : new IdleProvider());
+        for (var tick = 0; tick < 20 && !resumed.ExportState().Events.Any(item =>
+                 item.Kind == "household_stock_delivered" && item.Detail.StartsWith(actor + ":", StringComparison.Ordinal)); tick++)
+            Assert.True((await resumed.AdvanceOneTickAsync()).Advanced);
+        var delivery = resumed.ExportState().Events.First(item => item.Kind == "household_stock_delivered" &&
+            item.Detail.StartsWith(actor + ":", StringComparison.Ordinal));
+        Assert.Equal(site, delivery.Position);
+        Assert.Equal("haul-home-alpha", resumed.Society.Inventory.GetLot(carried.Id).StorageBuildingId);
+        Assert.Null(resumed.Society.Inventory.GetLot(carried.Id).DeliveryBuildingId);
+        Assert.Equal(foodBefore, resumed.Society.Inventory.Lots
+            .Where(lot => lot.OwnerId == "household:camp-alpha" && lot.ItemKind == "food")
+            .Sum(lot => lot.Quantity));
+        Assert.Contains(new OwnerWorldObservationStore(resumed).GetSnapshot().PlacedBuildings
+            .Single(building => building.InstanceId == "haul-home-alpha").StoredItems!,
+            item => item.Kind == "food" && item.Quantity == carried.Quantity);
+    }
+
+    [Fact]
     public async Task AnotherHouseholdDoesNotReceiveHouseRefugeInSnow()
     {
         using var seed = new PrivateWorldRuntime("house-refuge", _ => new IdleProvider(),

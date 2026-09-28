@@ -1261,7 +1261,12 @@ public static partial class SocietyFixture
             {
                 if (beneficiaries.Length == 0)
                 {
-                    nextLots.Add(lot with { OwnerId = "settlement:communal" });
+                    nextLots.Add(lot with
+                    {
+                        OwnerId = "settlement:communal",
+                        StorageBuildingId = null,
+                        DeliveryBuildingId = null,
+                    });
                     continue;
                 }
 
@@ -1281,6 +1286,8 @@ public static partial class SocietyFixture
                         OwnerId = beneficiaries[index],
                         Quantity = quantity,
                         ProvenanceLotId = lot.Id,
+                        StorageBuildingId = null,
+                        DeliveryBuildingId = null,
                     });
                 }
             }
@@ -1317,7 +1324,7 @@ public static partial class SocietyFixture
         long targetTick)
     {
         var lots = inventory.Lots.Select(lot => lot.OwnerId == ownerId
-                ? lot with { OwnerId = estateId }
+                ? lot with { OwnerId = estateId, StorageBuildingId = null, DeliveryBuildingId = null }
                 : lot)
             .OrderBy(item => item.Id, StringComparer.Ordinal).ToArray();
         var reservations = inventory.Reservations.Select(reservation => reservation.OwnerId == ownerId

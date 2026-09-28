@@ -181,7 +181,9 @@ public sealed partial class PrivateWorldRuntime
         var child = inhabitants[childId];
         if (child.HungerBasisPoints < 7_000 && PreferredFood(actor, actor).FirstOrDefault() is null)
         {
-            if (PreferredFood(HouseholdFor(actor), actor).FirstOrDefault() is { } sharedFood)
+            if (PreferredFood(HouseholdFor(actor), actor).FirstOrDefault(lot =>
+                    lot.StorageBuildingId is null ||
+                    society.Checkpoint.GetInhabitant(actor).HouseholdId == lot.OwnerId) is { } sharedFood)
             {
                 var camp = HouseholdStockPosition(sharedFood);
                 var interactionRange = HouseholdStockInteractionRange(sharedFood);
