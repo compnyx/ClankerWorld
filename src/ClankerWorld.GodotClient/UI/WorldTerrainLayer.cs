@@ -533,17 +533,17 @@ public partial class WorldTerrainLayer : Control
         var color = new Color(0.95f, 0.78f, 0.38f, 0.88f);
         var lineWidth = Math.Clamp(tileSize / 30f, 1f, 4f);
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
-        for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
-        {
-            var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
-            if (!townBorderTiles.Contains(new Vector2I(canonicalX, y))) continue;
-            var origin = new Vector2(x * stride, y * stride);
-            var edge = new Vector2(tileSize, tileSize);
-            if (!ContainsTownTile(canonicalX - 1, y)) DrawLine(origin, origin + new Vector2(0, tileSize), color, lineWidth);
-            if (!ContainsTownTile(canonicalX + 1, y)) DrawLine(origin + new Vector2(tileSize, 0), origin + edge, color, lineWidth);
-            if (!ContainsTownTile(canonicalX, y - 1)) DrawLine(origin, origin + new Vector2(tileSize, 0), color, lineWidth);
-            if (!ContainsTownTile(canonicalX, y + 1)) DrawLine(origin + new Vector2(0, tileSize), origin + edge, color, lineWidth);
-        }
+            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            {
+                var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
+                if (!townBorderTiles.Contains(new Vector2I(canonicalX, y))) continue;
+                var origin = new Vector2(x * stride, y * stride);
+                var edge = new Vector2(tileSize, tileSize);
+                if (!ContainsTownTile(canonicalX - 1, y)) DrawLine(origin, origin + new Vector2(0, tileSize), color, lineWidth);
+                if (!ContainsTownTile(canonicalX + 1, y)) DrawLine(origin + new Vector2(tileSize, 0), origin + edge, color, lineWidth);
+                if (!ContainsTownTile(canonicalX, y - 1)) DrawLine(origin, origin + new Vector2(tileSize, 0), color, lineWidth);
+                if (!ContainsTownTile(canonicalX, y + 1)) DrawLine(origin + new Vector2(0, tileSize), origin + edge, color, lineWidth);
+            }
 
         bool ContainsTownTile(int x, int y) => y >= 0 && y < world.Height &&
             (wrapsEastWest ? townBorderTiles.Contains(new Vector2I(Mod(x, world.Width), y)) :
