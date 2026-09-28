@@ -24,9 +24,9 @@ release yet.
   exists. Invalid or missing storage buildings are rejected on reload; older
   household stock remains unlocated until a hauling path moves it into a House.
 - Members can now cook a household meal at their own House. The job reserves
-  only that household's food and wood and returns the meal to it after save or
-  reload; outsiders cannot start the job there. Physical placement of the
-  ingredients and finished food is still in development.
+  only food and wood actually stored in that House and returns the meal there
+  after save or reload; outsiders cannot start the job, and remote camp supplies
+  cannot be used as if they were already at the hearth.
 - A first 1×1 House design can now be built for a specific existing household.
   Its ownership survives save/load, appears on the building's map inspection,
   charges construction materials to its household, and limits storm refuge and

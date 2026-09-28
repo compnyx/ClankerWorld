@@ -43,6 +43,27 @@ public sealed class HouseContentTests
             Inhabitants = seed.ExportState().Inhabitants.Select(person => person.InhabitantId == beta
                 ? person with { Position = site, HungerBasisPoints = 9_000 } : person).ToArray(),
         };
+        using (var unstocked = PrivateWorldRuntime.Restore(state, _ => new IdleProvider()))
+        {
+            var remote = unstocked.StartProduction(recipe.CanonicalId, "meal-home-beta", beta);
+            Assert.False(remote.Applied);
+            Assert.Contains("on-site", remote.Failure, StringComparison.Ordinal);
+        }
+        state = state with
+        {
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Inventory = state.Society.Society.Inventory with
+                    {
+                        Lots = state.Society.Society.Inventory.Lots.Select(lot =>
+                            lot.OwnerId == "household:camp-beta" && (lot.ItemKind is "food" or "wood")
+                                ? lot with { StorageBuildingId = "meal-home-beta" } : lot).ToArray(),
+                    },
+                },
+            },
+        };
         using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
         var alphaFood = HouseholdQuantity(world, "household:camp-alpha", "food");
         var betaFood = HouseholdQuantity(world, "household:camp-beta", "food");
@@ -69,11 +90,11 @@ public sealed class HouseContentTests
         Assert.Equal("meal-home-beta", resumed.Society.Inventory.GetLot(cookedLotId).StorageBuildingId);
         var projected = new OwnerWorldObservationStore(resumed).GetSnapshot().PlacedBuildings
             .Single(building => building.InstanceId == "meal-home-beta");
-        Assert.Contains(projected.StoredItems!, item => item.Kind == "food" && item.Quantity == 4);
+        Assert.Contains(projected.StoredItems!, item => item.Kind == "food" && item.Quantity == betaFood + 2);
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var client = JsonSerializer.Deserialize<ClankerWorld.GodotClient.UI.OwnerWorldPlacedBuilding>(
             JsonSerializer.Serialize(projected, options), options)!;
-        Assert.Contains(client.StoredItems!, item => item.Kind == "food" && item.Quantity == 4);
+        Assert.Contains(client.StoredItems!, item => item.Kind == "food" && item.Quantity == betaFood + 2);
 
         var finished = resumed.ExportState();
         var invalid = finished with

@@ -1217,6 +1217,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 return ProductionStartResult.Rejected(normalizedRecipeId,
                     "Only a member of the House household can cook there.");
 
+            var houseRecipe = placed?.DefinitionId == House1x1DefinitionId;
+            if (houseRecipe && !HasIngredientsAtBuilding(recipe.Inputs, worker.HouseholdId!, placed!.InstanceId))
+                return ProductionStartResult.Rejected(normalizedRecipeId,
+                    "The House lacks the required ingredients in its on-site stock.");
+
             if (!inhabitants.TryGetValue(normalizedWorkerId, out var physical) || physical.Position != workPosition)
             {
                 return ProductionStartResult.Rejected(normalizedRecipeId, "The worker must be standing at the build site.");
@@ -1233,7 +1238,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     $"{jobId}:input",
                     completionTick,
                     placed?.HouseholdId ?? HouseholdId,
-                    out reservationIds);
+                    out reservationIds,
+                    houseRecipe ? placed!.InstanceId : null);
                 return reserved;
             });
 
@@ -2139,13 +2145,21 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         return current;
     }
 
+    private bool HasIngredientsAtBuilding(IReadOnlyList<ContentQuantity> inputs,
+        string ownerId, string buildingId) => inputs.All(input =>
+        society.Checkpoint.Inventory.Lots.Where(lot => lot.OwnerId == ownerId &&
+                lot.StorageBuildingId == buildingId && lot.ItemKind == input.ResourceId &&
+                lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0)
+            .Sum(lot => (long)AvailableLotQuantity(lot)) >= input.Amount);
+
     private static InventoryCheckpoint ReserveQuantities(
         InventoryCheckpoint inventory,
         IReadOnlyList<ContentQuantity> quantities,
         string purpose,
         long expiryTick,
         string ownerId,
-        out IReadOnlyList<string> reservationIds)
+        out IReadOnlyList<string> reservationIds,
+        string? requiredStorageBuildingId = null)
     {
         var current = inventory;
         var created = new List<string>();
@@ -2154,7 +2168,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var requested = quantities[quantityIndex];
             var remaining = requested.Amount;
             var lots = current.Lots
-                .Where(lot => lot.OwnerId == ownerId && lot.ItemKind == requested.ResourceId && lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0)
+                .Where(lot => lot.OwnerId == ownerId && lot.ItemKind == requested.ResourceId &&
+                    lot.FreshnessBasisPoints > 0 && lot.ConditionBasisPoints > 0 &&
+                    (requiredStorageBuildingId is null || lot.StorageBuildingId == requiredStorageBuildingId))
                 .OrderBy(lot => lot.Id, StringComparer.Ordinal)
                 .ToArray();
             foreach (var lot in lots)
@@ -3400,7 +3416,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var recipeOwner = recipe.WorkstationBuildingId == House1x1DefinitionId
                 ? inhabitant.HouseholdId : null;
             if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner) ||
-                !TryFindRecipeSite(recipe, out _, out var position, inhabitant.Id))
+                !TryFindRecipeSite(recipe, out var siteId, out var position, inhabitant.Id) ||
+                recipe.WorkstationBuildingId == House1x1DefinitionId &&
+                (recipeOwner is null || !HasIngredientsAtBuilding(recipe.Inputs, recipeOwner, siteId)))
             {
                 continue;
             }

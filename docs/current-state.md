@@ -212,8 +212,9 @@ now seek nearby forest or a standing tree in a storm; cover reduces exposure
 at the agent's actual tile. A first 1×1 House design now has saved household
 ownership and only its household receives nearby refuge and house-fire warmth;
 its construction consumes that household's materials rather than the prototype
-camp stockpile. House cooking now reserves household-owned ingredients and
-returns food to that household. Cooked output records its House location and
+camp stockpile. House cooking now reserves only ingredients stored at that
+specific House and returns food to that household; remote camp supplies must
+be hauled there before cooking. Cooked output records its House location and
 appears in that building's inspected stock. Agents enter the House tile to
 collect located food/equipment, cook, or receive refuge. Multiple household
 members can share that tile without an occupancy cap; children carry spare food
@@ -225,8 +226,7 @@ capacity. House access requires recorded household membership even when an
 unassigned resident can still use the old camp fallback.
 Other resource-production and gathering paths do not yet physically deliver
 goods to House storage. Legacy Shelters remain loadable. Houses are not yet
-guaranteed at world start; physical ingredient access, expansion and guest entry
-are unfinished.
+guaranteed at world start; expansion and guest entry are unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities
 reuse prototype values; they are not accepted finished-game recipes or
 storage-capacity decisions.
