@@ -140,6 +140,7 @@ public partial class Main : Control
         new(1600, 900),
         new(1920, 1080),
     ];
+    private readonly List<Vector2I> renderSizeOptions = [];
     private readonly OptionButton clockFormatChoice = new();
     private readonly OptionButton dateFormatChoice = new();
     private readonly OptionButton lifePaceChoice = new();
@@ -212,6 +213,7 @@ public partial class Main : Control
         displayPreferences = displayPreferencesStore.Load();
         ApplySavedDisplaySettings();
         BuildLayout();
+        GetWindow().SizeChanged += RefreshAutomaticRenderResolution;
         ShowMainMenu();
         if (OS.GetCmdlineUserArgs().Contains("--ui-smoke-test", StringComparer.Ordinal))
         {
@@ -306,22 +308,37 @@ public partial class Main : Control
             {
                 windowSizeChoice.Select(1);
                 SetWindowSize(1);
-                if (displayWindow.Size != DisplaySizePresets[1] || displayWindow.ContentScaleSize != originalRenderSize)
-                    throw new InvalidOperationException("Window Size must change only the physical window size.");
-                renderResolutionChoice.Select(2);
-                SetRenderResolution(2);
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                if (displayWindow.Size != DisplaySizePresets[1])
+                    throw new InvalidOperationException("Window Size must change the physical window size.");
+                if (renderSizeOptions.Count == 0)
+                    throw new InvalidOperationException("At least one fixed render choice must be available.");
+                var fixedChoice = renderSizeOptions.Count;
+                var fixedRenderSize = renderSizeOptions[^1];
+                renderResolutionChoice.Select(fixedChoice);
+                SetRenderResolution(fixedChoice);
                 if (displayWindow.Size != DisplaySizePresets[1] ||
-                    displayWindow.ContentScaleSize != DisplaySizePresets[2] ||
+                    displayWindow.ContentScaleSize != fixedRenderSize)
+                    throw new InvalidOperationException($"A fixed render choice must leave the window size alone: window={displayWindow.Size}, expected={DisplaySizePresets[1]}, render={displayWindow.ContentScaleSize}, expected render={fixedRenderSize}.");
+                windowSizeChoice.Select(0);
+                SetWindowSize(0);
+                if (displayWindow.Size != DisplaySizePresets[0] ||
+                    displayWindow.ContentScaleSize != fixedRenderSize ||
                     displayWindow.ContentScaleMode != Window.ContentScaleModeEnum.Viewport)
-                    throw new InvalidOperationException("Render Resolution must change only the viewport's render size.");
+                    throw new InvalidOperationException("Window Size must not change a fixed render resolution.");
+                renderResolutionChoice.Select(0);
+                SetRenderResolution(0);
+                if (displayWindow.ContentScaleSize != AutomaticRenderSize())
+                    throw new InvalidOperationException("Automatic render resolution must follow the current display or window.");
             }
             finally
             {
                 displayWindow.Size = originalWindowSize;
                 displayWindow.ContentScaleSize = originalRenderSize;
                 windowSizeChoice.Select(originalWindowChoice);
-                renderResolutionChoice.Select(originalRenderChoice);
                 SaveDisplayPreferences(originalDisplayPreferences);
+                RefreshRenderResolutionOptions();
+                renderResolutionChoice.Select(originalRenderChoice);
             }
             mainMenuOverlay.Hide();
             isInWorld = true;
@@ -2329,6 +2346,8 @@ public partial class Main : Control
         settingsPanel.Show();
         gameSettingsContent.Visible = !worldSpecific;
         worldSettingsContent.Visible = worldSpecific;
+        if (!worldSpecific && renderResolutionChoice.ItemCount > 0)
+            RefreshRenderResolutionOptions();
         gameSettingsCategoryButton.Disabled = !worldSpecific;
         worldSettingsCategoryButton.Disabled = worldSpecific || registration is null;
         settingsScroll.Show();
@@ -2648,15 +2667,14 @@ public partial class Main : Control
         {
             var label = $"{preset.X} × {preset.Y}";
             windowSizeChoice.AddItem(label);
-            renderResolutionChoice.AddItem(label);
         }
         windowSizeChoice.Selected = DisplaySizeIndex(GetWindow().Size);
         windowSizeChoice.Disabled = fullscreenToggle.ButtonPressed;
         windowSizeChoice.TooltipText = "Physical window dimensions in windowed mode. Fullscreen uses your display's size.";
         windowSizeChoice.ItemSelected += SetWindowSize;
         gameSettingsContent.AddChild(DisplaySettingRow("Window Size", windowSizeChoice));
-        renderResolutionChoice.Selected = DisplaySizeIndex(GetWindow().ContentScaleSize);
-        renderResolutionChoice.TooltipText = "Base size rendered by the game, scaled to fit the window or display.";
+        RefreshRenderResolutionOptions();
+        renderResolutionChoice.TooltipText = "Automatic renders at the current window or fullscreen display size. Fixed sizes are scaled to fit.";
         renderResolutionChoice.ItemSelected += SetRenderResolution;
         gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
         gameSettingsContent.AddChild(new Label
@@ -3155,6 +3173,8 @@ public partial class Main : Control
         windowSizeChoice.Disabled = enabled;
         if (!enabled)
             GetWindow().Size = DisplaySizePresets[windowSizeChoice.Selected];
+        RefreshAutomaticRenderResolution();
+        RefreshRenderResolutionOptions();
     }
 
     private void ApplySavedDisplaySettings()
@@ -3164,9 +3184,55 @@ public partial class Main : Control
         var renderSize = new Vector2I(displayPreferences.RenderWidth, displayPreferences.RenderHeight);
         window.ContentScaleMode = Window.ContentScaleModeEnum.Viewport;
         window.ContentScaleAspect = Window.ContentScaleAspectEnum.Keep;
-        window.ContentScaleSize = DisplaySizePresets[DisplaySizeIndex(renderSize)];
         if (DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Windowed)
             window.Size = DisplaySizePresets[DisplaySizeIndex(windowSize)];
+        window.ContentScaleSize = displayPreferences.UsesAutomaticRenderResolution
+            ? AutomaticRenderSize()
+            : new DisplayDimensions(renderSize.X, renderSize.Y).IsReasonable
+                ? renderSize : AutomaticRenderSize();
+    }
+
+    private static Vector2I CurrentMonitorSize() =>
+        DisplayServer.ScreenGetSize(DisplayServer.WindowGetCurrentScreen());
+
+    private Vector2I AutomaticRenderSize()
+    {
+        var monitor = CurrentMonitorSize();
+        var window = GetWindow().Size;
+        var mode = DisplayServer.WindowGetMode();
+        var target = DisplayResolutionPolicy.AutomaticRenderSize(
+            new DisplayDimensions(monitor.X, monitor.Y),
+            new DisplayDimensions(window.X, window.Y),
+            mode is DisplayServer.WindowMode.Fullscreen or DisplayServer.WindowMode.ExclusiveFullscreen);
+        return new Vector2I(target.Width, target.Height);
+    }
+
+    private void RefreshAutomaticRenderResolution()
+    {
+        if (!displayPreferences.UsesAutomaticRenderResolution) return;
+        var target = AutomaticRenderSize();
+        if (GetWindow().ContentScaleSize != target)
+            GetWindow().ContentScaleSize = target;
+        if (renderResolutionChoice.ItemCount > 0)
+            renderResolutionChoice.SetItemText(0, $"Automatic ({target.X} × {target.Y})");
+    }
+
+    private void RefreshRenderResolutionOptions()
+    {
+        var monitor = CurrentMonitorSize();
+        var saved = new DisplayDimensions(displayPreferences.RenderWidth, displayPreferences.RenderHeight);
+        renderSizeOptions.Clear();
+        renderSizeOptions.AddRange(DisplayResolutionPolicy.FixedRenderSizes(
+            new DisplayDimensions(monitor.X, monitor.Y), saved)
+            .Select(size => new Vector2I(size.Width, size.Height)));
+        renderResolutionChoice.Clear();
+        var automatic = AutomaticRenderSize();
+        renderResolutionChoice.AddItem($"Automatic ({automatic.X} × {automatic.Y})");
+        foreach (var size in renderSizeOptions)
+            renderResolutionChoice.AddItem($"{size.X} × {size.Y}");
+        renderResolutionChoice.Select(displayPreferences.UsesAutomaticRenderResolution ? 0 :
+            Math.Max(0, renderSizeOptions.IndexOf(saved.IsReasonable
+                ? new Vector2I(saved.Width, saved.Height) : automatic) + 1));
     }
 
     private static int DisplaySizeIndex(Vector2I size)
@@ -3191,13 +3257,25 @@ public partial class Main : Control
         SaveDisplayPreferences(displayPreferences with { WindowWidth = size.X, WindowHeight = size.Y });
         if (!fullscreenToggle.ButtonPressed)
             GetWindow().Size = size;
+        RefreshAutomaticRenderResolution();
     }
 
     private void SetRenderResolution(long index)
     {
-        var size = DisplaySizePresets[(int)index];
+        if (index == 0)
+        {
+            SaveDisplayPreferences(displayPreferences with { AutoRenderResolution = true });
+            RefreshAutomaticRenderResolution();
+            return;
+        }
+        var size = renderSizeOptions[(int)index - 1];
+        SaveDisplayPreferences(displayPreferences with
+        {
+            RenderWidth = size.X,
+            RenderHeight = size.Y,
+            AutoRenderResolution = false,
+        });
         GetWindow().ContentScaleSize = size;
-        SaveDisplayPreferences(displayPreferences with { RenderWidth = size.X, RenderHeight = size.Y });
     }
 
     private void SetClockFormat(long index)

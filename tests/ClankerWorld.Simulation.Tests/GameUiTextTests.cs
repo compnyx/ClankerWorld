@@ -79,6 +79,7 @@ public sealed class GameUiTextTests
             Assert.True(restored.UseTwelveHourClock);
             Assert.Equal((1600, 900), (restored.WindowWidth, restored.WindowHeight));
             Assert.Equal((1920, 1080), (restored.RenderWidth, restored.RenderHeight));
+            Assert.False(restored.UsesAutomaticRenderResolution);
             store.Save(restored with { DateFormat = "ymd" });
             Assert.Equal("ymd", store.Load().DateFormat);
             Assert.Equal((1600, 900), (store.Load().WindowWidth, store.Load().WindowHeight));
@@ -87,6 +88,44 @@ public sealed class GameUiTextTests
         finally
         {
             if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AutomaticRenderResolutionFollowsA1440pDisplayAndWindowWithoutHidingExplicitChoices()
+    {
+        var monitor = new DisplayDimensions(2560, 1440);
+        Assert.Equal(monitor, DisplayResolutionPolicy.AutomaticRenderSize(
+            monitor, new DisplayDimensions(1600, 900), fullscreen: true));
+        Assert.Equal(new DisplayDimensions(1600, 900), DisplayResolutionPolicy.AutomaticRenderSize(
+            monitor, new DisplayDimensions(1600, 900), fullscreen: false));
+        Assert.Contains(monitor, DisplayResolutionPolicy.FixedRenderSizes(monitor));
+        Assert.DoesNotContain(monitor, DisplayResolutionPolicy.FixedRenderSizes(new DisplayDimensions(1920, 1080)));
+        Assert.Contains(monitor, DisplayResolutionPolicy.FixedRenderSizes(
+            new DisplayDimensions(1920, 1080), saved: monitor));
+        Assert.Contains(new DisplayDimensions(1920, 1080), DisplayResolutionPolicy.FixedRenderSizes(
+            new DisplayDimensions(1920, 1080), saved: monitor));
+    }
+
+    [Fact]
+    public void OldDefaultRenderChoiceMigratesToAutomaticWhileExplicitLegacyChoiceStaysFixed()
+    {
+        var directory = Directory.CreateTempSubdirectory("clanker-display-migration-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "game-settings.json");
+            File.WriteAllText(path, "{\"RenderWidth\":1280,\"RenderHeight\":720}");
+            var store = new GameDisplayPreferencesStore(path);
+            Assert.True(store.Load().UsesAutomaticRenderResolution);
+            store.Save(store.Load() with { AutoRenderResolution = false });
+            Assert.False(store.Load().UsesAutomaticRenderResolution);
+
+            File.WriteAllText(path, "{\"RenderWidth\":1920,\"RenderHeight\":1080}");
+            Assert.False(store.Load().UsesAutomaticRenderResolution);
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
         }
     }
 

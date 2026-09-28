@@ -11,7 +11,52 @@ public sealed record GameDisplayPreferences(
     int WindowWidth = 1280,
     int WindowHeight = 720,
     int RenderWidth = 1280,
-    int RenderHeight = 720);
+    int RenderHeight = 720,
+    bool? AutoRenderResolution = null)
+{
+    // Older settings have no mode flag. Their default 720p value was not a
+    // useful indication of the monitor's native resolution, so migrate it to
+    // Automatic while preserving explicit non-default render choices.
+    public bool UsesAutomaticRenderResolution => AutoRenderResolution ??
+        RenderWidth == 1280 && RenderHeight == 720;
+}
+
+public readonly record struct DisplayDimensions(int Width, int Height)
+{
+    public bool IsReasonable => Width is >= 640 and <= 8192 && Height is >= 360 and <= 8192;
+}
+
+public static class DisplayResolutionPolicy
+{
+    private static readonly DisplayDimensions[] StandardRenderSizes =
+    [
+        new(1280, 720),
+        new(1600, 900),
+        new(1920, 1080),
+        new(2560, 1440),
+        new(3840, 2160),
+    ];
+
+    public static DisplayDimensions AutomaticRenderSize(
+        DisplayDimensions monitor, DisplayDimensions window, bool fullscreen) =>
+        fullscreen && monitor.IsReasonable ? monitor :
+        window.IsReasonable ? window :
+        monitor.IsReasonable ? monitor : new DisplayDimensions(1280, 720);
+
+    public static IReadOnlyList<DisplayDimensions> FixedRenderSizes(
+        DisplayDimensions monitor, DisplayDimensions? saved = null)
+    {
+        var ceiling = monitor.IsReasonable ? monitor : new DisplayDimensions(1920, 1080);
+        return StandardRenderSizes
+            .Where(size => size.Width <= ceiling.Width && size.Height <= ceiling.Height)
+            .Append(ceiling)
+            .Concat(saved is { IsReasonable: true } ? [saved.Value] : [])
+            .Distinct()
+            .OrderBy(size => (long)size.Width * size.Height)
+            .ThenBy(size => size.Width)
+            .ToArray();
+    }
+}
 
 public sealed class GameDisplayPreferencesStore(string path)
 {

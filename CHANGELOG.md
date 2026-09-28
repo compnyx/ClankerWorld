@@ -20,6 +20,10 @@ release yet.
 
 ### Fixed
 
+- Render Resolution now defaults to the current window size or fullscreen
+  display size, so a 2560×1440 screen renders sharply instead of enlarging a
+  720p/1080p viewport. Fixed resolution choices remain available and include
+  the detected display size; older explicit non-default choices are preserved.
 - Main Menu Settings now accepts clicks while keeping the title backdrop visible;
   Back returns to the Main Menu instead of leaving the game apparently frozen.
 - New agents' personal models are now asked to choose a full name with a family
