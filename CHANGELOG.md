@@ -64,6 +64,8 @@ release yet.
 - Regional storms now end within three-quarters of a game day, becoming rain
   for the rest of that day. The world, inspected weather and resumed saves use
   the same transition, so severe exposure cannot persist through a full day.
+- Agents caught away from buildings can now seek nearby forest or a standing
+  tree during a storm. Natural cover reduces exposure while they occupy it.
 
 - Adding an adult on disconnected land no longer breaks world reconnects while
   the client previews a path to food. An accepted pause also lets Quit to Menu

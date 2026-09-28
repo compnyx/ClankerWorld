@@ -591,6 +591,24 @@ public sealed class GeographyGeneratorTests
         }
     }
 
+    private sealed class SeekCoverProvider : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var desired = request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id == "seek_warmth");
+            return new DeterministicDecisionProvider().DecideAsync(request with
+            {
+                Observation = request.Observation with
+                {
+                    Candidates = desired is null ? request.Observation.Candidates : [desired],
+                },
+            }, cancellationToken);
+        }
+    }
+
     private static PrivateWorldRuntimeState StartedGeneratedWorld(GeographyOptions options)
     {
         using var setup = new PrivateWorldRuntime(options.Seed,
@@ -814,6 +832,56 @@ public sealed class GeographyGeneratorTests
             region => Assert.Equal("rain", region.Weather));
         Assert.Contains(restored.ExportState().Events,
             item => item.WorldTick == 270 && item.Kind == "weather_changed");
+    }
+
+    [Fact]
+    public async Task AgentAwayFromTownCanReachNaturalCoverAndReduceStormExposure()
+    {
+        var options = new GeographyOptions("storm-cover", WorldSizePreset.Small);
+        var initial = StartedGeneratedWorld(options);
+        var map = initial.Map;
+        var camp = map.GetObject("storage").Position;
+        var pair = map.Tiles.Where(tile => map.VegetationAt(tile.Position) == VegetationCover.Forest &&
+                map.IsPassable(tile.Position) && map.FootDistance(camp, tile.Position) > 12)
+            .SelectMany(tile => map.FootNeighbors(tile.Position).Where(neighbor =>
+                    map.IsPassable(neighbor) && map.VegetationAt(neighbor) != VegetationCover.Forest &&
+                    !map.Resources.Any(resource => resource.Position == neighbor))
+                .Select(neighbor => (Cover: tile.Position, Open: neighbor)))
+            .First();
+        var actor = initial.Inhabitants[0];
+        var systems = initial.WorldSystems!;
+        var profiles = Enum.GetValues<SeasonKind>()
+            .Select(season => new WeatherProfile(season, 0, 0, 0, 1, 0)).ToArray();
+        using var world = PrivateWorldRuntime.Restore(initial with
+        {
+            Survival = new SettlementSurvivalState(0, []),
+            Inhabitants = initial.Inhabitants.Select(person => person.InhabitantId == actor.InhabitantId
+                ? person with
+                {
+                    Position = pair.Open,
+                    HungerBasisPoints = 9_000,
+                    Survival = new SurvivalCondition(WarmthBasisPoints: 4_000)
+                }
+                : person).ToArray(),
+            WorldSystems = systems with
+            {
+                Config = systems.Config with { WeatherProfiles = profiles },
+                Climate = systems.Climate with { Weather = WeatherKind.Storm },
+            },
+        }, _ => new SeekCoverProvider());
+        for (var tick = 0; tick < 6 && !world.ExportState().Events.Any(item =>
+                 item.Kind == "inhabitant_moved" && item.Detail.StartsWith(actor.InhabitantId + ":", StringComparison.Ordinal) &&
+                 item.Detail.EndsWith(":storm_cover", StringComparison.Ordinal)); tick++)
+            Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+
+        var moved = world.Inhabitants.Single(person => person.InhabitantId == actor.InhabitantId);
+        Assert.Equal(VegetationCover.Forest, map.VegetationAt(moved.Position));
+        var previousWarmth = moved.Survival!.WarmthBasisPoints;
+        Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        var sheltered = world.Inhabitants.Single(person => person.InhabitantId == actor.InhabitantId);
+        Assert.Equal(moved.Position, sheltered.Position);
+        Assert.True(sheltered.Survival!.WarmthBasisPoints >= previousWarmth - 10,
+            "Natural cover should reduce storm exposure at the agent's actual tile.");
     }
 
     [Fact]

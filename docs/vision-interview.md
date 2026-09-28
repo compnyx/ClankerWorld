@@ -811,7 +811,9 @@ Hunger and urgent exposure can pause projects or restrict available adult action
 Generated-world weather is currently chosen per **32×32-tile region per world
 day**. A storm roll now lasts at most three-quarters of that saved world's day,
 then becomes ordinary rain for the remaining quarter. The regional weather
-transition model and natural/House shelter rules are not finished.
+transition model and household House refuge are not finished. Agents can now
+seek nearby forest or a standing tree during a storm and gain bounded
+protection there; the exact storm-seeking balance needs playtesting.
 The current candidate list includes a bounded local curiosity outing. It now
 records visited terrain/resource sites in the explorer's own ledger, creates a
 bounded physical map/record artifact on return, and can share or trade that

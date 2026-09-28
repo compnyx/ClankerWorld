@@ -100,6 +100,36 @@ public sealed partial class PrivateWorldRuntime
     private bool NearShelter(GridPoint point) => BuildingsWithTag("shelter").Any(building =>
         IsWithinInteractionRange(point, building.Position, ResourceInteractionRange));
 
+    private bool NaturalStormCover(GridPoint point) =>
+        map.VegetationAt(point) == VegetationCover.Forest ||
+        map.Resources.Any(site => site.Position == point &&
+            (site.TreeKind == "orchard" ||
+             (site.TreeKind is "broadleaf" or "conifer") &&
+             worldSystems.Ecology.GetResource(site.Id).Quantity > 0));
+
+    private GridPoint? NearbyNaturalStormCover(string actor, GridPoint origin)
+    {
+        const int searchRadius = 8;
+        var occupied = inhabitants.Values.Where(person => person.InhabitantId != actor)
+            .Select(person => person.Position).ToHashSet();
+        GridPoint? best = null;
+        var bestDistance = int.MaxValue;
+        for (var dy = -searchRadius; dy <= searchRadius; dy++)
+            for (var dx = -searchRadius; dx <= searchRadius; dx++)
+            {
+                var x = origin.X + dx;
+                if (map.WrapsEastWest) x = (x % map.Width + map.Width) % map.Width;
+                var candidate = new GridPoint(x, origin.Y + dy);
+                if (!map.IsPassable(candidate) || occupied.Contains(candidate) || !NaturalStormCover(candidate))
+                    continue;
+                var distance = map.FootDistance(origin, candidate);
+                if (distance >= bestDistance) continue;
+                best = candidate;
+                bestDistance = distance;
+            }
+        return best;
+    }
+
     private bool IsFireLit(PlacedBuilding building) => survivalState?.Fires.Any(fire =>
         fire.BuildingId == building.InstanceId && fire.FuelUntilTick > WorldTick) == true;
 
@@ -138,7 +168,9 @@ public sealed partial class PrivateWorldRuntime
         foreach (var person in inhabitants.Values.ToArray())
         {
             var old = person.Survival ?? new SurvivalCondition();
-            var protection = (HasCarriedItem(person.InhabitantId, "clothing") ? 35 : 0) + (NearShelter(person.Position) ? 45 : 0);
+            var naturalCover = WeatherAt(person.Position) == WeatherKind.Storm && NaturalStormCover(person.Position);
+            var protection = (HasCarriedItem(person.InhabitantId, "clothing") ? 35 : 0) +
+                (NearShelter(person.Position) || naturalCover ? 45 : 0);
             var heat = HeatingBuildings().Any(building => IsFireLit(building) &&
                 IsWithinInteractionRange(person.Position, building.Position, 2)) ? 90 : 0;
             var loss = Math.Max(0, WeatherExposure(person.Position) - protection);
@@ -172,9 +204,12 @@ public sealed partial class PrivateWorldRuntime
         {
             candidates.Add(new CognitionCandidate("tend_fire", "Carry household wood to a hearth and keep the camp warm.", condition.WarmthBasisPoints < 6_000 ? 2 : 4));
         }
-        if (condition.WarmthBasisPoints < 6_000 && (HeatingBuildings().Any(IsFireLit) || BuildingsWithTag("shelter").Any()))
+        var stormCover = WeatherAt(person.Position) == WeatherKind.Storm &&
+            NearbyNaturalStormCover(actor, person.Position) is not null;
+        if (condition.WarmthBasisPoints < 6_000 &&
+            (HeatingBuildings().Any(IsFireLit) || BuildingsWithTag("shelter").Any() || stormCover))
         {
-            candidates.Add(new CognitionCandidate("seek_warmth", "Seek a lit hearth or shelter until warm enough to work.", 3));
+            candidates.Add(new CognitionCandidate("seek_warmth", "Seek a lit hearth, shelter or nearby natural storm cover to reduce exposure.", 3));
         }
     }
 
@@ -228,7 +263,16 @@ public sealed partial class PrivateWorldRuntime
     private void SeekWarmth(string actor, PlaytestInhabitantState person)
     {
         var destination = HeatingBuildings().FirstOrDefault(IsFireLit) ?? BuildingsWithTag("shelter").FirstOrDefault();
-        if (destination is not null && !IsWithinInteractionRange(person.Position, destination.Position, ResourceInteractionRange))
+        var cover = WeatherAt(person.Position) == WeatherKind.Storm
+            ? NearbyNaturalStormCover(actor, person.Position) : null;
+        if (cover is { } coverPoint &&
+            (destination is null || map.FootDistance(person.Position, coverPoint) <
+                map.FootDistance(person.Position, destination.Position)))
+        {
+            if (person.Position != coverPoint)
+                MoveToward(actor, person, coverPoint, "storm_cover");
+        }
+        else if (destination is not null && !IsWithinInteractionRange(person.Position, destination.Position, ResourceInteractionRange))
         {
             MoveToward(actor, person, destination.Position, "warmth", ResourceInteractionRange);
         }
