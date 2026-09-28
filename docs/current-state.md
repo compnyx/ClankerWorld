@@ -228,12 +228,16 @@ there after reload. A resident without a House has no such deposit route.
 Members gathering materials for their own household project deliver carried
 inputs at their House tile; only then does the material become household stock
 stored there. Projects without a member-accessible House retain the camp route.
+Members helping with a project in their own household likewise deliver their
+carried contribution at that House; outside helpers still hand off at camp
+until guest-entry rules are decided.
 The current four-unit load is a prototype rule, not an accepted carrying
 capacity. House access requires recorded household membership even when an
 unassigned resident can still use the old camp fallback.
-Other gathering, helper and production paths do not yet physically deliver
-goods to House storage. Legacy Shelters remain loadable. Houses are not yet
-guaranteed at world start; expansion and guest entry are unfinished.
+Other gathering, cross-household helper and production paths do not yet
+physically deliver goods to House storage. Legacy Shelters remain loadable.
+Houses are not yet guaranteed at world start; expansion and guest entry are
+unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities
 reuse prototype values; they are not accepted finished-game recipes or
 storage-capacity decisions.

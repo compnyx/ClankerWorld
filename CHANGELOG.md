@@ -8,12 +8,17 @@ release yet.
 
 ### Added
 
+- Members helping another person in their own household with a project now
+  deliver carried materials at their shared House. The contribution becomes
+  household stock there only on arrival and survives save/reload. A helper
+  outside the requesting household keeps the camp handoff; invitation and
+  private-House entry rules remain undecided.
 - A member carrying gathered materials for their own household's project now
   delivers them at their House instead of the old camp stockpile. The materials
   become household-owned stock at that House only on arrival and remain there
   after save/reload. Projects without a member-accessible House keep the camp
-  route; other gathering, helper and production deliveries still need physical
-  logistics.
+  route; other gathering, cross-household helper and production deliveries
+  still need physical logistics.
 - Adults with spare personally carried food can bring a bounded load to their
   own House while keeping one serving. The transfer happens only after they
   reach the House, becomes household-owned stock at that location, and survives
@@ -35,8 +40,8 @@ release yet.
   appears in the House's inspected stock only after the carrier reaches home;
   invalid delivery destinations are rejected on reload. Residents without a
   household cannot use the first household's House through the legacy camp
-  fallback. Other gathering, helper and production paths still need physical
-  delivery before all household supplies consistently live at the House.
+  fallback. Other gathering, cross-household helper and production paths still
+  need physical delivery before all household supplies live at the House.
 - Meals finished at a House now record that House as their physical stock
   location. Its map inspection shows only items actually recorded there, and
   household members enter the House tile to collect those meals, cook, or take

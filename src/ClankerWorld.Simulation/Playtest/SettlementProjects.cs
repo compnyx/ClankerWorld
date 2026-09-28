@@ -605,15 +605,19 @@ public sealed partial class PrivateWorldRuntime
             }
             return;
         }
-        var camp = map.GetObject("storage").Position;
-        if (!IsWithinInteractionRange(state.Position, camp, ResourceInteractionRange))
+        var house = society.Checkpoint.GetInhabitant(helperId).HouseholdId == request.OwnerId
+            ? HouseForHousehold(request.OwnerId) : null;
+        var store = house?.Position ?? map.GetObject("storage").Position;
+        var interactionRange = house is null ? ResourceInteractionRange : 0;
+        if (!IsWithinInteractionRange(state.Position, store, interactionRange))
         {
-            MoveToward(helperId, state, camp, "share_materials", ResourceInteractionRange);
+            MoveToward(helperId, state, store, "share_materials", interactionRange);
             return;
         }
         var quantity = Math.Min(request.Input.Amount, AvailableLotQuantity(carried));
         ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory, $"project-share:{WorldTick}:{helperId}",
-            helperId, request.OwnerId, carried.Id, quantity, "project_request_fulfilled"));
+            helperId, request.OwnerId, carried.Id, quantity, "project_request_fulfilled",
+            house?.InstanceId));
         IncreaseTrust(request.Requester, helperId, 2, "material_help");
         var memoryId = $"project-gratitude:{request.Requester}:{helperId}";
         if (!society.Checkpoint.Memories.Any(memory => memory.Id == memoryId))

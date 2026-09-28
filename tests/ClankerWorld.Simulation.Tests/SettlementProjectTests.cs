@@ -9,7 +9,7 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class SettlementProjectTests
 {
     [Fact]
-    public async Task CarriedHouseholdProjectWoodIsDeliveredAtHomeBeforeItBecomesStoredStock()
+    public async Task CarriedProjectWoodAndHouseholdHelpAreDeliveredAtHome()
     {
         using var seed = new PrivateWorldRuntime("project-material-home", _ => new IdleProvider());
         Assert.True(seed.StageStarterContent());
@@ -74,6 +74,39 @@ public sealed class SettlementProjectTests
             PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
         Assert.Contains(restored.Society.Inventory.Lots, lot => lot.OwnerId == "household:camp-alpha" &&
             lot.ItemKind == "wood" && lot.Quantity == 4 && lot.StorageBuildingId == "project-home");
+
+        var helper = state.Society.Society.Inhabitants.First(person => person.Id != actor).Id;
+        var helping = world.ExportState();
+        helping = helping with
+        {
+            Inhabitants = helping.Inhabitants.Select(person => person.InhabitantId == helper
+                ? person with { Position = homeSite, HungerBasisPoints = 9_000 } : person).ToArray(),
+            Society = helping.Society with
+            {
+                Society = helping.Society.Society with
+                {
+                    Inventory = InventoryFixture.AddLot(helping.Society.Society.Inventory,
+                        "helper-project-wood", "wood", helper, 4),
+                },
+            },
+        };
+        using var helped = PrivateWorldRuntime.Restore(helping,
+            id => id == helper ? new PreferredCandidateProvider("assist:wood") : new IdleProvider());
+        Assert.True((await helped.AdvanceOneTickAsync()).Advanced);
+        var contribution = helped.ExportState().Events.Single(item =>
+            item.Kind == "project_request_fulfilled" &&
+            item.Detail == $"{helper}:{actor}:wood:4");
+        Assert.Equal(homeSite, contribution.Position);
+        Assert.Contains(helped.Society.Inventory.Lots, lot => lot.Id == "helper-project-wood" &&
+            lot.OwnerId == "household:camp-alpha" &&
+            lot.ItemKind == "wood" && lot.Quantity == 4 && lot.StorageBuildingId == "project-home" &&
+            lot.DeliveryBuildingId is null);
+        using var resumed = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(helped.ExportState())));
+        Assert.Contains(resumed.Society.Inventory.Lots, lot => lot.Id == "helper-project-wood" &&
+            lot.OwnerId == "household:camp-alpha" &&
+            lot.ItemKind == "wood" && lot.StorageBuildingId == "project-home" &&
+            lot.DeliveryBuildingId is null);
     }
 
     [Fact]
@@ -124,6 +157,23 @@ public sealed class SettlementProjectTests
             {
                 Observation = request.Observation with { Candidates = request.Observation.Candidates.Where(candidate => candidate.Id == "safe_idle").ToArray() },
             }, cancellationToken);
+    }
+
+    private sealed class PreferredCandidateProvider(string candidateId) : IDecisionProvider
+    {
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            var selected = request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id == candidateId) ??
+                request.Observation.Candidates.Single(candidate => candidate.Id == "safe_idle");
+            return ValueTask.FromResult(new CognitionDecisionResponse(request.RequestId,
+                request.Observation.InhabitantId, Kind, ProviderEpoch, request.Observation.RunEpoch,
+                request.Observation.DecisionGeneration, request.Observation.ObservationDigest, selected.Id, 1,
+                request.Observation.Candidates.ToDictionary(candidate => candidate.Id,
+                    candidate => candidate.Id == selected.Id ? 1d : 0d)));
+        }
     }
 
     [Fact]
