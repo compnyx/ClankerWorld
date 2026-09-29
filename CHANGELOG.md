@@ -13,7 +13,10 @@ release yet.
 
 - Create/Load World resets the observation timeline before sending the switch, so a lost response cannot trap reconnect on the old world’s event cursor.
 
+- Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+- Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
 
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
