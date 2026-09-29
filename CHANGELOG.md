@@ -8,6 +8,8 @@ release yet.
 
 ### Added
 
+- Loading an older world removes only Road tiles embedded inside saved building footprints, preserving buildings, ownership, stock and all other Roads.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
