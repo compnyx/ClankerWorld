@@ -768,6 +768,9 @@ release yet.
 
 - Renamed the game, .NET projects, Godot client and Windows export to
   **ClankerWorld**.
+- Agent models are now told that the hunger number they receive is how well fed
+  the agent is (10000 is full, 0 is starving). It was not explained before, so
+  a model could read a low number as "not very hungry" and neglect eating.
 - Changed private-world lifetime so simulation ticks and hosted-provider calls
   run only while at least one authenticated game client remains connected.
   Closing or losing the last client stops the world after a five-second grace

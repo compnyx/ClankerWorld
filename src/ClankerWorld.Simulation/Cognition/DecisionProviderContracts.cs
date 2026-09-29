@@ -472,7 +472,8 @@ public sealed class JevDecisionProvider : IDecisionProvider
         {
             [ChoiceQuestionId] = new JevQuestion(
                 "choice",
-                "Choose exactly one legal candidate for the inhabitant's next small action.",
+                "Choose exactly one legal candidate for the inhabitant's next small action. " +
+                "hunger_basis_points says how well fed they are: 10000 is full and 0 is starving.",
                 request.Observation.Candidates.ToDictionary(
                     candidate => candidate.Id,
                     candidate => candidate.Description,
@@ -729,7 +730,8 @@ public sealed class OpenAiCompatibleDecisionProvider : IDecisionProvider
                 new
                 {
                     role = "system",
-                    content = "Choose exactly one legal candidate. Return JSON only, with fields " +
+                    content = "Choose exactly one legal candidate. hunger_basis_points says how well fed you are: 10000 is full and 0 is starving. " +
+                        "Return JSON only, with fields " +
                         "selected_candidate_id (string), confidence (number 0..1), and " +
                         "probabilities (object mapping candidate IDs to numbers 0..1), and optional " +
                         "private_thought (one brief, in-character thought of at most 160 characters). " +
