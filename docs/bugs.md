@@ -561,6 +561,12 @@ Cancellation handles an already-terminal lesson as a no-op. Accept/decline prefi
 are checked before parsing their target. The regression uses offered choices through
 the real runtime service and verifies advancement, unchanged role and reload.
 
+### Startup selection recovery (#356)
+
+The private-world catalog recovery runs eagerly before serving requests or starting
+hosted services. Opening Load World later cannot replay old archived routing over
+an acknowledged post-restart model change. This does not add a multi-file journal.
+
 ### Durable owner retries (#335)
 
 Pause and rename persist before acknowledging success even when their in-memory
