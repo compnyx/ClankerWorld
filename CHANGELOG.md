@@ -13,6 +13,8 @@ release yet.
 
 - Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
 
+- Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
   changing saved membership, property or custom household names. Founder setup
@@ -24,6 +26,8 @@ release yet.
   discarding an approved pairing or revoking an active device.
 
 - Loading an older world removes only Road tiles embedded inside saved building footprints, preserving buildings, ownership, stock and all other Roads.
+- The Event Log and unread badge now select explicitly supported player events, including public partnership, care, trade and Town policy milestones; new internal event kinds no longer appear automatically as humanized diagnostics.
+- Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
 
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
@@ -275,6 +279,15 @@ release yet.
 
 ### Changed
 
+- Agents no longer start Shelters, Storehouses, Cooking fires or Stone
+  hearths. A household's House now provides shelter, cooking, warmth from its
+  fire and food storage, and a Town's Warehouse holds shared supplies.
+  Experienced builders also stop suggesting shelter, storehouse and hearth
+  designs. Worlds that already have these buildings keep them working,
+  projects for them that are already under way still finish, and designs
+  suggested earlier stay in the Mod Library. An adult without a household
+  cannot build a House yet, so in a new world clothing and natural cover are
+  their only protection from cold.
 - Weather on the map now moves. Rain falls as short drops that land with
   small splash rings, storms darken the sky with heavier slanted rain and a
   soft flash of lightning every several seconds, and snow drifts down. Rain,
