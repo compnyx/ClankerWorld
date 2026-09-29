@@ -283,6 +283,20 @@ Farmhouse's wood/stone cost, 1×1 footprint, grain/seed yields and flour recipe
 are provisional pending balance/footprint decisions. It is not generated in
 the first Town yet; field stages, the adjacent private Silo, crop variety and
 sale of flour remain unfinished.
+An additive provisional 1×2 Blacksmith can be claimed by a household when
+placed or built. Household members physically move bounded wood and iron-ore
+loads from their other stock to the Blacksmith; an adult can also mine a
+reachable natural iron outcrop and deliver the carried ore directly. They
+then use only ingredients located there to craft distinct wooden axes or
+pickaxes and refine iron ore
+into a separate iron item. Products remain private, on site, inspectable and
+saved; an unclaimed Blacksmith cannot produce and other households cannot
+work at a claimed one. A carried wooden axe improves wood gathering yield,
+and a carried wooden pickaxe improves stone and iron-ore gathering yield, from
+four to six units per consumed resource-site unit. These are provisional
+effects without wear/durability. This building and the two tools are not yet
+guaranteed in first-Town generation; the Blacksmith's footprint, costs,
+recipes, tool tiers, direct sale and requests remain unfinished.
 Food provenance distinguishes foraging, crops, cooked meals and camp rations;
 inhabitants prefer a different available source, while monotonous diets reduce
 their diet score. Spoiled reserved ingredients cancel

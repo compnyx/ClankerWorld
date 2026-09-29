@@ -200,6 +200,23 @@ public sealed partial class PrivateWorldRuntime
         AppendEvent("farm_content_staged", manifest.PackageId);
     }
 
+    private void StageBlacksmithContent()
+    {
+        var packages = contentRegistry.ExportState().Packages;
+        if (packages.Any(package => package.Manifest.PackageId == BlacksmithContent.PackageId) ||
+            !packages.Any(package => package.Manifest.PackageId == HouseContent.PackageId &&
+                package.Lifecycle == ContentPackageLifecycle.Active))
+            return;
+        var manifest = BlacksmithContent.Create();
+        var resolution = ContentPackageResolver.Resolve(packages.Select(package => package.Manifest).Append(manifest),
+            [manifest.PackageId]);
+        contentRegistry.Propose(manifest, WorldTick);
+        contentRegistry.Validate(manifest.PackageId, resolution, WorldTick);
+        contentRegistry.Approve(manifest.PackageId, WorldTick);
+        contentRegistry.Stage(manifest.PackageId, WorldTick);
+        AppendEvent("blacksmith_content_staged", manifest.PackageId);
+    }
+
     private void StageHouseCookingContent()
     {
         var packages = contentRegistry.ExportState().Packages;
@@ -401,10 +418,10 @@ public sealed partial class PrivateWorldRuntime
                 return;
             }
         }
-        if (building?.Tags.Contains("farmhouse", StringComparer.Ordinal) == true &&
+        if (building?.Tags.Any(tag => tag is "farmhouse" or "blacksmith") == true &&
             society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId is null)
         {
-            SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "A household is required to claim a Farmhouse." });
+            SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "A household is required to claim a private workshop." });
             return;
         }
         if (building?.Tags.Contains("warehouse", StringComparer.Ordinal) == true &&
@@ -421,10 +438,10 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
-        var constructionOwner = building?.Tags.Any(tag => tag is "house" or "farmhouse") == true ||
+        var constructionOwner = building?.Tags.Any(IsHouseholdBuildingTag) == true ||
             recipe?.Tags.Contains("grain", StringComparer.Ordinal) == true ||
             recipe?.WorkstationBuildingId is { } workstationId && worldContent.Buildings.Any(definition =>
-                definition.CanonicalId == workstationId && definition.Tags.Any(tag => tag is "house" or "farmhouse"))
+                definition.CanonicalId == workstationId && definition.Tags.Any(IsHouseholdBuildingTag))
             ? HouseholdFor(inhabitantId) : society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId is null
                 ? inhabitantId : HouseholdId;
         var missing = inputs.FirstOrDefault(input => !HasAvailableQuantities([input], constructionOwner));
@@ -563,6 +580,19 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
 
+        var gatheringTool = input.ResourceId switch
+        {
+            "wood" => "wooden_axe",
+            "stone" or "iron_ore" => "wooden_pickaxe",
+            _ => null,
+        };
+        if (gatheringTool is not null && !HasCarriedItem(inhabitantId, gatheringTool) &&
+            SharedItem(gatheringTool, inhabitantId) is not null)
+        {
+            CollectEquipment(inhabitantId, state, gatheringTool);
+            return;
+        }
+
         var source = map.Resources.Where(resource =>
             (resource.Kind == input.ResourceId || (input.ResourceId == "wood" && resource.Kind == "construction")) &&
             resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
@@ -606,9 +636,16 @@ public sealed partial class PrivateWorldRuntime
             },
         };
         SyncEcologyResourceStates();
+        var tool = itemKind switch
+        {
+            "wood" => "wooden_axe",
+            "stone" or "iron_ore" => "wooden_pickaxe",
+            _ => null,
+        };
+        var quantity = tool is not null && HasCarriedItem(inhabitantId, tool) ? 6 : 4;
         ApplyInventoryTransition(inventory => InventoryFixture.AddLot(inventory, $"material:{WorldTick}:{inhabitantId}",
-            itemKind, inhabitantId, 4, WorldTick));
-        AppendEvent("material_gathered", $"{inhabitantId}:{itemKind}:4");
+            itemKind, inhabitantId, quantity, WorldTick));
+        AppendEvent("material_gathered", $"{inhabitantId}:{itemKind}:{quantity}");
         if (source.TreeKind is not null)
             AppendEvent("tree_harvested", $"{inhabitantId}:{source.Id}:{source.TreeKind}:stump");
     }
@@ -628,13 +665,13 @@ public sealed partial class PrivateWorldRuntime
                 : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.Inputs;
             var constructionOwner = selection.IsBuilding &&
                 worldContent.Buildings.Any(item => item.CanonicalId == selection.DefinitionId &&
-                    item.Tags.Any(tag => tag is "house" or "farmhouse")) ||
+                    item.Tags.Any(IsHouseholdBuildingTag)) ||
                 !selection.IsBuilding && worldContent.Recipes.Any(item =>
                     item.CanonicalId == selection.DefinitionId &&
                     (item.Tags.Contains("grain", StringComparer.Ordinal) ||
                      item.WorkstationBuildingId is { } workstationId && worldContent.Buildings.Any(definition =>
                          definition.CanonicalId == workstationId &&
-                         definition.Tags.Any(tag => tag is "house" or "farmhouse"))))
+                         definition.Tags.Any(IsHouseholdBuildingTag))))
                 ? HouseholdFor(person.InhabitantId) :
                     society.Checkpoint.GetInhabitant(person.InhabitantId).HouseholdId is null
                         ? person.InhabitantId : HouseholdId;

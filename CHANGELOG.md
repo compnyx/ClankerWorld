@@ -8,6 +8,15 @@ release yet.
 
 ### Added
 
+- A provisional household-claimed 1×2 Blacksmith joins the additive first-Town
+  content. Its on-site stock can receive physically carried household wood;
+  adults can mine natural iron ore and carry it to the building. Household
+  members can make distinct wooden axes and pickaxes or refine ore into a
+  separate iron item there. Another household cannot work
+  the building. Carrying the matching wooden tool increases one resource-site
+  wood or stone/ore gathering action from four to six units. The Blacksmith is
+  not yet generated at New World start; tool durability, sales/requests, later
+  tool tiers, footprint and cost balance remain unfinished.
 - Household builders can claim a provisional 1×1 Farmhouse. A distinct
   universal-grain crop now yields household-owned grain; household members
   carry grain to their Farmhouse before milling it into flour. Only that

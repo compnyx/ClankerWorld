@@ -702,6 +702,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             StageHouseContent();
             StageWarehouseContent();
             StageFarmContent();
+            StageBlacksmithContent();
             StageHouseCookingContent();
             StageForestryContent();
             var readyPackages = contentRegistry.GetActivationCandidates(targetTick);
@@ -1089,11 +1090,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     "The assigned Town does not exist.");
 
             var isHouse = definition.Tags.Contains("house", StringComparer.Ordinal);
-            var acceptsHouseholdOwner = isHouse || definition.Tags.Contains("farmhouse", StringComparer.Ordinal);
+            var acceptsHouseholdOwner = definition.Tags.Any(IsHouseholdBuildingTag);
             if (isHouse && householdId is null || householdId is not null && !acceptsHouseholdOwner ||
                 householdId is not null && !society.Checkpoint.Households.Any(item => item.Id == householdId))
                 return BuildingPlacementResult.Rejected(normalizedInstanceId, normalizedDefinitionId, position,
-                    "A House requires an existing household; only a House or Farmhouse may take household ownership.");
+                    "A House requires an existing household; only household work buildings may take household ownership.");
 
             if (definition.Tags.Contains("warehouse", StringComparer.Ordinal) &&
                 (assignedTownId is null || worldSimulation.Buildings.Any(building =>
@@ -1236,12 +1237,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 return ProductionStartResult.Rejected(normalizedRecipeId,
                     "Only a member of the building's household can work there.");
 
-            if (workstation?.Tags.Contains("farmhouse", StringComparer.Ordinal) == true && placed?.HouseholdId is null)
+            if (workstation?.Tags.Any(tag => tag is "farmhouse" or "blacksmith") == true && placed?.HouseholdId is null)
                 return ProductionStartResult.Rejected(normalizedRecipeId,
-                    "The Farmhouse must be claimed by a household before production.");
+                    "The household workshop must be claimed before production.");
 
-            var onSiteHouseholdRecipe = placed?.HouseholdId is not null && workstation?.Tags.Any(tag =>
-                tag is "house" or "farmhouse") == true;
+            var onSiteHouseholdRecipe = placed?.HouseholdId is not null && workstation?.Tags.Any(IsHouseholdBuildingTag) == true;
             if (onSiteHouseholdRecipe && !HasIngredientsAtBuilding(recipe.Inputs, worker.HouseholdId!, placed!.InstanceId))
                 return ProductionStartResult.Rejected(normalizedRecipeId,
                     "The household building lacks the required ingredients in its on-site stock.");
@@ -2960,6 +2960,27 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             HaulFarmGrain(inhabitantId, state);
             return;
         }
+        if (candidateId == "haul_smith_input")
+        {
+            HaulBlacksmithInput(inhabitantId, state);
+            return;
+        }
+        if (candidateId == "gather_smith_ore")
+        {
+            GatherBlacksmithOre(inhabitantId, state);
+            return;
+        }
+        if (candidateId == "deliver_smith_ore")
+        {
+            DeliverBlacksmithOre(inhabitantId, state);
+            return;
+        }
+        if (candidateId == "collect_wooden_axe" || candidateId == "collect_wooden_pickaxe")
+        {
+            CollectEquipment(inhabitantId, state,
+                candidateId == "collect_wooden_axe" ? "wooden_axe" : "wooden_pickaxe");
+            return;
+        }
         if (candidateId.StartsWith(KnowledgeSharePrefix, StringComparison.Ordinal))
         {
             ApplyKnowledgeShare(inhabitantId, state, candidateId);
@@ -3057,7 +3078,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                         $"{TownForResident(inhabitantId) ?? "none"}|{inhabitantId}|{definition.CanonicalId}|{rejectedSite.X}|{rejectedSite.Y}|site_unavailable");
                 return;
             }
-            var householdProperty = definition.Tags.Any(tag => tag is "house" or "farmhouse");
+            var householdProperty = definition.Tags.Any(IsHouseholdBuildingTag);
             var houseOwner = householdProperty
                 ? society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId : null;
             if (householdProperty && houseOwner is null)
@@ -3293,6 +3314,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private string ProductionOwnerFor(PlacedBuilding? building, string workerId) =>
         building?.HouseholdId ?? society.Checkpoint.GetInhabitant(workerId).HouseholdId ?? workerId;
 
+    private static bool IsHouseholdBuildingTag(string tag) => tag is "house" or "farmhouse" or "blacksmith";
+
     private PlacedBuilding? HouseForHousehold(string householdId) => worldSimulation.Buildings
         .Where(building => building.HouseholdId == householdId &&
             worldContent.Buildings.Any(definition => definition.CanonicalId == building.DefinitionId &&
@@ -3427,6 +3450,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AddHouseHaulCandidate(candidates, inhabitantId, state);
             AddWarehouseStockCandidate(candidates, inhabitantId, state);
             AddFarmGrainCandidate(candidates, inhabitantId, state);
+            AddBlacksmithStockCandidate(candidates, inhabitantId, state);
+            AddBlacksmithOreCandidates(candidates, inhabitantId, state);
+            AddCraftToolCandidates(candidates, inhabitantId);
             AddInhabitantBuildingDesignCandidates(candidates, inhabitant, state);
             AddProjectAssistanceCandidates(candidates, inhabitantId);
             AddForestryCandidates(candidates, inhabitantId, state);
@@ -3469,6 +3495,9 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     continue;
                 if (definition.Tags.Contains("farmhouse", StringComparer.Ordinal) && inhabitant.HouseholdId is null)
                     continue;
+                if (definition.Tags.Contains("blacksmith", StringComparer.Ordinal) &&
+                    (inhabitant.HouseholdId is null || TownForResident(inhabitant.Id) is null))
+                    continue;
                 if (definition.PackageDigest == LegacyStarterDigest && definition.LocalId == "shelter" &&
                     worldContent.Buildings.Any(building => building.Tags.Contains("house", StringComparer.Ordinal)))
                     continue;
@@ -3477,7 +3506,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                     continue;
                 }
                 var instanceId = BuildInstanceId(inhabitant.Id, definition);
-                var constructionOwner = definition.Tags.Any(tag => tag is "house" or "farmhouse")
+                var constructionOwner = definition.Tags.Any(IsHouseholdBuildingTag)
                     ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
                 if (worldSimulation.Buildings.Any(item => item.InstanceId == instanceId) ||
                     !CanAcquireProjectInputs(definition.BuildCosts, constructionOwner, inhabitant.Id))
@@ -3513,7 +3542,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
             var householdWorkstation = recipe.WorkstationBuildingId is { } workstationId &&
                 worldContent.Buildings.Any(definition => definition.CanonicalId == workstationId &&
-                    definition.Tags.Any(tag => tag is "house" or "farmhouse"));
+                    definition.Tags.Any(IsHouseholdBuildingTag));
             var recipeOwner = householdWorkstation || recipe.Tags.Contains("grain", StringComparer.Ordinal)
                 ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
             if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner, inhabitant.Id) ||
@@ -3667,7 +3696,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             {
                 if (!buildings.TryGetValue(storageId, out var storage) ||
                     !definitions.TryGetValue(storage.DefinitionId, out var definition) ||
-                    !(storage.HouseholdId == lot.OwnerId && definition.Tags.Any(tag => tag is "house" or "farmhouse") ||
+                    !(storage.HouseholdId == lot.OwnerId && definition.Tags.Any(IsHouseholdBuildingTag) ||
                       storage.TownId == lot.OwnerId && storage.HouseholdId is null && !WarehouseFoodKinds.Contains(lot.ItemKind) &&
                       definition.Tags.Contains("warehouse", StringComparer.Ordinal)))
                     throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid building storage location.");
