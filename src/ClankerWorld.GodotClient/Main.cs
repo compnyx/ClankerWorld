@@ -1633,8 +1633,13 @@ public partial class Main : Control
             _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
             if (choosingFirstTownSite || townSiteButton.Text == "Cancel Town site")
                 throw new InvalidOperationException("Escape must cancel an active Town-site selection.");
-            if (topBar.GetChildren().OfType<Button>().Any(button => button.FocusMode != Control.FocusModeEnum.None))
-                throw new InvalidOperationException("Top-bar buttons must not keep keyboard focus from map controls.");
+            if (topBar.GetChildren().OfType<Button>().Any(button => button.FocusMode == Control.FocusModeEnum.None))
+                throw new InvalidOperationException("Top-bar actions must remain reachable by keyboard focus.");
+            eventsButton.GrabFocus();
+            eventsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (eventsButton.HasFocus())
+                throw new InvalidOperationException("A pressed top-bar button must return keyboard focus to map controls.");
+            eventsButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (!pauseButton.TooltipText.Contains("(Space)", StringComparison.Ordinal) ||
                 !inhabitantsButton.TooltipText.Contains("(R)", StringComparison.Ordinal) ||
                 !eventsButton.TooltipText.Contains("(E)", StringComparison.Ordinal))
@@ -3044,10 +3049,10 @@ public partial class Main : Control
         menuButton.Pressed += () => _ = ToggleGameMenuAsync();
         topBar.AddChild(menuButton);
 
-        // Top-bar clicks must not keep keyboard focus: a focused button would
-        // swallow arrow-key panning and re-press itself on Space.
+        // Activated buttons return focus to the map. They remain reachable by
+        // Tab/Enter, including actions without a one-key shortcut.
         foreach (var button in topBar.GetChildren().OfType<Button>())
-            button.FocusMode = Control.FocusModeEnum.None;
+            button.Pressed += button.ReleaseFocus;
         margin.AddChild(topBar);
         chrome.AddChild(margin);
         // Mirrors the world-view menu shade so top-bar actions such as Start
@@ -5731,6 +5736,11 @@ public partial class Main : Control
             return true;
         }
         if (mainMenuOverlay.Visible || !isInWorld) return false;
+        if (controlsPanel.Visible)
+        {
+            controlsPanel.Hide();
+            return true;
+        }
         if (choosingFirstTownSite)
         {
             CancelFirstTownSiteSelection();
@@ -5748,7 +5758,7 @@ public partial class Main : Control
             placingAddedAgent = false;
             return true;
         }
-        foreach (var panel in new Control[] { controlsPanel, familyTreePanel, memoriesPanel })
+        foreach (var panel in new Control[] { familyTreePanel, memoriesPanel })
         {
             if (!panel.Visible) continue;
             panel.Hide();
