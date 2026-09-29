@@ -123,6 +123,37 @@ public static class GameUiText
         };
     }
 
+    /// <summary>
+    /// Names another party the way the player sees it: an agent, a household
+    /// by its stores name, or a Town, instead of a raw ID such as
+    /// <c>household:camp-alpha</c>.
+    /// </summary>
+    public static string PartyName(OwnerWorldSnapshot? snapshot, string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return snapshot?.Inhabitants.FirstOrDefault(person => person.Id == id)?.DisplayName
+            ?? snapshot?.Stockpiles.FirstOrDefault(stockpile => stockpile.OwnerId == id)?.Name
+            ?? snapshot?.Towns.FirstOrDefault(town => town.Id == id)?.Name
+            ?? (id.StartsWith("household:", StringComparison.Ordinal) ? "a household" : HumanizeIdentifier(id));
+    }
+
+    /// <summary>Describes one relationship in plain words for the agent card.</summary>
+    public static string RelationshipSummary(string type, string state, string otherName, string? direction = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(type);
+        var summary = type switch
+        {
+            "household_membership" => $"Member of {otherName}",
+            "biological_parentage" when direction == "parent" => $"Parent of {otherName}",
+            "biological_parentage" when direction == "child" => $"Child of {otherName}",
+            "partnership" => $"Partnership with {otherName}",
+            _ => $"{char.ToUpperInvariant(type[0])}{type[1..].Replace('_', ' ')} with {otherName}",
+        };
+        return string.Equals(state, "accepted", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(state)
+            ? summary
+            : $"{summary} · {state.Replace('_', ' ')}";
+    }
+
     public static string HumanizeIdentifier(string value)
     {
         if (string.IsNullOrWhiteSpace(value))

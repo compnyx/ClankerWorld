@@ -246,14 +246,21 @@ public partial class Main
         body.AddChild(worldMenuHeading);
         worldMenuStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(worldMenuStatus);
+        // Both fields open pre-filled, which hides their placeholders, so each
+        // keeps a visible caption.
         worldNameInput.PlaceholderText = "World name";
         worldNameInput.MaxLength = 80;
-        body.AddChild(worldNameInput);
+        worldNameInput.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        var nameRow = new HBoxContainer();
+        nameRow.AddChild(new Label { Text = "Name", CustomMinimumSize = new Vector2(52, 0) });
+        nameRow.AddChild(worldNameInput);
+        body.AddChild(nameRow);
         worldSeedInput.PlaceholderText = "Generation seed";
         worldSeedInput.MaxLength = 100;
         worldSeedInput.TextChanged += _ => InvalidateWorldPreview();
         var seedRow = new HBoxContainer();
         worldSeedInput.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        seedRow.AddChild(new Label { Text = "Seed", CustomMinimumSize = new Vector2(52, 0) });
         seedRow.AddChild(worldSeedInput);
         var reroll = new Button { Text = "Reroll seed" };
         StyleButton(reroll);
@@ -359,7 +366,7 @@ public partial class Main
         worldMenuStatus.Text = create
             ? "Choose a seed and size. Then choose your Town site and add four founders before starting time."
             : "Choose a world. The current world is saved before switching.";
-        worldNameInput.Visible = create;
+        worldNameInput.GetParent<Control>().Visible = create;
         worldSeedInput.GetParent<Control>().Visible = create;
         worldSizeChoice.Visible = create;
         worldWaterChoice.Visible = create;

@@ -117,6 +117,10 @@ review and is not carried forward.
   ordinary language, and tighten oversized empty agent/settings panels. The
   placeholder household names `Camp Alpha`/`Camp Beta` are disliked; the
   naming flow needs a player-facing replacement without changing membership.
+  The repository build now replaces raw household IDs, `Deterministic` and
+  fallback labels, internal tick/revision wording and the unreported-condition
+  placeholder in the agent card and status messages; laptop check pending.
+  Technical terms remain in some tooltips and developer tools.
 
 ## September 29 client UI audit
 

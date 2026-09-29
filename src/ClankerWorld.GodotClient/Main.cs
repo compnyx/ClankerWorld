@@ -410,6 +410,9 @@ public partial class Main : Control
                 worldPreviewStatus.Text = "Map preview · choose your Town site after creating the world.";
                 worldPreview.Show();
                 worldMenuOverlay.Show();
+                if (!worldNameInput.GetParent().GetChildren().OfType<Label>().Any(label => label.Text == "Name") ||
+                    !worldSeedInput.GetParent().GetChildren().OfType<Label>().Any(label => label.Text == "Seed"))
+                    throw new InvalidOperationException("New World name and seed fields must keep visible captions once filled.");
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 if (!worldMenuOverlay.GetGlobalRect().Encloses(worldMenuCard.GetGlobalRect()) ||
                     worldMenuOverlay.GetGlobalRect().GetCenter().DistanceTo(worldMenuCard.GetGlobalRect().GetCenter()) > 2)
@@ -422,6 +425,8 @@ public partial class Main : Control
                 worldSettingsCategoryButton.Visible || worldSettingsContent.Visible || menuResumeButton.Visible ||
                 menuCloseButton.Text != "<")
                 throw new InvalidOperationException("Main Menu Settings must keep the title background and show only Game Settings.");
+            if (!gameSettingsCategoryButton.ButtonPressed || gameSettingsCategoryButton.Disabled)
+                throw new InvalidOperationException("The open Settings category must read as selected, not disabled.");
             settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
             settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
             gameSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
@@ -541,6 +546,9 @@ public partial class Main : Control
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!developerScroll.Visible || settingsScroll.Visible || !settingsPanel.Visible)
                 throw new InvalidOperationException("Developer controls must stay inside Settings without adding a Pause Menu action.");
+            if (!developerToggleButton.ButtonPressed || gameSettingsCategoryButton.ButtonPressed ||
+                worldSettingsCategoryButton.ButtonPressed)
+                throw new InvalidOperationException("Developer tools must be the only selected Settings category.");
             if (developerScroll.Size.X < 200 || !settingsPanel.GetGlobalRect().Encloses(developerScroll.GetGlobalRect()))
                 throw new InvalidOperationException("Developer controls must have usable width inside Settings at a narrow window.");
             gameSettingsCategoryButton.EmitSignal(BaseButton.SignalName.Pressed);
@@ -674,6 +682,9 @@ public partial class Main : Control
                 throw new InvalidOperationException("An action result must clear after its reading time.");
             ShowHeldState("connection check");
             ExpireStatusToast(refreshSucceeded: false);
+            if (!statusLabel.Text.StartsWith("Connection lost", StringComparison.Ordinal) ||
+                statusLabel.Text.Contains("tick", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Connection problems must be described without internal tick numbers.");
             if (!statusToast.Visible)
                 throw new InvalidOperationException("A connection problem must stay visible until a refresh succeeds.");
             ExpireStatusToast(refreshSucceeded: true);
@@ -949,6 +960,26 @@ public partial class Main : Control
             RenderSelectedInhabitantCard(occupied with { WorldTick = 1 });
             if (inhabitantSocialDetails.GetParsedText().Length == 0 || privateThoughtHistory.GetParsedText().Length == 0)
                 throw new InvalidOperationException("Reselecting an unchanged agent must restore their social details and private thoughts.");
+            RenderSelectedInhabitantCard(occupied with
+            {
+                Inhabitants = [founder with
+                {
+                    Survival = null,
+                    PublicIntention = new OwnerWorldPublicIntention("safe_idle", "keeping a safe routine", "deterministic", 1),
+                    Relationships = [new OwnerWorldInhabitantRelationship("home:test", "household:one",
+                        "household_membership", "accepted", "household", 1)],
+                }],
+                Stockpiles = [new("household:one", "Founder's household", [])],
+            });
+            if (selectedActorConditionLabel.Visible ||
+                !inhabitantSocialDetails.Text.Contains("Member of Founder's household", StringComparison.Ordinal) ||
+                inhabitantSocialDetails.Text.Contains("household:one", StringComparison.OrdinalIgnoreCase) ||
+                inhabitantSocialDetails.Text.Contains("Unassigned", StringComparison.Ordinal) ||
+                !inhabitantSocialDetails.Text.Contains("Wants to take it easy.", StringComparison.Ordinal))
+                throw new InvalidOperationException($"The agent card must read naturally, name households and omit unavailable condition or unassigned-role placeholders: {inhabitantSocialDetails.Text}");
+            RenderSelectedInhabitantCard(occupied with { WorldTick = 1 });
+            if (!selectedActorConditionLabel.Visible)
+                throw new InvalidOperationException("Reported agent condition must be shown again.");
             UpdateTileHover(founderButton.Position + mapStage.Position + founderButton.Size / 2);
             if (terrainLayer.HoveredTile is not null)
                 throw new InvalidOperationException("An agent marker must take hover priority over its ground tile.");
@@ -1007,7 +1038,7 @@ public partial class Main : Control
             }
             RenderMap(sample with { Resources = [], PlacedBuildings = [] });
             var smallMapTileSize = currentTileSize;
-            HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true });
+            HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Position = mapCanvas.Size / 2 });
             if (currentTileSize <= smallMapTileSize)
                 throw new InvalidOperationException("Mouse-wheel zoom must work even when the small starter map reaches its fitted tile-size cap.");
             RenderMap(sample with
@@ -1028,7 +1059,7 @@ public partial class Main : Control
             var fittedTileSize = currentTileSize;
             var fittedViewHeight = worldOverview.VisibleTiles.Size.Y;
             for (var index = 0; index < 2; index++)
-                HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true });
+                HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Position = mapCanvas.Size / 2 });
             if (currentTileSize <= fittedTileSize || worldOverview.VisibleTiles.Size.Y >= fittedViewHeight)
                 throw new InvalidOperationException($"Mouse-wheel zoom did not narrow the visible world area: tile={fittedTileSize}->{currentTileSize}, view={fittedViewHeight}->{worldOverview.VisibleTiles.Size.Y}.");
             var beforeOverviewClick = mapStage.Position;
@@ -1322,6 +1353,15 @@ public partial class Main : Control
             }, waterCenter);
             if (emptyWorldFocus.DistanceTo(new Vector2(6.5f, 6.5f)) > 0.01f)
                 throw new InvalidOperationException($"A new world without a Town or agents must open over dry land: camera={emptyWorldFocus}.");
+            CenterCameraAt(new Vector2(80, 64));
+            var zoomPointer = mapCanvas.Size * new Vector2(0.25f, 0.3f);
+            var tileUnderPointer = (zoomPointer - mapStage.Position) / (currentTileSize + TileGap);
+            HandleMapInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = true, Position = zoomPointer });
+            var tileUnderPointerAfterZoom = (zoomPointer - mapStage.Position) / (currentTileSize + TileGap);
+            if (tileUnderPointerAfterZoom.DistanceTo(tileUnderPointer) > 0.1f)
+                throw new InvalidOperationException($"Mouse-wheel zoom must keep the pointed-at tile under the cursor: {tileUnderPointer} -> {tileUnderPointerAfterZoom}.");
+            cameraZoom = 1;
+            RenderMap(largeMap);
             var focusedMap = largeMap with
             {
                 WorldId = "ui-camera-focus",
@@ -1448,6 +1488,23 @@ public partial class Main : Control
             if (familyTreeView.VisiblePersonIds.Count != 1 || familyTreeView.ParentEdgeCount != 0)
                 throw new InvalidOperationException("Household membership must not create a family link.");
             familyTreePanel.Hide();
+            eventsPanel.Show();
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+            if (eventsPanel.Visible)
+                throw new InvalidOperationException("Escape must close the open world panel.");
+            choosingFirstTownSite = true;
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+            if (choosingFirstTownSite || townSiteButton.Text == "Cancel Town site")
+                throw new InvalidOperationException("Escape must cancel an active Town-site selection.");
+            selectedInhabitantCard.Hide();
+            selectedInhabitantId = null;
+            ClearTileSelection();
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+            if (!gameMenuPanel.Visible || !topBarShade.Visible)
+                throw new InvalidOperationException("Escape with nothing open must open the Pause Menu.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+            if (gameMenuPanel.Visible)
+                throw new InvalidOperationException("Escape must close the Pause Menu.");
             quitGameButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
@@ -1502,7 +1559,7 @@ public partial class Main : Control
             settingsPanel.Hide();
             CloseGameMenu();
             RefreshMainMenuAvailability();
-            SetStatus("paired device loaded · continue from Main Menu", good: true);
+            SetStatus("This device is paired. Choose Continue to enter your world.", good: true);
         }
         catch (Exception exception)
         {
@@ -1552,7 +1609,7 @@ public partial class Main : Control
             pairingIdLabel.Text = pendingPairing.PairingId;
             pairingExpiryLabel.Text = $"expires {pendingPairing.ExpiresAtUtc.LocalDateTime:yyyy-MM-dd HH:mm:ss}";
             pairButton.Text = "Start fresh pairing";
-            SetStatus("waiting for private host approval", good: true);
+            SetStatus("Waiting for the host to approve this device", good: true);
             _ = RevealPairingPanelAsync();
         }
         catch (Exception exception)
@@ -1689,7 +1746,7 @@ public partial class Main : Control
             settingsPanel.Hide();
             CloseGameMenu();
             ShowMainMenu();
-            SetStatus("device paired · continue from Main Menu", good: true);
+            SetStatus("Device paired. Choose Continue to enter your world.", good: true);
         }
         catch (Exception exception)
         {
@@ -1803,8 +1860,8 @@ public partial class Main : Control
                 ResolveWorldUri(), authority, deviceId, paused, signer, CancellationToken.None);
             accepted = true;
             return receipt.Changed
-                ? $"world {receipt.Operation}d at revision {receipt.Revision}"
-                : $"world was already {(paused ? "paused" : "running")}";
+                ? paused ? "World paused" : "World resumed"
+                : $"The world was already {(paused ? "paused" : "running")}";
         });
         return accepted;
     }
@@ -2180,7 +2237,7 @@ public partial class Main : Control
         var provider = SelectedProviderId();
         if (provider == "deterministic")
         {
-            SetStatus("deterministic cognition has no API key", good: false);
+            SetStatus("Built-in rules use no API key", good: false);
             return;
         }
 
@@ -2278,7 +2335,7 @@ public partial class Main : Control
             AddProviderChoice(SelectedTargetWasBornHere()
                 ? "No personal model (safe local)" : "Use world default", "inherit");
         }
-        AddProviderChoice("Deterministic", "deterministic");
+        AddProviderChoice("Built-in rules (no model)", "deterministic");
         if (SelectedRoleId() == "routine" && SelectedCognitionTarget() is null)
         {
             AddProviderChoice("Jev", "jev");
@@ -2397,7 +2454,7 @@ public partial class Main : Control
         "openai" => "OpenAI",
         "ollama-cloud" => "Ollama Cloud",
         "inherit" => "World default",
-        _ => "Deterministic",
+        _ => "Built-in rules",
     };
 
     private static string DefaultProviderModel(string provider) => provider switch
@@ -2596,7 +2653,7 @@ public partial class Main : Control
         RefreshControlAvailability();
         try
         {
-            SetStatus("submitting one-use signed owner request…", good: true);
+            SetStatus("Sending…", good: true);
             var detail = await action();
             SetStatus(detail, good: true);
             await RefreshAsync();
@@ -2607,9 +2664,17 @@ public partial class Main : Control
             // and the displayed world remain current.
             SetStatus($"The world host did not accept that request · {FriendlyFailure(exception)}", good: false);
         }
+        catch (System.Net.Http.HttpRequestException exception)
+        {
+            ShowHeldState($"could not reach the world host · {FriendlyFailure(exception)}");
+        }
+        catch (TaskCanceledException exception)
+        {
+            ShowHeldState($"the world host did not respond · {FriendlyFailure(exception)}");
+        }
         catch (Exception exception)
         {
-            ShowHeldState($"owner request rejected or unavailable · {FriendlyFailure(exception)}");
+            SetStatus($"Could not complete that action · {FriendlyFailure(exception)}", good: false);
         }
         finally
         {
@@ -2972,11 +3037,9 @@ public partial class Main : Control
         worldSettingsContent.Visible = worldSpecific;
         if (!worldSpecific && renderResolutionChoice.ItemCount > 0)
             RefreshRenderResolutionOptions();
-        gameSettingsCategoryButton.Disabled = !worldSpecific;
-        worldSettingsCategoryButton.Disabled = worldSpecific || registration is null;
+        SelectSettingsCategory(worldSpecific ? worldSettingsCategoryButton : gameSettingsCategoryButton);
         settingsScroll.Show();
         developerScroll.Hide();
-        developerToggleButton.Disabled = false;
         developerToggleButton.Text = "Developer tools";
         if (worldSpecific && registration is not null)
         {
@@ -3267,14 +3330,12 @@ public partial class Main : Control
         menuActions.AddChild(modLibraryButton);
 
         developerToggleButton.Text = "Developer tools";
-        StyleButton(developerToggleButton);
+        StyleSettingsCategoryButton(developerToggleButton);
         developerToggleButton.Pressed += () =>
         {
             settingsScroll.Hide();
             developerScroll.Show();
-            gameSettingsCategoryButton.Disabled = false;
-            worldSettingsCategoryButton.Disabled = registration is null;
-            developerToggleButton.Disabled = true;
+            SelectSettingsCategory(developerToggleButton);
             ApplyResponsiveLayout();
         };
 
@@ -3380,15 +3441,15 @@ public partial class Main : Control
         settingsScroll.AddChild(settingsPages);
         var settingsCategories = new VBoxContainer { CustomMinimumSize = new Vector2(130, 0) };
         gameSettingsCategoryButton.Text = "Game";
-        StyleButton(gameSettingsCategoryButton);
+        StyleSettingsCategoryButton(gameSettingsCategoryButton);
         gameSettingsCategoryButton.Pressed += () => ShowSettingsSection(worldSpecific: false);
         settingsCategories.AddChild(gameSettingsCategoryButton);
         worldSettingsCategoryButton.Text = "World";
-        StyleButton(worldSettingsCategoryButton);
+        StyleSettingsCategoryButton(worldSettingsCategoryButton);
         worldSettingsCategoryButton.Pressed += () => ShowSettingsSection(worldSpecific: true);
         settingsCategories.AddChild(worldSettingsCategoryButton);
         settingsCategories.AddChild(developerToggleButton);
-        gameSettingsCategoryButton.Disabled = true;
+        SelectSettingsCategory(gameSettingsCategoryButton);
         var settingsLayout = new HBoxContainer();
         settingsLayout.AddThemeConstantOverride("separation", 10);
         settingsLayout.AddChild(settingsCategories);
@@ -4592,22 +4653,21 @@ public partial class Main : Control
             : waitingForDecision
             ? "Decision pending."
             : inhabitant.PublicIntention is { } publicIntention
-            ? $"Wants to {GameUiText.HumanizeIdentifier(publicIntention.Summary).ToLowerInvariant()}."
+            // The summary is a gerund phrase ("keeping a safe routine"); the
+            // candidate reads as a verb phrase that fits "Wants to".
+            ? $"Wants to {GameUiText.HumanizeIdentifier(publicIntention.CandidateId).ToLowerInvariant()}."
             : "Taking in their surroundings.";
         var relationships = inhabitant.Relationships.Count == 0
             ? "No close relationships yet."
-            : string.Join(
-                "; ",
-                inhabitant.Relationships.Select(relationship =>
-                {
-                    var other = snapshot.Inhabitants.FirstOrDefault(item => item.Id == relationship.OtherPartyId)?.DisplayName
-                        ?? Pretty(relationship.OtherPartyId);
-                    return $"{Pretty(relationship.Type)} with {other} · {Pretty(relationship.State)}";
-                }));
+            : string.Join("; ", inhabitant.Relationships.Select(relationship => GameUiText.RelationshipSummary(
+                relationship.Type, relationship.State, GameUiText.PartyName(snapshot, relationship.OtherPartyId),
+                relationship.Direction)));
         var decision = snapshot.Cognition?.Decisions?.FirstOrDefault(item => item.InhabitantId == inhabitant.Id);
         var activity = waitingForDecision ? "Decision pending" : decision is null
             ? "No decision yet"
-            : $"{Pretty(decision.Provider)}{(decision.FellBack ? " (fallback)" : "")} · {GameUiText.HumanizeIdentifier(decision.CandidateId)}";
+            : decision.FellBack
+            ? $"Model did not provide a usable choice · built-in rules chose to {GameUiText.HumanizeIdentifier(decision.CandidateId).ToLowerInvariant()}"
+            : $"{ProviderDisplayName(decision.Provider)} chose to {GameUiText.HumanizeIdentifier(decision.CandidateId).ToLowerInvariant()}";
         var projectText = inhabitant.Project is { } project
             ? $"{project.Label} · {Pretty(project.Stage)} · {project.WorkDone}/{project.WorkRequired}" +
                 (project.Blocker is null ? "" : $"\n{project.Blocker}")
@@ -4619,14 +4679,17 @@ public partial class Main : Control
             ? $"{(isDeceased ? "At death · " : "")}Warmth {survival.WarmthBasisPoints / 100}% · Illness {survival.IllnessBasisPoints / 100}%" +
                 $" · Diet {survival.NutritionBasisPoints / 100}%\n" +
                 $"{(survival.HasClothing ? "Clothed" : "No warm clothing")} · {(survival.HasTool ? "Tool equipped" : "Working by hand")}" :
-                "Condition data unavailable";
+                string.Empty;
+        // Omit the condition line until the host reports it, rather than
+        // filling the card with an "unavailable" placeholder.
         selectedActorConditionLabel.Text = condition;
+        selectedActorConditionLabel.Visible = condition.Length > 0;
         var role = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "role")?.Detail;
         var learning = inhabitant.Lesson is { } lesson
             ? $"\nLearning {Pretty(lesson.Role)} with {lesson.TeacherName} · {Pretty(lesson.Stage)} · {lesson.Progress}/{lesson.Required}" : "";
         if (inhabitant.Proficiency is { } practice)
             learning += $"\nPractice · Building {practice.Building}/30 · Farming {practice.Farming}/30 · Crafting {practice.Crafting}/30";
-        var socialText = $"{(role is null ? "" : Pretty(role) + "\n")}{(inhabitant.Project is null ? intention : projectText)}{learning}\n{relationships}{standing}{socialNotes}\n{activity}";
+        var socialText = $"{(role is null or "unassigned" ? "" : $"Role: {Pretty(role)}\n")}{(inhabitant.Project is null ? intention : projectText)}{learning}\n{relationships}{standing}{socialNotes}\n{activity}";
         SetPanelText(inhabitantSocialDetails, socialText);
         var thoughtHeading = isDeceased ? "Private thoughts · historical" : "Private thoughts";
         SetPanelText(privateThoughtHistory, inhabitant.RecentPrivateThoughts.Count == 0
@@ -4862,8 +4925,7 @@ public partial class Main : Control
     private void RefreshControlAvailability()
     {
         var paired = !registeredEndpointInvalid && registration is not null && deviceKey is not null;
-        worldSettingsCategoryButton.Disabled = !paired || !isInWorld || returnToMainMenu ||
-            worldSettingsContent.Visible;
+        worldSettingsCategoryButton.Disabled = !paired || !isInWorld || returnToMainMenu;
         var snapshot = observationSession.Current?.Baseline.Snapshot;
         var paused = snapshot?.Authoring?.IsPaused == true;
         var selected = snapshot?.Inhabitants.FirstOrDefault(item =>
@@ -5221,9 +5283,12 @@ public partial class Main : Control
                     minimumCameraZoom, maximumCameraZoom);
                 if (Math.Abs(nextZoom - cameraZoom) > 0.001f)
                 {
+                    // Keep the world point under the cursor fixed while zooming,
+                    // so zooming in moves toward what the player points at.
+                    var anchor = (mouse.Position - mapStage.Position) / (currentTileSize + TileGap);
                     cameraZoom = nextZoom;
                     RenderMap(snapshot);
-                    PositionSelectedInhabitantCard(snapshot);
+                    CenterCameraAt(anchor - (mouse.Position - mapCanvas.Size / 2) / (currentTileSize + TileGap));
                 }
                 mapCanvas.AcceptEvent();
             }
@@ -5377,6 +5442,11 @@ public partial class Main : Control
 
     public override void _UnhandledKeyInput(InputEvent @event)
     {
+        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape })
+        {
+            if (HandleEscape()) GetViewport().SetInputAsHandled();
+            return;
+        }
         if (@event is not InputEventKey { Pressed: true } key || mainMenuOverlay.Visible || gameMenuPanel.Visible ||
             GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit)
         {
@@ -5396,6 +5466,82 @@ public partial class Main : Control
             PanCamera(direction * 1.5f);
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    /// <summary>
+    /// Escape backs out one step at a time: a focused text field, a modal
+    /// menu, a map-click mode, the newest open panel, the selected agent, and
+    /// finally opens the Pause Menu. It never commits a world change itself.
+    /// </summary>
+    private bool HandleEscape()
+    {
+        if (GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit)
+        {
+            GetViewport().GuiGetFocusOwner()!.ReleaseFocus();
+            return true;
+        }
+        if (worldMenuOverlay.Visible)
+        {
+            if (!worldMenuBusy) worldMenuOverlay.Hide();
+            return true;
+        }
+        if (manualSaveOverlay.Visible)
+        {
+            manualSaveOverlay.Hide();
+            return true;
+        }
+        if (gameMenuPanel.Visible)
+        {
+            _ = CloseGameMenuAsync();
+            return true;
+        }
+        if (mainMenuOverlay.Visible || !isInWorld) return false;
+        if (choosingFirstTownSite)
+        {
+            CancelFirstTownSiteSelection();
+            return true;
+        }
+        if (movingFounderId is not null)
+        {
+            ToggleMoveFounder();
+            return true;
+        }
+        if (founderSetupPanel.Visible)
+        {
+            founderApiKeyInput.Text = string.Empty;
+            founderSetupPanel.Hide();
+            placingAddedAgent = false;
+            return true;
+        }
+        foreach (var panel in new Control[] { familyTreePanel, memoriesPanel })
+        {
+            if (!panel.Visible) continue;
+            panel.Hide();
+            return true;
+        }
+        if (selectedTilePanel.Visible)
+        {
+            ClearTileSelection();
+            return true;
+        }
+        var overlays = new Control[] { rosterPanel, eventsPanel, settlementPanel, worldInfoPanel, filtersPanel, worldOverviewPanel };
+        if (overlays.Any(panel => panel.Visible))
+        {
+            foreach (var panel in overlays) panel.Hide();
+            return true;
+        }
+        if (selectedAgentModelScroll.Visible)
+        {
+            CloseAgentModelEditor();
+            return true;
+        }
+        if (selectedInhabitantCard.Visible)
+        {
+            ClearInhabitantSelection();
+            return true;
+        }
+        _ = ToggleGameMenuAsync();
+        return true;
     }
 
     private void PositionSelectedInhabitantCard(OwnerWorldSnapshot snapshot)
@@ -5505,6 +5651,23 @@ public partial class Main : Control
         button.AddThemeColorOverride("font_hover_color", new Color("FFFFFF"));
         button.AddThemeColorOverride("font_pressed_color", new Color("FFFFFF"));
         button.AddThemeColorOverride("font_disabled_color", new Color("718486"));
+    }
+
+    // Settings categories are tabs: the open one reads as selected instead of
+    // looking disabled, and pressing it again simply keeps it open.
+    private static void StyleSettingsCategoryButton(Button button)
+    {
+        StyleButton(button);
+        button.ToggleMode = true;
+        var selected = ButtonStyle(new Color("2C706B"), new Color("80CDBA"));
+        button.AddThemeStyleboxOverride("pressed", selected);
+        button.AddThemeStyleboxOverride("hover_pressed", selected);
+    }
+
+    private void SelectSettingsCategory(Button selected)
+    {
+        foreach (var button in new[] { gameSettingsCategoryButton, worldSettingsCategoryButton, developerToggleButton })
+            button.SetPressedNoSignal(button == selected);
     }
 
     private static StyleBoxFlat ButtonStyle(Color background, Color border) => new()
@@ -5657,9 +5820,9 @@ public partial class Main : Control
     {
         var heldTick = observationSession.Current?.Baseline.Snapshot.WorldTick;
         SetStatus(
-            heldTick is null
-                ? $"disconnected · {reason}"
-                : $"disconnected · holding accepted tick {heldTick} · {reason}",
+            heldTick is not { } tick
+                ? $"Connection lost · {reason}"
+                : $"Connection lost · showing the world as of {DisplayWorldClock(tick)} · {reason}",
             good: false, StatusToastKind.Connection);
     }
 

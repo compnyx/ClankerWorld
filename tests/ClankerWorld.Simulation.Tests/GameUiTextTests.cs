@@ -174,6 +174,37 @@ public sealed class GameUiTextTests
     }
 
     [Theory]
+    [InlineData("household_membership", "accepted", null, "Member of Camp Alpha")]
+    [InlineData("biological_parentage", "accepted", "parent", "Parent of Camp Alpha")]
+    [InlineData("biological_parentage", "ended_by_death", "child", "Child of Camp Alpha · ended by death")]
+    [InlineData("partnership", "proposed", null, "Partnership with Camp Alpha · proposed")]
+    [InlineData("legal_guardian", "accepted", null, "Legal guardian with Camp Alpha")]
+    public void RelationshipsReadAsPlainPhrases(string type, string state, string? direction, string expected)
+    {
+        Assert.Equal(expected, GameUiText.RelationshipSummary(type, state, "Camp Alpha", direction));
+    }
+
+    [Fact]
+    public void PartyNamesUseAgentHouseholdAndTownNamesInsteadOfIds()
+    {
+        var position = new OwnerWorldPosition(0, 0);
+        var agent = new OwnerWorldInhabitant("founder:1", "Rowan", "active", position, 8_000, [], [],
+            new OwnerWorldRoute("idle", null, null, [], string.Empty),
+            new OwnerWorldSpatialKnowledge(position, [position], [position]), false);
+        var snapshot = new OwnerWorldSnapshot("names", 0, "names-map", [], [], [], null, 0)
+        {
+            Inhabitants = [agent],
+            Stockpiles = [new OwnerWorldStockpile("household:camp-alpha", "Camp Alpha", [])],
+            Towns = [new OwnerWorldTown("town:first", "First Town", "founding", 0, [], [], [])],
+        };
+        Assert.Equal("Rowan", GameUiText.PartyName(snapshot, "founder:1"));
+        Assert.Equal("Camp Alpha", GameUiText.PartyName(snapshot, "household:camp-alpha"));
+        Assert.Equal("First Town", GameUiText.PartyName(snapshot, "town:first"));
+        Assert.Equal("a household", GameUiText.PartyName(snapshot, "household:agent:123"));
+        Assert.DoesNotContain("household:", GameUiText.PartyName(null, "household:camp-beta"), StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("build:building:sha256:abcdef/building/stone-hearth@1.0.0", "build Stone hearth")]
     [InlineData("seek_food", "find food")]
     [InlineData("guardian_tend:dependent-42", "care for an ill dependent")]
