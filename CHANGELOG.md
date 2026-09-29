@@ -14,6 +14,10 @@ release yet.
 - A stalled world refresh stops after four seconds instead of holding the
   client for the default network timeout. Owner actions cancel an older refresh
   so it cannot overwrite their result; Pause remains available during polling.
+- Map name tags use a whole given name or initial instead of cutting full names
+  after seven letters. Activity symbols distinguish exploration, warmth, trade,
+  social activity and care. Resource captions use ordinary case and disappear
+  at overview zoom; full names and resource facts stay in hover/inspection.
 
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.
