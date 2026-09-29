@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
+
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
 
