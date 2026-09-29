@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Cryptography;
 using ClankerWorld.Simulation.Playtest;
+using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Viewer.Control;
 using ClankerWorld.Viewer.Observation;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,12 +18,13 @@ public sealed partial class ViewerHttpTests
         var directory = Directory.CreateTempSubdirectory("durable-owner-retry-");
         try
         {
-            using var host = new ViewerWebApplicationFactory(directory.FullName, privateWorld: true);
+            using var host = new ViewerWebApplicationFactory(directory.FullName, privateWorld: true, legacyPrivateWorld: false);
             using var client = host.CreateClient();
             using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var device = await StartAndActivateAsync(host, client, key);
             var runtime = host.Services.GetRequiredService<PrivateWorldRuntime>();
-            var agentId = runtime.Inhabitants.First().InhabitantId;
+            var agentId = "founder:00000000000000000000000000000001";
+            runtime.PlaceFounder(agentId, new GridPoint(0, 0));
             var file = host.Services.GetRequiredService<PrivateWorldStateFile>();
             file.Save(runtime);
             var savedPath = file.Path + ".prior";
