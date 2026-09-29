@@ -246,6 +246,12 @@ release yet.
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
   card's new Find button does the same.
+- New World fits on one screen at 1280×720: the options sit in a captioned
+  column beside a map preview about twice as large as before, with Back and
+  Create World always in view. The preview keeps its place while it updates,
+  and Preview again is there if an update fails. Load World shows each world's
+  name, whether it is current and when it was saved, flags only worlds that
+  can't open or haven't been checked, and opens a world on double-click.
 - Zooming in now shows pixel-art ground instead of flat color squares: two
   calm 32×32 textures for each kind of grass, forest floor, sand, scrub, rock,
   soil, snow and water, small top-down mountains with snowy peaks, and
