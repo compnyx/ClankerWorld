@@ -499,6 +499,15 @@ which is not interchangeable with this prototype capability matrix.
 Future changes must update this document when a capability moves between
 planned, verified primitive, integrated or playable status.
 
+### Starting household wording
+
+Fresh worlds name their starter households First household and Second household.
+Observation renders the two exact legacy default names with that wording while
+leaving stored household IDs, membership, inventories and custom names unchanged.
+Founder setup describes the two groups without claiming they are biological
+families. This closes the camp-name portion of #282; the separate menu/settings
+style work and Windows layout acceptance remain distinct.
+
 ### Bounded client refresh
 
 Signed refresh has a four-second deadline covering challenge and response. Owner

@@ -2676,10 +2676,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         checkpoint = SocietyFixture.CreateHousehold(
             checkpoint,
             HouseholdId,
-            "Camp Alpha",
+            "First household",
             initialFounders.Select(item => item.Id)).Checkpoint;
         if (startPace == WorldStartPace.FounderSetup)
-            checkpoint = SocietyFixture.CreateHousehold(checkpoint, SecondHouseholdId, "Camp Beta", []).Checkpoint;
+            checkpoint = SocietyFixture.CreateHousehold(checkpoint, SecondHouseholdId, "Second household", []).Checkpoint;
         if (startPace != WorldStartPace.FounderSetup)
         {
             checkpoint = SocietyFixture.AssignRole(checkpoint, "founder-scout", SocietyWorkRole.Trader).Checkpoint;

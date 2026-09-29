@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- Starting households are named First household and Second household instead of
+  Camp Alpha/Beta. Existing default camp names display the new wording without
+  changing saved membership, property or custom household names. Founder setup
+  instructions are shorter and describe the two-household grouping plainly.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
