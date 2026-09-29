@@ -20,12 +20,21 @@ release yet.
   after seven letters. Activity symbols distinguish exploration, warmth, trade,
   social activity and care. Resource captions use ordinary case and disappear
   at overview zoom; full names and resource facts stay in hover/inspection.
+- Held movement keys now pan smoothly with elapsed frame time, with equal
+  straight and diagonal speed. Error notices give a plain recovery hint instead
+  of showing raw exception text, private file paths or server responses.
+- On Windows, saved provider keys are protected for the current Windows user.
+  Valid old key files are migrated when loaded; an unreadable protected file is
+  preserved rather than reset. Forgetting a key still removes it from the
+  current installation, not from independent backups or the provider account.
 
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.
   Settings has a new Theme choice of Light, Dark (dark wood with cream text)
   or Match system, which follows your computer's setting. Switching applies at
   once and is remembered.
+- Settings can turn off the drifting cloud haze and the soft lightning flashes
+  in storms. Both are on to start with and your choice is remembered.
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel

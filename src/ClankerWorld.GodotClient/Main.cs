@@ -145,6 +145,8 @@ public partial class Main : Control
     private readonly ColorRect appBackdrop = new();
     private readonly ColorRect worldBackdrop = new();
     private readonly OptionButton themeChoice = new();
+    private readonly CheckButton cloudHazeToggle = new();
+    private readonly CheckButton lightningToggle = new();
     private readonly Label menuHeadingLabel = new();
     private readonly Button menuCloseButton = new();
     private readonly Button menuResumeButton = new();
@@ -491,6 +493,14 @@ public partial class Main : Control
                 throw new InvalidOperationException("Choosing a theme must restyle the open window at once and be remembered.");
             themeChoice.Select((int)UiTheme.Parse(themeBefore));
             SetUiTheme((int)UiTheme.Parse(themeBefore));
+            var (hazeBefore, flashesBefore) = (displayPreferences.CloudHaze, displayPreferences.LightningFlashes);
+            cloudHazeToggle.ButtonPressed = !hazeBefore;
+            lightningToggle.ButtonPressed = !flashesBefore;
+            if (weatherLayer.CloudsEnabled == hazeBefore || weatherLayer.LightningEnabled == flashesBefore ||
+                displayPreferences.CloudHaze == hazeBefore || displayPreferences.LightningFlashes == flashesBefore)
+                throw new InvalidOperationException("The cloud haze and lightning switches must take effect at once and be remembered.");
+            cloudHazeToggle.ButtonPressed = hazeBefore;
+            lightningToggle.ButtonPressed = flashesBefore;
             if (!topBarShade.Visible || topBarShade.ZIndex <= mainMenuOverlay.ZIndex)
                 throw new InvalidOperationException("Main Menu Settings must shade the top bar like the rest of the title backdrop.");
             SetStatus("Settings status check", good: true);
@@ -1417,7 +1427,7 @@ public partial class Main : Control
                 throw new InvalidOperationException("Middle-drag did not pan the world camera.");
             GetViewport().GuiGetFocusOwner()?.ReleaseFocus();
             var beforeKeyboardPan = mapStage.Position;
-            _UnhandledKeyInput(new InputEventKey { Keycode = Key.S, Pressed = true });
+            PanCameraForFrame(new Vector2(0, 1), 0.1);
             if (mapStage.Position.DistanceTo(beforeKeyboardPan) < 1)
                 throw new InvalidOperationException("Keyboard panning did not move the world camera.");
             var eventDestination = cameraCenterTiles.X < 8 ? new OwnerWorldPosition(15, 11) : new OwnerWorldPosition(0, 0);
@@ -1657,20 +1667,35 @@ public partial class Main : Control
                 !selectedTileText.Text.Contains("Tile 255, 64", StringComparison.Ordinal))
                 throw new InvalidOperationException("Selecting a wrapped seam marker must inspect its canonical tile.");
 
+            GetViewport().GuiGetFocusOwner()?.ReleaseFocus();
+            var beforeFramePan = cameraCenterTiles;
+            cameraCenterTiles = new Vector2(128, 64);
+            PanCameraForFrame(new Vector2(1, 0), 0.1);
+            var cardinalDistance = cameraCenterTiles.DistanceTo(new Vector2(128, 64));
+            cameraCenterTiles = new Vector2(128, 64);
+            PanCameraForFrame(new Vector2(1, 1), 0.05);
+            PanCameraForFrame(new Vector2(1, 1), 0.05);
+            if (Math.Abs(cameraCenterTiles.DistanceTo(new Vector2(128, 64)) - cardinalDistance) > 0.01f)
+                throw new InvalidOperationException("Diagonal pan must match cardinal speed and depend on elapsed time, not repeat count.");
+            var beforeEcho = cameraCenterTiles;
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Right, Pressed = true, Echo = true });
+            if (cameraCenterTiles != beforeEcho)
+                throw new InvalidOperationException("Keyboard repeat events must not add camera movement.");
+            cameraCenterTiles = beforeFramePan;
             var repeatedKeyStart = cameraCenterTiles.X;
             var previousKeyCenter = repeatedKeyStart;
             for (var step = 0; step < 512; step++)
             {
-                _UnhandledKeyInput(new InputEventKey { Keycode = Key.Right, Pressed = true });
+                PanCameraForFrame(new Vector2(1, 0), 0.1);
                 if (Math.Abs(PositiveMod(cameraCenterTiles.X - previousKeyCenter, 256) - 1.5f) > 0.01f)
-                    throw new InvalidOperationException("Repeated right-key input must keep moving through multiple wrapped laps.");
+                    throw new InvalidOperationException("Held right movement must keep moving through multiple wrapped laps.");
                 previousKeyCenter = cameraCenterTiles.X;
             }
             for (var step = 0; step < 512; step++)
             {
-                _UnhandledKeyInput(new InputEventKey { Keycode = Key.Left, Pressed = true });
+                PanCameraForFrame(new Vector2(-1, 0), 0.1);
                 if (Math.Abs(PositiveMod(previousKeyCenter - cameraCenterTiles.X, 256) - 1.5f) > 0.01f)
-                    throw new InvalidOperationException("Repeated left-key input must keep moving through multiple wrapped laps.");
+                    throw new InvalidOperationException("Held left movement must keep moving through multiple wrapped laps.");
                 previousKeyCenter = cameraCenterTiles.X;
             }
             if (Math.Abs(cameraCenterTiles.X - repeatedKeyStart) > 0.01f)
@@ -3541,6 +3566,8 @@ public partial class Main : Control
 
         // Weather falls over buildings and agents alike.
         weatherLayer.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        weatherLayer.CloudsEnabled = displayPreferences.CloudHaze;
+        weatherLayer.LightningEnabled = displayPreferences.LightningFlashes;
         weatherLayer.Follow(terrainLayer);
         mapStage.AddChild(weatherLayer);
 
@@ -3774,6 +3801,16 @@ public partial class Main : Control
         renderResolutionChoice.ItemSelected += SetRenderResolution;
         gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
 
+
+        gameSettingsContent.AddChild(SettingsSection("Weather"));
+        cloudHazeToggle.TooltipText = "A faint haze of cloud that drifts over the land now and then.";
+        cloudHazeToggle.ButtonPressed = displayPreferences.CloudHaze;
+        cloudHazeToggle.Toggled += SetCloudHaze;
+        gameSettingsContent.AddChild(DisplaySettingRow("Cloud haze", cloudHazeToggle));
+        lightningToggle.TooltipText = "A soft flash every several seconds during storms.";
+        lightningToggle.ButtonPressed = displayPreferences.LightningFlashes;
+        lightningToggle.Toggled += SetLightningFlashes;
+        gameSettingsContent.AddChild(DisplaySettingRow("Lightning flashes", lightningToggle));
 
         gameSettingsContent.AddChild(SettingsSection("Date and time"));
         clockFormatChoice.AddItem("24-hour", 0);
@@ -4465,6 +4502,20 @@ public partial class Main : Control
         var percent = DisplayUiScalePolicy.SupportedPercentages[(int)index];
         SaveDisplayPreferences(displayPreferences with { UiScalePercent = percent });
         ApplyUiScale(percent);
+    }
+
+    private void SetCloudHaze(bool enabled)
+    {
+        SaveDisplayPreferences(displayPreferences with { CloudHaze = enabled });
+        weatherLayer.CloudsEnabled = enabled;
+        weatherLayer.QueueRedraw();
+    }
+
+    private void SetLightningFlashes(bool enabled)
+    {
+        SaveDisplayPreferences(displayPreferences with { LightningFlashes = enabled });
+        weatherLayer.LightningEnabled = enabled;
+        weatherLayer.QueueRedraw();
     }
 
     private void SetUiTheme(long index)
@@ -5957,19 +6008,26 @@ public partial class Main : Control
             return;
         }
 
-        var direction = key.Keycode switch
-        {
-            Key.W or Key.Up => new Vector2(0, -1),
-            Key.A or Key.Left => new Vector2(-1, 0),
-            Key.S or Key.Down => new Vector2(0, 1),
-            Key.D or Key.Right => new Vector2(1, 0),
-            _ => Vector2.Zero,
-        };
-        if (direction != Vector2.Zero)
-        {
-            PanCamera(direction * 1.5f);
+        if (key.Keycode is Key.W or Key.Up or Key.A or Key.Left or Key.S or Key.Down or Key.D or Key.Right)
             GetViewport().SetInputAsHandled();
-        }
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!GetWindow().HasFocus()) return;
+        var direction = new Vector2(
+            (Input.IsPhysicalKeyPressed(Key.D) || Input.IsPhysicalKeyPressed(Key.Right) ? 1 : 0) -
+            (Input.IsPhysicalKeyPressed(Key.A) || Input.IsPhysicalKeyPressed(Key.Left) ? 1 : 0),
+            (Input.IsPhysicalKeyPressed(Key.S) || Input.IsPhysicalKeyPressed(Key.Down) ? 1 : 0) -
+            (Input.IsPhysicalKeyPressed(Key.W) || Input.IsPhysicalKeyPressed(Key.Up) ? 1 : 0));
+        PanCameraForFrame(direction, delta);
+    }
+
+    private void PanCameraForFrame(Vector2 direction, double delta)
+    {
+        if (direction == Vector2.Zero || mainMenuOverlay.Visible || gameMenuPanel.Visible ||
+            worldMenuOverlay.Visible || GetViewport().GuiGetFocusOwner() is not null) return;
+        PanCamera(direction.Normalized() * (float)(15 * Math.Clamp(delta, 0, 0.1)));
     }
 
     /// <summary>
@@ -6316,23 +6374,13 @@ public partial class Main : Control
             good: false, StatusToastKind.Connection);
     }
 
-    private static string FriendlyFailure(Exception exception) => exception switch
+    private static string FriendlyFailure(Exception exception)
     {
-        System.Net.Http.HttpRequestException { StatusCode: { } code } => code switch
-        {
-            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
-                "this device is not allowed in. Try connecting it again",
-            System.Net.HttpStatusCode.NotFound => "the server does not know about that",
-            System.Net.HttpStatusCode.Conflict => "the server's state changed. Try again",
-            System.Net.HttpStatusCode.TooManyRequests => "the server cannot handle another connection request right now. Try again later",
-            >= System.Net.HttpStatusCode.InternalServerError => "the server had a problem",
-            _ => $"the server said no ({(int)code})",
-        },
-        System.Net.Http.HttpRequestException => "cannot reach the world server",
-        OperationCanceledException => "the server took too long to answer",
-        System.Text.Json.JsonException => "the server sent something unexpected",
-        _ => exception.Message,
-    };
+        // Keep diagnostics bounded and separate; exception messages can contain
+        // private paths, server payloads or credentials.
+        GD.PushWarning($"owner_action_failed type={exception.GetType().Name}");
+        return GameUiText.FriendlyFailure(exception);
+    }
 
     private static string DescribeWorldEvent(OwnerWorldEvent worldEvent, OwnerWorldSnapshot? snapshot)
     {
