@@ -27,11 +27,13 @@ public sealed class FirstTownLayoutPlannerTests
         foreach (var building in plan.Buildings)
         {
             for (var dy = 0; dy < building.Height; dy++)
-            for (var dx = 0; dx < building.Width; dx++)
             {
-                var tile = new GridPoint(building.Position.X + dx, building.Position.Y + dy);
-                Assert.True(map.IsBuildable(tile));
-                Assert.True(occupied.Add(tile));
+                for (var dx = 0; dx < building.Width; dx++)
+                {
+                    var tile = new GridPoint(building.Position.X + dx, building.Position.Y + dy);
+                    Assert.True(map.IsBuildable(tile));
+                    Assert.True(occupied.Add(tile));
+                }
             }
         }
 
