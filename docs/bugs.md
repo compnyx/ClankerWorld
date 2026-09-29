@@ -502,6 +502,14 @@ Missing heads, missing ancestors and digest-corrupt segments block replacement.
 Archives remain on disk for repair. This does not select a retention policy or
 claim atomic protection against an external process deleting files after preflight.
 
+### Lost world-switch receipts (#313)
+
+Create and select clear the held timeline before the potentially committed
+request, matching manual rewind’s ambiguity handling. The next reconnect starts
+from zero even if the response is lost; normal same-timeline regression and
+terrain identity checks remain. Continue does not automatically resume after an
+uncertain switch. Transport-loss tests are not a Windows network playtest.
+
 ### Interrupted exploration path (#315)
 
 When legal intervening movement leaves a scout away from the old path endpoint,
