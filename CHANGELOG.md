@@ -274,6 +274,15 @@ release yet.
 
 ### Changed
 
+- Agents no longer start Shelters, Storehouses, Cooking fires or Stone
+  hearths. A household's House now provides shelter, cooking, warmth from its
+  fire and food storage, and a Town's Warehouse holds shared supplies.
+  Experienced builders also stop suggesting shelter, storehouse and hearth
+  designs. Worlds that already have these buildings keep them working,
+  projects for them that are already under way still finish, and designs
+  suggested earlier stay in the Mod Library. An adult without a household
+  cannot build a House yet, so in a new world clothing and natural cover are
+  their only protection from cold.
 - Weather on the map now moves. Rain falls as short drops that land with
   small splash rings, storms darken the sky with heavier slanted rain and a
   soft flash of lightning every several seconds, and snow drifts down. Rain,
