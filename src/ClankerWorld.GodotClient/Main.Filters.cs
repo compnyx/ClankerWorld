@@ -25,7 +25,7 @@ public partial class Main
         body.AddThemeConstantOverride("separation", 8);
 
         townBorderFilter.Text = "Town borders";
-        townBorderFilter.TooltipText = "Outline your Town's border in amber.";
+        townBorderFilter.TooltipText = "Outline Town borders in amber.";
         townBorderFilter.ButtonPressed = true;
         townBorderFilter.Toggled += _ => ApplyMapFiltersFromCurrentSnapshot();
         body.AddChild(townBorderFilter);
