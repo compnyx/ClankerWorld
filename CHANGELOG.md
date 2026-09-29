@@ -21,6 +21,10 @@ release yet.
 - Held movement keys now pan smoothly with elapsed frame time, with equal
   straight and diagonal speed. Error notices give a plain recovery hint instead
   of showing raw exception text, private file paths or server responses.
+- On Windows, saved provider keys are protected for the current Windows user.
+  Valid old key files are migrated when loaded; an unreadable protected file is
+  preserved rather than reset. Forgetting a key still removes it from the
+  current installation, not from independent backups or the provider account.
 
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.

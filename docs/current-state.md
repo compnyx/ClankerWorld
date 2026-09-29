@@ -531,3 +531,20 @@ jumps; diagonal motion is not faster. Menus, a focused control or an unfocused
 window block held-key camera movement, and OS repeat events add no movement.
 Windows keyboard/focus and 720p/200% layout acceptance remains pending; this
 source change does not certify those separate checks.
+
+### Windows provider-key protection
+
+The Windows host protects its installation-local provider configuration with
+current-user DPAPI, using no machine-wide decryption flag and no new package.
+Validated legacy JSON is replaced atomically by a protected envelope; damaged or
+wrong-user protected data is not overwritten with empty state. Unix uses private
+file permissions. Stored keys remain separate from world saves, and the existing
+forget-key action removes current saved credentials without deleting backups or
+revoking the provider account. Re-enter credentials when moving to another account
+or installation; a protected file is not a portable key export. Windows native
+storage checks are separate from the still-pending normal local-game UI playtest.
+
+The native contract follows Microsoft's [CryptProtectData documentation](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata)
+and [CryptUnprotectData documentation](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptunprotectdata).
+This is protection at rest, not a guarantee against software running as the same
+Windows user or against recovery of previously created plaintext backups.
