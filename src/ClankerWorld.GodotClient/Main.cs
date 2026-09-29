@@ -929,6 +929,37 @@ public partial class Main : Control
                     if (style != TerrainStyle.Unknown && first.GetData().SequenceEqual(second.GetData()))
                         throw new InvalidOperationException($"{style} needs two distinct texture variants.");
                 }
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var style in new[] { TerrainStyle.Ocean, TerrainStyle.Lake, TerrainStyle.River, TerrainStyle.ShallowWater })
+                {
+                    // Water repeats as one larger block: it must average near
+                    // the flat color that the overview and shore bands use, and
+                    // its tiles must differ so no tile grid shows.
+                    var waterBlock = WaterTextures.Block(style, atlasSize);
+                    var waterBase = TerrainTextures.BaseColor(style);
+                    var pixels = waterBlock.GetWidth() * waterBlock.GetHeight();
+                    var (red, green, blue) = (0f, 0f, 0f);
+                    for (var py = 0; py < waterBlock.GetHeight(); py++)
+                        for (var px = 0; px < waterBlock.GetWidth(); px++)
+                        {
+                            var pixel = waterBlock.GetPixel(px, py);
+                            red += pixel.R;
+                            green += pixel.G;
+                            blue += pixel.B;
+                        }
+                    if (Math.Abs(red / pixels - waterBase.R) > 0.03f || Math.Abs(green / pixels - waterBase.G) > 0.03f ||
+                        Math.Abs(blue / pixels - waterBase.B) > 0.03f)
+                        throw new InvalidOperationException($"{style} {atlasSize}px water must average close to its base color.");
+                    var distinctTiles = new HashSet<string>();
+                    for (var ty = 0; ty < WaterTextures.BlockTiles; ty++)
+                        for (var tx = 0; tx < WaterTextures.BlockTiles; tx++)
+                            distinctTiles.Add(Convert.ToBase64String(waterBlock.GetRegion(
+                                new Rect2I(tx * atlasSize, ty * atlasSize, atlasSize, atlasSize)).GetData()));
+                    if (distinctTiles.Count < WaterTextures.BlockTiles ||
+                        WaterTextures.Region(style, WaterTextures.BlockTiles, -WaterTextures.BlockTiles, atlasSize) !=
+                        WaterTextures.Region(style, 0, 0, atlasSize))
+                        throw new InvalidOperationException($"{style} water must vary between tiles and repeat only as a whole block.");
+                }
             if (!TerrainTransitions.Overlaps(TerrainStyle.Grass, TerrainStyle.Sand) ||
                 TerrainTransitions.Overlaps(TerrainStyle.Sand, TerrainStyle.Grass) ||
                 !TerrainTransitions.Overlaps(TerrainStyle.Snow, TerrainStyle.Rock) ||

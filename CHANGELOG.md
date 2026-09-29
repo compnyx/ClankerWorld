@@ -249,6 +249,11 @@ release yet.
 - Where a river runs into the sea or a lake spills into a river, the lighter
   water now fans softly into the darker instead of changing color in a
   straight line.
+- Open water no longer repeats the same small square: seas, lakes and rivers
+  carry wave crests and the odd sparkle that run across tile edges and gather
+  in some stretches, and shallow water shows faint light ripples across its
+  bottom. Seas have the most swell, lakes are calmer and rivers ripple in
+  short marks, all in their usual colors.
 - The Town panel and Event Log are easier to scan. The Town panel puts
   shared stores, projects, the household council and social activity under
   headings, and says "No one is working on a project right now" instead of
