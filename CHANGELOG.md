@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Inherited physical maps and field records keep their lot identity, preserving the knowledge artifact link and saveability without broadcasting their contents.
+
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
   changing saved membership, property or custom household names. Founder setup

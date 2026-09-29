@@ -481,3 +481,13 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Inherited physical knowledge items (#317)
+
+An indivisible quantity-one field map/record retains its physical lot ID during
+estate distribution. Only ownership/location changes; creator, discovery facts
+and artifact linkage remain. Ordinary divisible estate stock retains its split
+IDs and quantity rules. Regression uses a naturally created artifact with default
+and selected-heir settlement, actual recovery-file reload and heir inspection;
+receiving it does not broadcast facts to the population. Existing trade/share
+paths continue to use the same stable physical link.
