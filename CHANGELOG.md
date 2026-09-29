@@ -14,6 +14,8 @@ release yet.
 - Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+- Inherited physical maps and field records keep their lot identity, preserving the knowledge artifact link and saveability without broadcasting their contents.
+- Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
 
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
