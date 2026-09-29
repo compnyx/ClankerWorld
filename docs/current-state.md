@@ -508,6 +508,19 @@ Founder setup describes the two groups without claiming they are biological
 families. This closes the camp-name portion of #282; the separate menu/settings
 style work and Windows layout acceptance remain distinct.
 
+### Personal-model self context (#255)
+
+The personal choice request includes bounded saved actor-owned identity (name,
+life stage, personality, aspiration, household), warmth/illness when available,
+and the actor's most recent private thought. Fullness already had its scale
+explained; warmth and illness now have explicit opposite-direction scales.
+Absent survival fields remain unknown. Self context is bound into the private
+world observation digest and survives queued-observation serialization; other
+actors' thoughts are not included. Existing action admission and low-confidence
+safe-idle policy are unchanged. Nearby relationships, carried inventory and
+current activity are not added by this slice. Stub request and runtime replay
+checks are not live-model evidence of better choices, pacing, or thought quality.
+
 ### Bounded client refresh
 
 Signed refresh has a four-second deadline covering challenge and response. Owner
