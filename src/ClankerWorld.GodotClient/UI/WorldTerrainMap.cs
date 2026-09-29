@@ -104,26 +104,6 @@ public sealed class WorldTerrainMap
         _ => 0,
     };
 
-    /// <summary>A stable two-pattern texture choice derived only from saved map-layer facts.</summary>
-    public byte SurfaceVariantAt(int x, int y)
-    {
-        var index = y * Width + x;
-        if (!HasMapLayers) return (byte)((x * 17 + y * 31) & 1);
-        var hash = unchecked((uint)(x * 73856093) ^ (uint)(y * 19349663) ^
-            (uint)(surface![index] * 83492791) ^ (uint)(vegetation![index] * 2654435761u) ^
-            (uint)(climate![index] * 2246822519u) ^ (uint)(elevation![index] * 3266489917u) ^
-            (uint)(hydrology![index] * 668265263u));
-        return (byte)(hash & 1);
-    }
-
-    public Color PaletteColorAt(int x, int y)
-    {
-        var color = DisplayColorAt(x, y);
-        var adjustment = SurfaceVariantAt(x, y) == 0 ? -0.025f : 0.025f;
-        return new Color(Mathf.Clamp(color.R + adjustment, 0, 1),
-            Mathf.Clamp(color.G + adjustment, 0, 1), Mathf.Clamp(color.B + adjustment, 0, 1), color.A);
-    }
-
     /// <summary>Bit mask of cardinal edges where land meets generated water; N/E/S/W are bits 1/2/4/8.</summary>
     public byte WaterEdgeMaskAt(int x, int y, bool wrapsEastWest)
     {

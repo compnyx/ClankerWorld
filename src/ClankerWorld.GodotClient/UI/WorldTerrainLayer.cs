@@ -43,7 +43,7 @@ public partial class WorldTerrainLayer : Control
         var image = Image.CreateEmpty(map.Width, map.Height, false, Image.Format.Rgba8);
         for (var y = 0; y < map.Height; y++)
             for (var x = 0; x < map.Width; x++)
-                image.SetPixel(x, y, map.PaletteColorAt(x, y));
+                image.SetPixel(x, y, map.DisplayColorAt(x, y));
         paletteTexture = ImageTexture.CreateFromImage(image);
         trees = new byte[checked(map.Width * map.Height)];
         naturalObjects = new byte[checked(map.Width * map.Height)];
@@ -308,8 +308,6 @@ public partial class WorldTerrainLayer : Control
                 }
             }
         }
-        DrawWeatherClouds(bounds, stride);
-        DrawSurfaceDetails(bounds, stride);
         DrawRoads(bounds, stride);
         // Trees are objects, not baked ground colors: keep them visible both
         // above full-size tiles and above the small-tile palette cache.
@@ -349,117 +347,6 @@ public partial class WorldTerrainLayer : Control
                     new Color("FFD166"), filled: false, width: tileSize >= 12 ? 3 : 2);
             }
         }
-    }
-
-    private void DrawSurfaceDetails((int Left, int Top, int Width, int Height) bounds, int stride)
-    {
-        if (world is null || tileSize <= 0) return;
-        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
-            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
-            {
-                var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
-                var surface = world.RenderSurfaceAt(mapX, y);
-                var variant = world.SurfaceVariantAt(mapX, y);
-                var hash = unchecked((uint)(mapX * 73856093) ^ (uint)(y * 19349663) ^ (uint)(surface * 83492791));
-                var position = new Vector2(x * stride, y * stride);
-                DrawSurfaceTexture(position, mapX, y, surface, variant, hash);
-                DrawSurfaceTransitions(position, mapX, y);
-            }
-    }
-
-    private void DrawSurfaceTexture(Vector2 position, int x, int y, byte surface, byte variant, uint hash)
-    {
-        var point = new Vector2(tileSize * (0.18f + ((hash >> 4) % 5) * 0.13f),
-            tileSize * (0.2f + ((hash >> 9) % 5) * 0.12f));
-        var accent = variant == 0 ? new Color(0.13f, 0.17f, 0.10f, 0.20f) :
-            new Color(0.92f, 0.91f, 0.77f, 0.18f);
-        var unit = Math.Max(1f, tileSize / 20f);
-        if (surface == 4)
-        {
-            DrawLine(position + new Vector2(tileSize * 0.24f, tileSize * 0.56f),
-                position + new Vector2(tileSize * 0.66f, tileSize * 0.50f), new Color("A4C8D2", 0.22f), unit);
-            return;
-        }
-        if (tileSize < 12)
-        {
-            if (variant == 0)
-                DrawRect(new Rect2(position + point, new Vector2(1, 1)), accent);
-            return;
-        }
-
-        switch (surface)
-        {
-            case 0: // meadow
-            case 5: // forest floor
-                DrawRect(new Rect2(position + point, new Vector2(unit, unit * 2)), accent);
-                DrawRect(new Rect2(position + point + new Vector2(unit, unit), new Vector2(unit, unit)), accent);
-                break;
-            case 1: // sand / beach
-                DrawCircle(position + point, unit, accent);
-                DrawCircle(position + new Vector2(tileSize * 0.74f, tileSize * 0.73f), unit * 0.65f,
-                    new Color("E5D2A3", 0.25f));
-                break;
-            case 2: // rocky upland
-                DrawRect(new Rect2(position + point, new Vector2(unit * 2.1f, unit)), new Color("3C3D3A", 0.3f));
-                DrawRect(new Rect2(position + new Vector2(tileSize * 0.65f, tileSize * 0.68f),
-                    new Vector2(unit * 1.5f, unit)), new Color("C0B9AA", 0.28f));
-                break;
-            case 3: // snow/tundra
-                DrawCircle(position + point, unit, new Color("FFFFFF", 0.35f));
-                DrawCircle(position + new Vector2(tileSize * 0.72f, tileSize * 0.76f), unit * 0.7f,
-                    new Color("90A4A5", 0.18f));
-                break;
-            case 6: // dry scrub
-                DrawCircle(position + point, unit * 0.9f, new Color("564D34", 0.28f));
-                if (world?.VegetationAt(x, y) == 5)
-                    DrawPricklyPlant(position + new Vector2(tileSize * 0.65f, tileSize * 0.58f), unit);
-                break;
-            case 7: // fertile soil
-                DrawLine(position + new Vector2(tileSize * 0.20f, tileSize * 0.72f),
-                    position + new Vector2(tileSize * 0.78f, tileSize * 0.67f), new Color("C6A66B", 0.34f), unit);
-                DrawLine(position + new Vector2(tileSize * 0.25f, tileSize * 0.83f),
-                    position + new Vector2(tileSize * 0.73f, tileSize * 0.78f), new Color("483A2E", 0.28f), unit);
-                break;
-        }
-    }
-
-    private void DrawSurfaceTransitions(Vector2 position, int x, int y)
-    {
-        if (world is null || tileSize < 14) return;
-        var waterEdges = world.WaterEdgeMaskAt(x, y, wrapsEastWest);
-        var surfaceEdges = world.SurfaceBoundaryMaskAt(x, y, wrapsEastWest);
-        if ((waterEdges | surfaceEdges) == 0) return;
-        var width = Math.Max(1f, tileSize / 18f);
-        for (var side = 0; side < 4; side++)
-        {
-            var bit = (byte)(1 << side);
-            if (((waterEdges | surfaceEdges) & bit) == 0) continue;
-            var start = side switch
-            {
-                0 => new Vector2(tileSize * 0.15f, tileSize * 0.08f),
-                1 => new Vector2(tileSize * 0.91f, tileSize * 0.16f),
-                2 => new Vector2(tileSize * 0.13f, tileSize * 0.91f),
-                _ => new Vector2(tileSize * 0.08f, tileSize * 0.18f),
-            };
-            var end = side switch
-            {
-                0 => new Vector2(tileSize * 0.79f, tileSize * 0.08f),
-                1 => new Vector2(tileSize * 0.91f, tileSize * 0.77f),
-                2 => new Vector2(tileSize * 0.78f, tileSize * 0.91f),
-                _ => new Vector2(tileSize * 0.08f, tileSize * 0.8f),
-            };
-            var color = (waterEdges & bit) != 0 ? new Color("D7C69B", 0.74f) :
-                new Color("E7E2CD", 0.46f);
-            DrawLine(position + start, position + end, color, width);
-        }
-    }
-
-    private void DrawPricklyPlant(Vector2 center, float unit)
-    {
-        var green = new Color("61794B", 0.78f);
-        DrawLine(center + new Vector2(0, unit * 2), center - new Vector2(0, unit * 2), green, unit * 1.4f);
-        DrawLine(center + new Vector2(-unit * 1.8f, unit), center - new Vector2(-unit * 1.4f, unit), green, unit);
-        DrawLine(center + new Vector2(unit * 1.8f, unit * 1.4f), center - new Vector2(unit * 1.6f, unit * 0.6f), green, unit);
     }
 
     private void DrawNaturalObject(Vector2 position, byte kind, byte stage)
@@ -636,31 +523,6 @@ public partial class WorldTerrainLayer : Control
                         continue;
                     DrawLine(center, center + new Vector2(dx * stride, dy * stride), color, width);
                 }
-            }
-    }
-
-    private void DrawWeatherClouds((int Left, int Top, int Width, int Height) bounds, int stride)
-    {
-        if (world is null || weatherRegions.Count == 0) return;
-        // Region bands are clipped to the visible map, so broad clouds need
-        // neither per-tile nodes nor a full-world weather texture.
-        for (var y = bounds.Top; y < bounds.Top + bounds.Height; y += 6)
-            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x += 6)
-            {
-                var weather = WeatherAt(x, y);
-                if (weather is not ("rain" or "snow" or "storm")) continue;
-                var canonicalX = wrapsEastWest ? Mod(x, world.Width) : x;
-                var left = canonicalX / weatherRegionSize * weatherRegionSize;
-                var top = y / weatherRegionSize * weatherRegionSize;
-                var radiusTiles = Math.Min(2.2f, Math.Min(
-                    Math.Min(canonicalX + 3 - left, left + weatherRegionSize - canonicalX - 3),
-                    Math.Min(y + 3 - top, top + weatherRegionSize - y - 3)));
-                if (radiusTiles <= 0) continue;
-                var center = new Vector2((x + 3) * stride, (y + 3) * stride);
-                var radius = radiusTiles * stride;
-                DrawCircle(center, radius, weather == "storm"
-                    ? new Color(0.13f, 0.20f, 0.25f, 0.13f)
-                    : new Color(0.88f, 0.94f, 0.96f, 0.10f));
             }
     }
 

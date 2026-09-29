@@ -723,9 +723,6 @@ public partial class Main : Control
                 Math.Abs(renderedSurface.G - expectedSurface.G) > 0.001f ||
                 Math.Abs(renderedSurface.B - expectedSurface.B) > 0.001f)
                 throw new InvalidOperationException("The rendered map must use its separate surface and vegetation layers.");
-            if (terrainMap is null || terrainMap.SurfaceVariantAt(0, 0) == terrainMap.SurfaceVariantAt(1, 0) ||
-                terrainMap.PaletteColorAt(0, 0) == terrainMap.PaletteColorAt(1, 0))
-                throw new InvalidOperationException("Equal ground surfaces must receive stable, subtle texture variants.");
             var testHydrology = new byte[16];
             var testSurfaces = Enumerable.Repeat((byte)0, 16).ToArray();
             testHydrology[6] = 3;

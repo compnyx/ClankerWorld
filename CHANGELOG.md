@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- Removed the noisy per-tile grain, striped surface edges and large circular
+  cloud overlays from the provisional world view. Rain and snow marks still
+  show regional weather without changing the simulation or saved terrain.
+
 - Game Settings now opens fullscreen by default while remembering a windowed
   choice. UI Scale enlarges window widths as well as text and controls. Main
   Menu Settings uses a single compact back button and shorter setting labels;
