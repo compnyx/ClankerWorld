@@ -13,7 +13,7 @@ public partial class Main
     private void BuildFiltersButton()
     {
         filtersButton.Text = "Filters";
-        filtersButton.TooltipText = "Show or hide authoritative map overlays.";
+        filtersButton.TooltipText = "Show or hide map overlays.";
         StyleButton(filtersButton);
         filtersButton.Pressed += ToggleMapFilters;
         topBar.AddChild(filtersButton);
@@ -25,19 +25,19 @@ public partial class Main
         body.AddThemeConstantOverride("separation", 8);
 
         townBorderFilter.Text = "Town borders";
-        townBorderFilter.TooltipText = "Outline only saved Town border tiles in amber.";
+        townBorderFilter.TooltipText = "Outline Town borders in amber.";
         townBorderFilter.ButtonPressed = true;
         townBorderFilter.Toggled += _ => ApplyMapFiltersFromCurrentSnapshot();
         body.AddChild(townBorderFilter);
 
         householdPropertyFilter.Text = "Household property";
-        householdPropertyFilter.TooltipText = "Tint only buildings with recorded household ownership.";
+        householdPropertyFilter.TooltipText = "Tint buildings that belong to a household.";
         householdPropertyFilter.Toggled += _ => ApplyMapFiltersFromCurrentSnapshot();
         body.AddChild(householdPropertyFilter);
 
         var note = new Label
         {
-            Text = "Property tints mark owned building footprints only. Unclaimed land has no property overlay.",
+            Text = "Only buildings that belong to a household are tinted. Unclaimed land is not marked.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             CustomMinimumSize = new Vector2(275, 0),
         };

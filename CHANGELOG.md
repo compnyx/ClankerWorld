@@ -803,6 +803,11 @@ release yet.
 
 ### Changed
 
+- Main Menu, New World, save and load, founder setup, filter and Mod Library
+  text now uses short, plain sentences. Save lists and messages show the
+  in-world date and time instead of tick numbers, and error and confirmation
+  messages say what happened and that your save is safe.
+
 - Completed the pre-release ClankerWorld rename across save/content identifiers,
   package and signature domains, Windows user storage/device-key names, and the
   systemd template and installation paths. Previous development saves and
