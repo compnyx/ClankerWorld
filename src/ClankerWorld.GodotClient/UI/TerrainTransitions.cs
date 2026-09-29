@@ -118,11 +118,23 @@ public static class TerrainTransitions
     /// ends on top where two different neighbors meet at a corner.
     /// </summary>
     public static void Collect(WorldTerrainMap map, int x, int y, bool wrapsEastWest,
-        List<(TerrainStyle Style, int Piece)> pieces)
+        List<(TerrainStyle Style, int Piece)> pieces) => CollectPieces(map, x, y, wrapsEastWest, pieces, coast: false);
+
+    /// <summary>
+    /// The land pieces reaching into one water tile from its land neighbors,
+    /// lowest surface first; <see cref="CoastEdges"/> draws them with the
+    /// shallow band and foam that follow the same shape.
+    /// </summary>
+    public static void CollectCoast(WorldTerrainMap map, int x, int y, bool wrapsEastWest,
+        List<(TerrainStyle Style, int Piece)> pieces) => CollectPieces(map, x, y, wrapsEastWest, pieces, coast: true);
+
+    private static void CollectPieces(WorldTerrainMap map, int x, int y, bool wrapsEastWest,
+        List<(TerrainStyle Style, int Piece)> pieces, bool coast)
     {
         pieces.Clear();
         var here = map.StyleAt(x, y);
-        if (Rank(here) < 0 || here is TerrainStyle.Mountain or TerrainStyle.Peak) return;
+        if (coast ? !TerrainTextures.IsWater(here) : Rank(here) < 0 || here is TerrainStyle.Mountain or TerrainStyle.Peak)
+            return;
         // Neighbors clockwise from north; a missing neighbor (map edge) is −1.
         var around = Around;
         for (var index = 0; index < 8; index++)
@@ -138,8 +150,8 @@ public static class TerrainTransitions
         var count = 0;
         foreach (var neighbor in around)
         {
-            if (neighbor < 0 || !Overlaps((TerrainStyle)neighbor, here) || Array.IndexOf(candidates, neighbor, 0, count) >= 0)
-                continue;
+            var reaches = neighbor >= 0 && (coast ? Rank((TerrainStyle)neighbor) >= 0 : Overlaps((TerrainStyle)neighbor, here));
+            if (!reaches || Array.IndexOf(candidates, neighbor, 0, count) >= 0) continue;
             var slot = count++;
             while (slot > 0 && Rank((TerrainStyle)candidates[slot - 1]) > Rank((TerrainStyle)neighbor))
             {
@@ -193,11 +205,20 @@ public static class TerrainTransitions
         return image;
     }
 
-    private static void PaintPiece(byte[] data, int stride, int left, int top, int size, TerrainStyle style, int piece)
+    private static void PaintPiece(byte[] data, int stride, int left, int top, int size, TerrainStyle style, int piece) =>
+        WriteMask(data, stride, left, top, size, Mask(piece, size, PixelArt.Hash((int)style + 1, piece + 1, size), gaps: true),
+            TerrainTextures.BaseColor(style), softRim: true);
+
+    /// <summary>
+    /// Covered pixels of one piece in tile coordinates. The same piece index
+    /// always has the same corner reaches; the seed only varies its wandering,
+    /// bumps and (when <paramref name="gaps"/>) the small gaps inside its edge.
+    /// </summary>
+    internal static bool[] Mask(int piece, int size, uint seed, bool gaps)
     {
         var unit = size / 32f;
         var mask = new bool[size * size];
-        var random = new PixelArt.Stream(PixelArt.Hash((int)style + 1, piece + 1, size));
+        var random = new PixelArt.Stream(seed);
 
         if (piece < OuterCorner)
         {
@@ -234,23 +255,30 @@ public static class TerrainTransitions
                 profile[u] = Math.Clamp((int)MathF.Round(Mathf.Lerp(start, end, t) + unit * wobble),
                     1, MaximumReach(size) - (size >= 32 ? 2 : 1));
             }
-            profile[0] = start;
-            profile[size - 1] = end;
+            // Hold the corner reach for a few pixels at each end, so bands
+            // grown from this edge (coast shallows) also meet exactly.
+            var plateau = size >= 32 ? 3 : 2;
+            for (var u = 0; u < plateau; u++)
+            {
+                profile[u] = start;
+                profile[size - 1 - u] = end;
+            }
             for (var u = 0; u < size; u++)
                 for (var v = 0; v < profile[u]; v++) Mark(u, v, true);
 
             // A few rounded bumps on the edge and small gaps just inside it
             // merge the two surfaces instead of drawing one clean line.
             var bumpWidth = size >= 32 ? 3 : 2;
+            var clear = plateau * 2;
             for (var bump = 0; bump < 2; bump++)
             {
-                var u = random.Range(3, size - 3 - bumpWidth);
+                var u = random.Range(clear, size - clear - bumpWidth);
                 var v = profile[u];
                 for (var du = 0; du < bumpWidth; du++) Mark(u + du, v, true);
                 if (size >= 32)
                     for (var du = 1; du < bumpWidth - 1; du++) Mark(u + du, v + 1, true);
             }
-            if (size >= 32)
+            if (gaps && size >= 32)
             {
                 var u = random.Range(3, size - 5);
                 var v = profile[u] - 2;
@@ -297,18 +325,26 @@ public static class TerrainTransitions
             }
         }
 
-        var baseColor = TerrainTextures.BaseColor(style);
+        return mask;
+    }
+
+    /// <summary>
+    /// Writes a piece mask into RGBA atlas bytes; a soft rim makes the pixels
+    /// along its open edge half-transparent so the two surfaces blend.
+    /// </summary>
+    internal static void WriteMask(byte[] data, int stride, int left, int top, int size, bool[] mask, Color color, bool softRim)
+    {
         bool Covered(int px, int py) => px < 0 || py < 0 || px >= size || py >= size || mask[py * size + px];
         for (var py = 0; py < size; py++)
             for (var px = 0; px < size; px++)
             {
                 if (!mask[py * size + px]) continue;
-                // Rim pixels are half-transparent, blending the two surfaces.
-                var rim = !Covered(px - 1, py) || !Covered(px + 1, py) || !Covered(px, py - 1) || !Covered(px, py + 1);
+                var rim = softRim &&
+                    (!Covered(px - 1, py) || !Covered(px + 1, py) || !Covered(px, py - 1) || !Covered(px, py + 1));
                 var offset = ((top + py) * stride + left + px) * 4;
-                data[offset] = (byte)MathF.Round(baseColor.R * 255);
-                data[offset + 1] = (byte)MathF.Round(baseColor.G * 255);
-                data[offset + 2] = (byte)MathF.Round(baseColor.B * 255);
+                data[offset] = (byte)MathF.Round(color.R * 255);
+                data[offset + 1] = (byte)MathF.Round(color.G * 255);
+                data[offset + 2] = (byte)MathF.Round(color.B * 255);
                 data[offset + 3] = (byte)(rim ? 166 : 255);
             }
     }
