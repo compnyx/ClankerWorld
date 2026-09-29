@@ -514,6 +514,16 @@ and selected-heir settlement, actual recovery-file reload and heir inspection;
 receiving it does not broadcast facts to the population. Existing trade/share
 paths continue to use the same stable physical link.
 
+### Founder placement consistency (#336, #337)
+
+Founder placement restores the prior in-memory world and protected provider
+configuration if its checkpoint commit fails. Selection and founder/add-agent
+setup use a shared transaction lock across checkpoint and routing restoration,
+preventing a concurrent successful placement from losing its assignment. This
+handles ordinary operation failures, not process termination between separate
+files or a second failure while writing rollback; those remain operator recovery
+cases. It is not a claim that every owner endpoint is a multi-file transaction.
+
 ### Death and barter reservations (#316)
 
 Estate escrow now cancels only open offers using the ordinary barter cancellation
