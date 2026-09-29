@@ -11,6 +11,9 @@ release yet.
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
+- A stalled world refresh stops after four seconds instead of holding the
+  client for the default network timeout. Owner actions cancel an older refresh
+  so it cannot overwrite their result; Pause remains available during polling.
 
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.

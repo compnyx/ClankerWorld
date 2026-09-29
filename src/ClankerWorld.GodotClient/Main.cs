@@ -209,6 +209,7 @@ public partial class Main : Control
     private string? selectedInhabitantId;
     private string? renamingAgentId;
     private bool isRefreshing;
+    private CancellationTokenSource? refreshCancellation;
     private int successfulRefreshCount;
     private bool isPairingOperation;
     private bool isOwnerAction;
@@ -2019,6 +2020,7 @@ public partial class Main : Control
 
     public override void _ExitTree()
     {
+        refreshCancellation?.Cancel();
         UiTheme.Changed -= ApplyThemeColors;
         deviceKey?.Dispose();
         httpClient.Dispose();
@@ -2255,6 +2257,7 @@ public partial class Main : Control
 
     private void ForgetLocalRegistration()
     {
+        refreshCancellation?.Cancel();
         registrationStore.Forget();
         registration = null;
         registeredEndpointInvalid = false;
@@ -2286,6 +2289,8 @@ public partial class Main : Control
         }
 
         isRefreshing = true;
+        using var refresh = new CancellationTokenSource();
+        refreshCancellation = refresh;
         try
         {
             var requestedCursor = observationSession.EventCursor;
@@ -2308,7 +2313,9 @@ public partial class Main : Control
                 cachedTerrain?.MapManifestDigest,
                 cachedMapLayersDigest,
                 deviceKey,
-                CancellationToken.None);
+                refresh.Token);
+            // An owner action or shutdown superseded this snapshot.
+            if (refresh.IsCancellationRequested) return;
             if (!observationSession.TryAccept(reconnect, requestedCursor, out var failure))
             {
                 ShowHeldState(failure);
@@ -2334,12 +2341,17 @@ public partial class Main : Control
                 }
             }
         }
+        catch (OperationCanceledException) when (refresh.IsCancellationRequested)
+        {
+            // Superseded refresh is not a connection failure.
+        }
         catch (Exception exception)
         {
             ShowHeldState(FriendlyFailure(exception));
         }
         finally
         {
+            refreshCancellation = null;
             isRefreshing = false;
             RefreshControlAvailability();
         }
@@ -3157,6 +3169,7 @@ public partial class Main : Control
         }
 
         isOwnerAction = true;
+        refreshCancellation?.Cancel();
         RefreshControlAvailability();
         try
         {

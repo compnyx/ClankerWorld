@@ -498,3 +498,14 @@ which is not interchangeable with this prototype capability matrix.
 
 Future changes must update this document when a capability moves between
 planned, verified primitive, integrated or playable status.
+
+### Bounded client refresh
+
+Signed refresh has a four-second deadline covering challenge and response. Owner
+actions, forgetting registration and closing the client cancel its obsolete
+refresh; cancelled snapshots are not applied. Timeout preserves the held world
+view and reports connection loss. Pause is not gated on refresh completion. The
+five-second authenticated presence lease remains unchanged, so missing renewals
+stop hosted work rather than extending unattended spending. A separate heartbeat
+is deferred until measurements justify it; this change does not claim a Windows
+stalled-network playtest.
