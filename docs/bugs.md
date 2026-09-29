@@ -518,6 +518,14 @@ unrelated action, blocked movement or unavailable food does not consume the
 instruction. Pending instructions persist across reload. Suggestive instruction
 semantics remain unchanged; this does not reinterpret travel as a full-route goal.
 
+### Actor-local food reachability (#340)
+
+Food source selection uses the actor’s foot-connected terrain component, not the
+starter camp’s component. Immutable map connectivity is cached once per map and
+respects existing foot-neighbour rules; temporary actor occupancy is still handled
+by movement. The generated-island regression uses accepted Add Agent placement
+and ordinary ticks, with save/reload. No boats, placement or hunger rules change.
+
 ### Interrupted exploration path (#315)
 
 When legal intervening movement leaves a scout away from the old path endpoint,
