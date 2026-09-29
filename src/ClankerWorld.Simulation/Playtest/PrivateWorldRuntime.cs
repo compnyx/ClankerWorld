@@ -3378,7 +3378,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     private MapResource? AvailableFoodSource(GridPoint position) => map.Resources
         .Where(resource => resource.Kind is "food" or "fruit" &&
             resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
-            map.IsReachableFromCampOnFoot(resource.Position))
+            map.IsReachableOnFoot(position, resource.Position))
         .OrderBy(resource => map.FootDistance(resource.Position, position))
         .FirstOrDefault();
 

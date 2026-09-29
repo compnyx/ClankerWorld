@@ -481,3 +481,11 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Actor-local food reachability (#340)
+
+Food source selection uses the actor’s foot-connected terrain component, not the
+starter camp’s component. Immutable map connectivity is cached once per map and
+respects existing foot-neighbour rules; temporary actor occupancy is still handled
+by movement. The generated-island regression uses accepted Add Agent placement
+and ordinary ticks, with save/reload. No boats, placement or hunger rules change.

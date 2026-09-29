@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
+
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
   changing saved membership, property or custom household names. Founder setup
