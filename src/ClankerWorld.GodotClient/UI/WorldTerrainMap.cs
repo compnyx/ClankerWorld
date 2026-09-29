@@ -11,6 +11,7 @@ public sealed class WorldTerrainMap
     private readonly byte[]? hydrology;
     private readonly byte[]? surface;
     private readonly byte[]? vegetation;
+    private TerrainStyle[]? styles;
 
     private WorldTerrainMap(int width, int height, byte[] terrain, byte[]? climate = null,
         byte[]? elevation = null, byte[]? hydrology = null, byte[]? surface = null,
@@ -144,7 +145,19 @@ public sealed class WorldTerrainMap
     /// </summary>
     public TerrainStyle StyleAt(int x, int y)
     {
-        var index = y * Width + x;
+        // Ground transitions read eight neighbors per drawn tile, so styles
+        // are derived once per map; the layers never change after loading.
+        if (styles is null)
+        {
+            var computed = new TerrainStyle[checked(Width * Height)];
+            for (var index = 0; index < computed.Length; index++) computed[index] = ComputeStyle(index);
+            styles = computed;
+        }
+        return styles[y * Width + x];
+    }
+
+    private TerrainStyle ComputeStyle(int index)
+    {
         if (!HasMapLayers)
             return terrain[index] switch
             {
