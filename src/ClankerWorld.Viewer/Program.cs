@@ -69,7 +69,7 @@ var privateRuntimeStatePath = isPrivateWorld
 var providerConfigurationPath = builder.Configuration["ClankerWorld:Runtime:ProviderStatePath"] ??
     Path.Combine(builder.Environment.ContentRootPath, "saves", "provider-configuration.json");
 var providerUsagePath = builder.Configuration["ClankerWorld:Runtime:ProviderUsagePath"] ??
-    Path.Combine(builder.Environment.ContentRootPath, "saves", "provider-usage.json");
+    Path.Combine(Path.GetDirectoryName(Path.GetFullPath(providerConfigurationPath))!, "provider-usage.json");
 var approvedAssetCatalogPath = builder.Configuration["ClankerWorld:Assets:CatalogPath"] ??
     Path.Combine(builder.Environment.ContentRootPath, "approved-assets.json");
 var configuredAuthorityId = builder.Configuration["ClankerWorld:Pairing:ServerAuthorityId"] ??

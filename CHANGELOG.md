@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- Hosted-model usage now defaults beside the configured private provider state,
+  so a root-owned application directory cannot silently stop agents from
+  thinking. A usage reservation that cannot be saved no longer counts as a
+  model attempt or survives as a phantom pending call.
+
 - During paused four-founder setup, select an already placed founder and use
   Move founder to choose another passable tile. The founder keeps their
   identity, household, Town membership and model assignment; the new position

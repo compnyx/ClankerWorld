@@ -81,6 +81,29 @@ public sealed class ProviderUsageStoreTests
     }
 
     [Fact]
+    public void FailedReservationDoesNotChargeOrPersistAnAttemptBeforeAnyProviderCall()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-usage-write-failure-");
+        try
+        {
+            var blockedParent = Path.Combine(directory.FullName, "blocked-parent");
+            File.WriteAllText(blockedParent, "not a directory");
+            var path = Path.Combine(blockedParent, "usage.json");
+            var store = new ProviderUsageStore(path);
+            Assert.ThrowsAny<IOException>(() => store.Begin("ollama-cloud", "test-model", "planning"));
+            Assert.Equal(0, store.Capture().Attempts);
+
+            File.Delete(blockedParent);
+            Directory.CreateDirectory(blockedParent);
+            var ticket = store.Begin("ollama-cloud", "test-model", "planning");
+            store.Finish(ticket, "completed");
+            Assert.Equal(1, store.Capture().Attempts);
+            Assert.Equal(1, new ProviderUsageStore(path).Capture().Completed);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public async Task LimitTriggeredInsideHostedCompletionPausesBeforeDecisionAdmission()
     {
         var directory = Directory.CreateTempSubdirectory("clankerworld-usage-tick-");

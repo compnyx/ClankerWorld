@@ -23,6 +23,24 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
     [Fact]
+    public void DefaultProviderUsageMeterUsesTheConfiguredPrivateStateDirectory()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-provider-usage-path-");
+        try
+        {
+            using var host = new ViewerWebApplicationFactory(directory.FullName,
+                configureProviderUsagePath: false);
+            using var client = host.CreateClient();
+            var usage = host.Services.GetRequiredService<ProviderUsageStore>();
+            var ticket = usage.Begin("ollama-cloud", "test-model", "planning");
+            usage.Finish(ticket, "failed");
+            Assert.True(File.Exists(Path.Combine(directory.FullName, "provider-usage.json")));
+            Assert.Equal(1, usage.Capture().Failed);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public async Task NewPrivateWorldRequiresFourConfiguredFoundersAndAnExplicitSignedStart()
     {
         var directory = Directory.CreateTempSubdirectory("clankerworld-founder-http-");
@@ -1386,6 +1404,7 @@ public sealed class ViewerWebApplicationFactory : WebApplicationFactory<Program>
     private readonly string? approvedAssetCatalogPath;
     private readonly bool privateWorld;
     private readonly bool legacyPrivateWorld;
+    private readonly bool configureProviderUsagePath;
 
     public ViewerWebApplicationFactory()
         : this(null)
@@ -1396,7 +1415,8 @@ public sealed class ViewerWebApplicationFactory : WebApplicationFactory<Program>
         string? persistedStateDirectory,
         string? approvedAssetCatalogPath = null,
         bool privateWorld = false,
-        bool legacyPrivateWorld = true)
+        bool legacyPrivateWorld = true,
+        bool configureProviderUsagePath = true)
     {
         ownsStateDirectory = persistedStateDirectory is null;
         stateDirectory = persistedStateDirectory ?? System.IO.Path.Combine(
@@ -1405,6 +1425,7 @@ public sealed class ViewerWebApplicationFactory : WebApplicationFactory<Program>
         this.approvedAssetCatalogPath = approvedAssetCatalogPath;
         this.privateWorld = privateWorld;
         this.legacyPrivateWorld = legacyPrivateWorld;
+        this.configureProviderUsagePath = configureProviderUsagePath;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -1427,8 +1448,9 @@ public sealed class ViewerWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseSetting(
             "ClankerWorld:Runtime:ProviderStatePath",
             System.IO.Path.Combine(stateDirectory, "provider-configuration.json"));
-        builder.UseSetting("ClankerWorld:Runtime:ProviderUsagePath",
-            System.IO.Path.Combine(stateDirectory, "provider-usage.json"));
+        if (configureProviderUsagePath)
+            builder.UseSetting("ClankerWorld:Runtime:ProviderUsagePath",
+                System.IO.Path.Combine(stateDirectory, "provider-usage.json"));
         builder.UseSetting("ClankerWorld:Pairing:ServerAuthorityId", "authority-http-tests");
         if (!string.IsNullOrWhiteSpace(approvedAssetCatalogPath))
         {

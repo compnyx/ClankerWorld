@@ -2,7 +2,7 @@
 title: Known Bugs and Product Gaps
 type: defect-register
 status: active
-updated: 2026-09-28
+updated: 2026-09-29
 ---
 
 # Known bugs and product gaps
@@ -14,10 +14,65 @@ path.
 
 ## Live verification pending
 
-The provider-held tick fix is installed on the live VPS host, but its paired
-Windows client build has not been tested on computment's laptop and the world
-is intentionally paused. Its live model-wait playtest remains pending; see
-the resolution evidence below.
+The provider-held tick fix is installed on the live VPS host. Computment is
+playtesting a paired Windows New World, and model calls began succeeding after
+the meter-directory permission repair below. Whether a deliberately slow model
+can be left pending while the live world remains responsive still needs a
+specific paired-client check; see the resolution evidence below.
+
+## September 29 New World playtest
+
+- **Agents appeared idle and had no thoughts — live cause found and mitigated:**
+  the host's usage-meter default pointed into a root-owned application
+  directory. Every model reservation threw `UnauthorizedAccessException`
+  before reaching the configured provider, so four founders fell back to idle.
+  Making the existing meter directory writable to the service user, without a
+  restart, allowed accepted model decisions and saved private thoughts for all
+  four agents. The repository fix moves the default meter next to the private
+  provider state and makes reservation writes transactional. The live process
+  still uses the old path until a later deployment. Its meter contains 54
+  phantom pending reservations accumulated in memory while writes failed;
+  preserve and correct that meter at deployment before counting those as paid
+  calls. Model behavior and pacing after the repair still need playtesting.
+- **New World still shows an old camp alongside the chosen Town — confirmed:**
+  generated maps retain six legacy camp objects and a provisional camp-derived
+  Town border before the player chooses a site. Fresh New World setup should
+  show no established Town or obsolete starter camp until its layout is
+  accepted; preserve the active playtest save while changing generation.
+- **Starter Roads cross building footprints — confirmed:** the current planner
+  seeds and joins routes at building anchor tiles. Replan Roads outside each
+  footprint with adjacent entrances and a coherent connected layout; the
+  player's sketch favors a central spine with short branches, not a rigid
+  blueprint. Existing Road speed and generated ownership rules remain.
+- **Terrain distribution and art need revision — partly traced:** current
+  surface classification makes every low-elevation bank beside any water
+  sandy, including rivers; vegetation is classified independently so a tree
+  can land on sand. Sparse resource trees leave many forest-floor tiles empty.
+  The player wants less coastal sand and little or no river sand; forest floor
+  should visibly hold a tree or plant (mostly trees), while forest grass has
+  scattered trees. Cacti are not wanted in the current art direction. The
+  texture grain, striped transitions and large circular weather clouds are
+  rejected. Hills should visibly lead into mountain regions; there is no hill
+  terrain kind yet. Generator changes must not invalidate the running world.
+- **Display and camera need playtest-driven bounds:** UI Scale enlarges text
+  but leaves several window/panel dimensions small; at high render resolution
+  the interface feels undersized. Start fullscreen by default. Small maps can
+  zoom out beyond their north/south edges to show black; Small/Medium should
+  use a map-relative cap (roughly 70% of fitting scale is the player's starting
+  suggestion), while larger presets need a shared visible-tile/performance
+  cap. Maximum zoom-in should have a consistent world-space feel across
+  screen resolutions.
+- **Settings, inspection and agent UI wording/layout need an audit:** Main
+  Menu Settings should use a compact back chevron in the close-button position,
+  not a second large Back to Main Menu button. Remove explanatory paragraphs
+  beneath Render Resolution and UI Scale and the Load World pause/save helper.
+  Tile inspection should omit unavailable or inapplicable facts such as
+  fertility rather than filling the card with `none`/`unavailable`. Replace
+  technical/AI wording throughout player-facing screens (for example,
+  `Inhabitant cognition` with `Agent model`), explain the model-call limit in
+  ordinary language, and tighten oversized empty agent/settings panels. The
+  placeholder household names `Camp Alpha`/`Camp Beta` are disliked; the
+  naming flow needs a player-facing replacement without changing membership.
 
 ## September playtest reports and confirmed product gaps
 

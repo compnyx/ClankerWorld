@@ -53,7 +53,7 @@ public sealed class ProviderUsageStore
             // A process exit can abandon a charged call, but must not make
             // that reserved call disappear from the lifetime meter.
             foreach (var pending in state.Pending)
-                AddOutcome(pending, "abandoned", 0, 0);
+                AddOutcome(state, pending, "abandoned", 0, 0);
             state.Pending.Clear();
             if (state.Rows.Sum(row => row.Attempts) > 0) Save();
         }
@@ -84,18 +84,20 @@ public sealed class ProviderUsageStore
         lock (gate)
         {
             var before = IsBlocked();
+            State next;
             if (action.AdditionalCalls > 0)
             {
                 if (state.AttemptLimit is null)
                     throw new InvalidOperationException("Enable a paid-call limit before granting more calls.");
-                state = state with
+                next = state with
                 {
                     AttemptLimit = checked(Math.Max(state.AttemptLimit.Value,
                     state.Rows.Sum(row => row.Attempts)) + action.AdditionalCalls)
                 };
             }
-            else state = state with { AttemptLimit = action.AttemptLimit };
-            Save();
+            else next = state with { AttemptLimit = action.AttemptLimit };
+            Save(next);
+            state = next;
             if (!IsBlocked()) limitNotified = false;
             notify = !before && IsBlocked();
             if (notify) limitNotified = true;
@@ -122,9 +124,11 @@ public sealed class ProviderUsageStore
                 // Bound the cardinality, preserving exact overall totals.
                 if (state.Rows.Count >= MaximumRows - 1 && !state.Rows.Any(row => Same(row, pending)))
                     pending = pending with { Provider = "other", Model = "other", Role = "other" };
-                AddOutcome(pending, "started", 0, 0);
-                state.Pending.Add(pending);
-                Save();
+                var next = Copy(state);
+                AddOutcome(next, pending, "started", 0, 0);
+                next.Pending.Add(pending);
+                Save(next);
+                state = next;
                 ticket = pending.Id;
             }
         }
@@ -141,9 +145,11 @@ public sealed class ProviderUsageStore
         {
             var pending = state.Pending.FirstOrDefault(item => item.Id == ticket);
             if (pending is null) return;
-            state.Pending.Remove(pending);
-            AddOutcome(pending, outcome, inputTokens, outputTokens);
-            Save();
+            var next = Copy(state);
+            next.Pending.Remove(pending);
+            AddOutcome(next, pending, outcome, inputTokens, outputTokens);
+            Save(next);
+            state = next;
             notify = IsBlocked() && !limitNotified;
             if (notify) limitNotified = true;
         }
@@ -153,11 +159,17 @@ public sealed class ProviderUsageStore
     private bool IsBlocked() => state.AttemptLimit is { } cap &&
         state.Rows.Sum(row => row.Attempts) >= cap;
 
-    private void AddOutcome(Pending pending, string outcome, int input, int output)
+    private static State Copy(State source) => source with
     {
-        var index = state.Rows.FindIndex(row => Same(row, pending));
+        Rows = [.. source.Rows],
+        Pending = [.. source.Pending],
+    };
+
+    private static void AddOutcome(State target, Pending pending, string outcome, int input, int output)
+    {
+        var index = target.Rows.FindIndex(row => Same(row, pending));
         var row = index < 0 ? new ProviderUsageRow(pending.Provider, pending.Model, pending.Role,
-            0, 0, 0, 0, 0, 0) : state.Rows[index];
+            0, 0, 0, 0, 0, 0) : target.Rows[index];
         row = row with
         {
             Attempts = row.Attempts + (outcome == "started" ? 1 : 0),
@@ -167,7 +179,7 @@ public sealed class ProviderUsageStore
             InputTokens = row.InputTokens + input,
             OutputTokens = row.OutputTokens + output,
         };
-        if (index < 0) state.Rows.Add(row); else state.Rows[index] = row;
+        if (index < 0) target.Rows.Add(row); else target.Rows[index] = row;
     }
 
     private static bool Same(ProviderUsageRow row, Pending pending) => row.Provider == pending.Provider &&
@@ -180,11 +192,11 @@ public sealed class ProviderUsageStore
         value.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' or ':' or '/')
         ? value : "other";
 
-    private void Save()
+    private void Save(State? candidate = null)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(state));
+        File.WriteAllText(temp, JsonSerializer.Serialize(candidate ?? state));
         File.Move(temp, path, true);
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);

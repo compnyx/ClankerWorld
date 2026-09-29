@@ -445,6 +445,12 @@ for attempts that never returned usage. At most 64 named provider/model/role
 combinations are retained, with later combinations grouped as `other`. This
 call-attempt unit and lifetime period are the current playtest implementation,
 not a finished-game billing policy chosen in the vision ledger.
+The repository host now defaults the meter to the directory of the configured
+private provider state, and a failed reservation write leaves the in-memory
+attempt total unchanged before any model request is sent. The currently
+running VPS process predates this fix; its writable-directory mitigation has
+restored model decisions, but its meter requires correction at deployment for
+phantom reservations from earlier failed writes.
 
 ## Evidence boundary
 

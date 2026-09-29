@@ -129,17 +129,23 @@ reopen the decided player-local distribution goal.
   should open an inspection panel with meaningful, authoritative world facts.
   Keep terrain kind separate from generated climate, elevation, hydrology,
   surface and vegetation cover; show present objects, resources, buildings,
-  regional weather and soil moisture from their own observations. Mark absent
-  or unprojected facts such as fertility and exact temperature unavailable,
-  never infer them from terrain color. Player inspection does not teach an
+  regional weather and soil moisture from their own observations. Omit absent
+  or unprojected facts such as fertility and exact temperature from the panel;
+  never infer them from terrain color or fill the panel with `none` and
+  `unavailable` labels. Player inspection does not teach an
   agent those facts. The exact final layout and future biome/fertility fields
   remain open as those systems become real.
 - One continuous pixel-art world view supports mouse-wheel zoom and WASD
   panning. On an east/west-wrapped world, the camera should pan continuously
   across the seam in either direction. There is **no separate simplified
   regional view or second regional texture set**. Zoom-out stops at a
-  readability/performance limit; the current client stops too close, so the
-  eventual cap should allow a wider view.
+  readability/performance limit. After the September 29 playtest, the cap must
+  also keep black space beyond the north/south map edges out of view on Small
+  maps, and maximum zoom-in should feel consistent across render resolutions.
+  Computment suggested Small/Medium zoom-out around 70% of map-fit scale and
+  a shared performance cap for Large/Huge/Mega; that exact percentage and
+  visible-tile budget remain preferred starting points for tuning, not fixed
+  finished-game numbers.
 - Hovering a ground tile shows a square tile highlight. When an agent overlaps
   that pointer location, **agent hover/selection takes priority** over the
   ground tile. This is pointer hit-testing priority, distinct from making the
@@ -185,7 +191,15 @@ reopen the decided player-local distribution goal.
 - Game Settings should offer **Window Size** and **Render Resolution** as
   separate controls. Changing only the window dimensions must not be presented
   as changing the game's render resolution. Exact presets, scaling behavior,
-  fullscreen interaction and pixel-art/UI layout rules remain open.
+  pixel-art/UI layout rules remain open. Start in fullscreen by default, while
+  respecting a saved player choice to use a window. UI Scale must enlarge the
+  usable controls and panels, not only their fonts, especially at higher
+  render resolutions. Main Menu Settings needs one compact back chevron in
+  the close-button position; omit duplicate large back navigation and basic
+  explanatory paragraphs beneath Render Resolution and UI Scale. Load World
+  does not need the pause/save helper sentence. Player-facing wording should
+  be short and ordinary; `Agent model` is preferred over `Inhabitant cognition`,
+  and the optional model-call limit needs a clear unit and consequence.
 - Adding an adult agent opens a flow to select a provider, one of its stored
   API credentials or a newly entered one, and a model, then place the agent in
   the world. Existing credentials can be reused by multiple agents. A player
@@ -303,7 +317,10 @@ The recent history should persist with the world save but remain bounded.
   asks before making further paid model calls; it does not cap the fictional
   population. Whether the limit applies per world or across the installation,
   its accounting unit, period/reset behavior, warning levels, and
-  provider-bill accuracy remain to be designed.
+  provider-bill accuracy remain to be designed. The playtest UI's `Model limit`
+  wording is confusing; describe it in ordinary terms as a count of paid
+  model-call attempts, clarify that reaching it pauses time, and do not imply
+  a precise currency or token budget.
 - **The current prototype's 24-real-minute day is rejected as ClankerWorld's
   finished-game pace.** It was an implementation choice, not a user-approved
   design decision.
@@ -397,10 +414,18 @@ accounting details need design and playtesting.
   complete game.
 - Model **climate zone**, **elevation**, **surface**, **hydrology**, **vegetation
   cover**, and **objects** separately. The generator makes plausible forests,
-  cacti, grass, stone, snow, water depths, and transitions for their locations.
+  grass, stone, snow, water depths, and transitions for their locations.
   Each tile holds **at most one tree**; do not depict several harvestable trees
   as one stand on a tile. Trees yield wood when harvested, leave stumps that can
   regrow, and can also be replanted from seeds when forest resources are depleted.
+- **September 29 terrain direction:** sand is not a compulsory strip along
+  every coast and especially not along every river. A forest-floor tile should
+  visibly contain a tree or plant, mostly trees; grass-surfaced forest tiles
+  should instead have scattered trees. Trees and ordinary plants should not
+  grow on sand. Computment now disfavors cacti entirely, though that exclusion
+  was phrased tentatively; avoid expanding cactus content until settled. Hills
+  forming a readable base around mountain regions are preferred; their exact
+  elevation thresholds and passability remain open.
 - Generated geography includes **rivers** as well as oceans, shores and lakes.
   Rivers belong to the 2D, top-down tile world and its hydrology layer; they
   must remain continuous across an enabled east/west world seam. A noise
@@ -482,6 +507,10 @@ call for each weather change.
   example, clean grass and a subtly different grass tile. Small ground details
   belong mainly in those textures, rather than being a large set of separate
   decorative world objects. Functional transitions/edges are separate.
+- The September 29 prototype grain, striped transition texture, and large
+  circular rain/storm overlays are rejected. Keep terrain visually calm and
+  weather readable without opaque repeating circles; final replacement art
+  remains open.
 - Ground remains square-tiled, but permanent **black tile-border grid lines**
   are not part of the intended presentation; they would clash with textures.
 - Most production textures will likely be created with AI help, including work
@@ -1023,6 +1052,9 @@ Roads appear immediately with Town buildings and automatically link Towns
 Towns remain unconnected by Road; boats or later transport may still connect
 their travelers. Roads are not generated by footsteps or a separate building
 project. Agents and player do not paint Road tiles. Roads speed up travel.
+Roads connect to adjacent building entrances and must not occupy a building's
+footprint. The player's September 29 sketch indicates a connected spine with
+short branches as a useful layout direction, not a mandatory fixed street map.
 **Bridge placement responds to traffic** at narrow river crossings, even
 without a planned Road. A Road generation pass also builds a bridge immediately
 if its legal route encounters a bridgeable river. Either case excludes a
