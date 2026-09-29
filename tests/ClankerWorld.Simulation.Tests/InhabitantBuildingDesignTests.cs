@@ -19,7 +19,8 @@ public sealed class InhabitantBuildingDesignTests
         var directory = Directory.CreateTempSubdirectory("inhabitant-design-log-");
         try
         {
-            using var world = PrivateWorldRuntime.Restore(prepared, _ => new DesignChoiceProvider("shelter"));
+            using var world = PrivateWorldRuntime.Restore(prepared,
+                id => id == actor.Id ? new DesignChoiceProvider("shelter") : new IdleProvider());
             var presence = new OwnerClientPresenceLease(TimeSpan.FromSeconds(30));
             presence.RecordAuthenticatedReconnect("owner");
             var logger = new RecordingLogger<PrivateWorldRuntimeService>();
@@ -36,14 +37,15 @@ public sealed class InhabitantBuildingDesignTests
             Assert.Null(package.ActivationTick);
             var design = BuildingDesign.Read(package.Manifest);
             Assert.Equal("shelter", design.Purpose);
-            Assert.Equal(7, design.WoodCost);
             Assert.Contains("private-inventor", design.Name, StringComparison.Ordinal);
             Assert.Contains(world.Content.Events, item => item.PackageId == package.Manifest.PackageId &&
                 item.Kind == "package_proposed_by_inhabitant" && item.Detail == actor.Id);
+            Assert.Equal(7, design.WoodCost);
             var projected = new OwnerWorldObservationStore(world).GetSnapshot().ContentPackages.Single(item =>
                 item.PackageId == package.Manifest.PackageId);
             Assert.Equal(actor.Id, projected.ProposedByInhabitantId);
-            Assert.Equal(prepared.WorldContent!.Buildings.Count, world.WorldContent.Buildings.Count);
+            Assert.DoesNotContain(world.WorldContent.Buildings, building =>
+                building.PackageDigest == package.Manifest.PackageDigest);
             Assert.Equal(prepared.WorldSimulation!.Buildings.Count, world.WorldSimulation.Buildings.Count);
             Assert.Contains(logger.Messages, message => message.Contains("inhabitant_content_proposal", StringComparison.Ordinal) &&
                 message.Contains("lifecycle=proposed", StringComparison.Ordinal));
@@ -132,7 +134,7 @@ public sealed class InhabitantBuildingDesignTests
                 }
                 : person).ToArray(),
         };
-        return PrivateWorldRuntime.Restore(state, _ => provider);
+        return PrivateWorldRuntime.Restore(state, id => id == actor.Id ? provider : new IdleProvider());
     }
 
     private sealed class DesignChoiceProvider(params string[] purposes) : IDecisionProvider
