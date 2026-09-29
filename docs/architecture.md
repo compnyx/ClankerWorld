@@ -387,3 +387,40 @@ installation and state paths. Keep the previous private world and pairing
 authority only in a root-only rollback backup; copy provider credentials to the
 new protected state path without printing them. Ignored old export/build
 artifacts are historical binaries, not current source names.
+
+## Proposed birth-time provider selection (#167)
+
+**Draft integration contract.** Infants already skip personal cognition, and
+post-infancy children must not silently use the world's paid default. The missing
+piece is a persisted birth-time selection and its normal owner-visible workflow,
+not removal of the existing infancy gate.
+
+Persist a non-secret child binding descriptor at birth: provider role/endpoint
+identity, model ID, installation-local key-slot reference and selection
+provenance. Never copy the key into a birth event, world save or child's memory.
+A descriptor is not proof that credentials still exist. On save transfer or key
+removal, retain the requested model and show "model needs setup"; do not substitute
+another paid endpoint. Existing worlds with no descriptor remain explicitly
+unconfigured, not assigned an invented parental preference during migration.
+
+Parent selection must be a bounded accepted outcome, not inferred agreement.
+If the parents disagree or no valid selection is available, birth must still
+proceed with an unresolved descriptor and owner-visible setup need. The exact
+parent-choice/fallback rule remains an owner decision coordinated with the joint
+conversation contract; this document does not select one parent's model by
+accident. Once chosen, save the descriptor atomically with the birth transition.
+
+On accepted infancy-to-child transition, resolve the saved descriptor through
+the existing provider store. Dispatch only when credentials, presence, usage
+budget and normal admission gates pass. Age changes while paused/offline must
+not launch work. Activation is idempotent across reload; reconfiguration revokes
+stale outstanding requests. Jev being disabled never creates an infant call.
+
+Required regressions: birth/save/reload retains the descriptor but no key;
+zero infant personal requests with Jev on/off; exactly the selected binding is
+used after transition; missing/revoked key produces visible setup need with zero
+fallback attempts; duplicate transitions do not duplicate dispatch; restored
+world remains paused; two disagreeing parents do not become an accepted choice.
+Normal Godot inspection must show selected model or setup-needed state without
+revealing key-slot contents. Existing infancy tests alone do not complete this
+gate. Implementation, schema migration and Windows playtest remain pending.
