@@ -387,3 +387,66 @@ installation and state paths. Keep the previous private world and pairing
 authority only in a root-only rollback backup; copy provider credentials to the
 new protected state path without printing them. Ignored old export/build
 artifacts are historical binaries, not current source names.
+
+## Proposed provider request and failure contract (#256, #258)
+
+**Draft, not a shipped adapter change or a paid-call authorization.** The current
+personal choice request includes tick/epoch/generation, a probability map and
+confidence; admission uses confidence below 0.5 to fall back to `safe_idle`.
+Jev's smaller role is not full personal-model parity. Preserve these facts when
+comparing an alternative; do not label absent personal narrative a Jev bug.
+
+### Candidate/request experiment
+
+Keep epoch, generation and digest in the host envelope, not model prose. Compare
+baseline against a compact payload containing actor-owned needs/identity and
+legal IDs with short descriptions. Retain selected ID and confidence; omit the
+unused probability map only after the parser explicitly accepts its absence.
+Never remove the low-confidence policy accidentally. A world-wide list of names,
+secrets, inventory or undiscovered sites is not legitimate prompt enrichment.
+
+Measure candidates by action family and site variants. Prototype a deterministic
+per-family shortlist while retaining `safe_idle` and urgent food/warmth choices;
+record omitted count and ensure selected IDs still belong to the full validated
+observation. Test candidate-order reversal/rotation with identical observations
+to detect order sensitivity. Do not ship an arbitrary candidate cap based on
+bytes alone: compare legality, idle rate and needed-work omission first.
+
+Endpoint options must be capability-specific. JSON response mode, output-token
+parameter names and temperature support are not uniform across compatible
+servers. Unsupported options should fail configuration/preflight clearly, not
+trigger an unmetered alternate paid call. A finite output limit must leave room
+for the required selection/confidence response; optional thought/name output
+must have independently validated length bounds. Do not assume that low
+temperature universally improves quality.
+
+### Jev role and player-visible failure state
+
+Jev may perform the existing narrow legal choice and bounded memory-importance
+assistance. It does not invent personal thoughts, overwrite beliefs, impersonate
+the personal provider or get a global map to reach superficial payload parity.
+The agent inspection surface should distinguish: ready, awaiting personal
+response, canceled by pause/presence, missing credentials, usage cap/accounting
+block, malformed response, timeout and provider unavailable. Derive these from
+bounded admission outcomes, not raw errors; preserve the last accepted intention
+separately from a failed attempt. Failure state must survive a refresh without
+becoming simulation authority.
+
+A repair retry is **not enabled by this proposal**. Evaluate zero retry against
+at most one explicitly reserved additional attempt with the same legal scope,
+new request identity, deadline, presence and cancellation checks. Charge every
+attempt before dispatch. Never retry on key/auth errors, owner pause, exhausted
+cap or stale observation. No fallback to a different paid model without an
+explicit configured binding. A rejected repair still falls back safely.
+
+### Evidence required before adoption
+
+Use a fixed, anonymized synthetic observation corpus spanning hunger/warmth,
+construction variants, actor-owned memories, child bindings and invalid IDs.
+Compare payload bytes, tokens/attempts where reported, p50/p95 latency, accepted
+legal choices, confidence-triggered idle, needed food choices and bounded
+thought compliance. Stub transport tests establish shape/admission, not model
+quality. Live endpoints require a separately approved model/call budget, never
+credentials or full prompt/response bodies in logs. Report per-endpoint results
+and unsupported options rather than averaging away incompatibility. Keep the
+current request as control until evidence supports a migration.
