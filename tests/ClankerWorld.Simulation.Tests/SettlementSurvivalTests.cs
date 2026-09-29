@@ -291,10 +291,46 @@ public sealed class SettlementSurvivalTests
         Assert.Contains(state.Events, item => item.Kind == "equipment_collected" && item.Detail.EndsWith(":tool", StringComparison.Ordinal));
         Assert.Contains(state.Events, item => item.Kind == "equipment_collected" && item.Detail.EndsWith(":clothing", StringComparison.Ordinal));
         Assert.Contains(state.Events, item => item.Kind == "survival_condition_changed");
-        Assert.Contains(state.Inhabitants, person => person.Survival!.WarmthBasisPoints > 6_000);
         Assert.All(new OwnerWorldObservationStore(world).GetSnapshot().Inhabitants, person => Assert.NotNull(person.Survival));
         using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(state)));
         Assert.Equal(PrivateWorldRuntimeCodec.Encode(state), PrivateWorldRuntimeCodec.Encode(restored.ExportState()));
+
+        // A live heater plus access to it is the causal recovery condition; one
+        // final-position snapshot after autonomous choices is not that condition.
+        var heater = world.WorldSimulation.Buildings.First(building => world.WorldContent.Buildings.Any(definition =>
+            definition.CanonicalId == building.DefinitionId &&
+            definition.Tags.Any(tag => tag is "cooking" or "warmth") &&
+            (building.HouseholdId is null || state.Society.Society.Inhabitants.Any(inhabitant =>
+                inhabitant.HouseholdId == building.HouseholdId))));
+        var recoveringId = state.Society.Society.Inhabitants.First(inhabitant =>
+            heater.HouseholdId is null || inhabitant.HouseholdId == heater.HouseholdId).Id;
+        var recoveringPosition = state.Inhabitants.Single(person => person.InhabitantId == recoveringId).Position;
+        var recoveryState = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == recoveringId
+                ? person with
+                {
+                    Position = heater.Position,
+                    HungerBasisPoints = 9_000,
+                    Survival = person.Survival! with { WarmthBasisPoints = 0 },
+                }
+                : person.Position == heater.Position ? person with { Position = recoveringPosition } : person).ToArray(),
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Inventory = InventoryFixture.AddLot(state.Society.Society.Inventory,
+                        "recovery-coat", "clothing", recoveringId, 1),
+                },
+            },
+            Survival = state.Survival! with { Fires = [new CampFireState(heater.InstanceId, world.WorldTick + 120)] },
+        };
+        using var recovering = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(recoveryState)), _ => new IdleProvider());
+        for (var tick = 0; tick < 110; tick++)
+            Assert.True((await recovering.AdvanceOneTickAsync()).Advanced);
+        Assert.True(recovering.Inhabitants.Single(person => person.InhabitantId == recoveringId)
+            .Survival!.WarmthBasisPoints > 6_000);
     }
 
     [Fact]
