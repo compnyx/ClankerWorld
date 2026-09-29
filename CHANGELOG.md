@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
+
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
   changing saved membership, property or custom household names. Founder setup
