@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Interrupted world selection restores routing and autosave settings during startup, before Resume or owner mutations can be acknowledged.
+
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
 
 - Starting households are named First household and Second household instead of
