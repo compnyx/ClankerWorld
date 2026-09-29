@@ -8,6 +8,15 @@ release yet.
 
 ### Added
 
+- Game Settings now opens fullscreen by default while remembering a windowed
+  choice. UI Scale enlarges window widths as well as text and controls. Main
+  Menu Settings uses a single compact back button and shorter setting labels;
+  Load World drops redundant helper copy. The agent model panel and model-call
+  limit use plainer wording; the card no longer retains an oversized height
+  after a view change. Tile
+  inspection omits facts that are absent or not yet measured instead of
+  showing `none` or `unavailable` placeholders.
+
 - Hosted-model usage now defaults beside the configured private provider state,
   so a root-owned application directory cannot silently stop agents from
   thinking. A usage reservation that cannot be saved no longer counts as a

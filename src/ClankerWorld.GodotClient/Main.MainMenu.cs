@@ -180,8 +180,10 @@ public partial class Main
         menuShade.ZIndex = 190;
         gameMenuPanel.ZIndex = 200;
         menuHeadingLabel.Text = "Game Settings";
-        menuResumeButton.Text = "Back to Main Menu";
+        menuCloseButton.Text = "<";
+        menuCloseButton.TooltipText = "Back to Main Menu";
         SetWorldMenuActionsVisible(false);
+        menuResumeButton.Hide();
         gameMenuPanel.Show();
         menuShade.Show();
         ShowSettingsSection(worldSpecific: false);
@@ -395,8 +397,7 @@ public partial class Main
                     (world.Id == catalog.ActiveId ? " · current" : "") +
                     " · " + world.UpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) +
                     " · " + world.Compatibility);
-            worldMenuStatus.Text = listedWorlds.Length == 0 ? "No worlds yet." :
-                "Choose a world. Opening it leaves the current one paused and saved.";
+            worldMenuStatus.Text = listedWorlds.Length == 0 ? "No worlds yet." : "Choose a world.";
         }
         catch (Exception exception)
         {

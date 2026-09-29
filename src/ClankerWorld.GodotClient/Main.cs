@@ -139,6 +139,7 @@ public partial class Main : Control
     private readonly PanelContainer settingsPanel = new();
     private readonly ColorRect menuShade = new();
     private readonly Label menuHeadingLabel = new();
+    private readonly Button menuCloseButton = new();
     private readonly Button menuResumeButton = new();
     private readonly Button quitGameButton = new();
     private readonly ConfirmationDialog quitGameConfirmation = new();
@@ -226,6 +227,8 @@ public partial class Main : Control
     {
         displayPreferences = displayPreferencesStore.Load();
         ApplySavedDisplaySettings();
+        if (OS.GetCmdlineUserArgs().Contains("--ui-smoke-test", StringComparer.Ordinal))
+            DisplayServer.WindowSetMode(DisplayServer.WindowMode.Windowed);
         BuildLayout();
         uiScaleTreeReady = true;
         WatchUiScaleTree(this);
@@ -292,6 +295,8 @@ public partial class Main : Control
             var baseTextPanelFontSize = eventLog.GetThemeFontSize("normal_font_size");
             var baseResumeButtonHeight = menuResumeButton.GetCombinedMinimumSize().Y;
             var baseHudMinimumWidth = topBar.GetCombinedMinimumSize().X;
+            var baseSettingsPanelWidth = gameMenuPanel.CustomMinimumSize.X;
+            var baseTilePanelWidth = selectedTilePanel.CustomMinimumSize.X;
             var mapStageScale = mapStage.Scale;
             if (baseSettingsFontSize < 1 || baseHudFontSize < 1 || baseTextPanelFontSize < 1 || baseResumeButtonHeight < 1)
                 throw new InvalidOperationException("UI Scale smoke check could not read the settings font size.");
@@ -331,8 +336,10 @@ public partial class Main : Control
             }
 
             if (menuResumeButton.GetCombinedMinimumSize().Y <= baseResumeButtonHeight ||
-                topBar.GetCombinedMinimumSize().X <= baseHudMinimumWidth)
-                throw new InvalidOperationException("UI Scale did not enlarge the pause buttons and HUD control geometry.");
+                topBar.GetCombinedMinimumSize().X <= baseHudMinimumWidth ||
+                gameMenuPanel.CustomMinimumSize.X <= baseSettingsPanelWidth ||
+                selectedTilePanel.CustomMinimumSize.X <= baseTilePanelWidth)
+                throw new InvalidOperationException("UI Scale did not enlarge controls and panel geometry.");
         }
         finally
         {
@@ -378,7 +385,8 @@ public partial class Main : Control
             }
             OpenMainMenuSettings();
             if (!mainMenuOverlay.Visible || mainMenuCard.Visible || !gameMenuPanel.Visible || !gameSettingsContent.Visible ||
-                worldSettingsCategoryButton.Visible || worldSettingsContent.Visible)
+                worldSettingsCategoryButton.Visible || worldSettingsContent.Visible || menuResumeButton.Visible ||
+                menuCloseButton.Text != "<")
                 throw new InvalidOperationException("Main Menu Settings must keep the title background and show only Game Settings.");
             settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
             settingsButton.EmitSignal(BaseButton.SignalName.Pressed);
@@ -391,7 +399,7 @@ public partial class Main : Control
                 throw new InvalidOperationException("World Settings cannot be opened from the Main Menu.");
             for (var frame = 0; frame < 2; frame++)
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            var backPoint = menuResumeButton.GetGlobalRect().GetCenter();
+            var backPoint = menuCloseButton.GetGlobalRect().GetCenter();
             GetViewport().PushInput(new InputEventMouseMotion { Position = backPoint }, true);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             var hoveredBackControl = GetViewport().GuiGetHoveredControl();
@@ -410,7 +418,7 @@ public partial class Main : Control
             }, true);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!mainMenuOverlay.Visible || !mainMenuCard.Visible || gameMenuPanel.Visible)
-                throw new InvalidOperationException($"Clicking Back in Main Menu Settings must return to the Main Menu. Back={menuResumeButton.GetGlobalRect()}, pointer={backPoint}, hovered={hoveredBackControl?.GetPath()}");
+                throw new InvalidOperationException($"Clicking Back in Main Menu Settings must return to the Main Menu. Back={menuCloseButton.GetGlobalRect()}, pointer={backPoint}, hovered={hoveredBackControl?.GetPath()}");
             var displayWindow = GetWindow();
             var originalWindowSize = displayWindow.Size;
             var originalRenderSize = displayWindow.ContentScaleSize;
@@ -590,8 +598,8 @@ public partial class Main : Control
             usageStatus = new OwnerUsageStatus(2, 1, 0, 1, 10, 3, 2, true,
                 [new OwnerUsageRow("openai", "test-model", "planning", 2, 1, 0, 1, 10, 3)]);
             RenderUsageStatus();
-            if (!usageMeterStatus.Text.Contains("Installation lifetime", StringComparison.Ordinal) ||
-                !usageMeterStatus.Text.Contains("LIMIT REACHED", StringComparison.Ordinal) ||
+            if (!usageMeterStatus.Text.Contains("2 of 2 model calls used", StringComparison.Ordinal) ||
+                !usageMeterStatus.Text.Contains("Time is paused", StringComparison.Ordinal) ||
                 !usageMeterStatus.Text.Contains("openai / test-model", StringComparison.Ordinal) ||
                 !grantUsageCallsButton.Visible || usageAttemptLimitInput.Text != "2")
                 throw new InvalidOperationException("World Settings must present paid attempts, scope, provider/model and explicit consent at the cap.");
@@ -656,14 +664,14 @@ public partial class Main : Control
                 !selectedTileText.Text.Contains("8 available", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Climate: Temperate", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Elevation: 123/255", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Hydrology: Land", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Terrain kind: Meadow", StringComparison.Ordinal) ||
+                !selectedTileText.Text.Contains("Terrain: Meadow", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Surface: Sand", StringComparison.Ordinal) ||
                 !selectedTileText.Text.Contains("Vegetation: Scrub", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Fertility: unavailable", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Town border: First Town", StringComparison.Ordinal) ||
-                !selectedTileText.Text.Contains("Household property: none recorded", StringComparison.Ordinal))
-                throw new InvalidOperationException("Selected-tile inspection must show separate map facts, established Town coverage and unavailable fertility honestly.");
+                !selectedTileText.Text.Contains("Town: First Town", StringComparison.Ordinal) ||
+                selectedTileText.Text.Contains("Fertility", StringComparison.Ordinal) ||
+                selectedTileText.Text.Contains("unavailable", StringComparison.Ordinal) ||
+                selectedTileText.Text.Contains("none", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Selected-tile inspection must show available map facts without empty placeholders.");
             var ownedMap = sample with
             {
                 PlacedBuildings = [.. sample.PlacedBuildings,
@@ -1914,21 +1922,24 @@ public partial class Main : Control
     {
         if (usageStatus is null)
         {
-            usageMeterStatus.Text = "Loading paid-call usage…";
+            usageMeterStatus.Text = "Loading model calls…";
             return;
         }
         if (!usageAttemptLimitInput.HasFocus())
             usageAttemptLimitInput.Text = usageStatus.AttemptLimit?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
         var rows = usageStatus.Rows.OrderByDescending(row => row.Attempts)
-            .Select(row => $"{row.Provider} / {row.Model} ({row.Role}): {row.Attempts} attempts, " +
-                $"{row.InputTokens}/{row.OutputTokens} known tokens in/out");
-        usageMeterStatus.Text = $"Installation lifetime · {usageStatus.Attempts} paid call attempts " +
-            $"({usageStatus.Completed} completed, {usageStatus.Failed} failed, {usageStatus.Abandoned} abandoned). " +
-            $"Known tokens in/out: {usageStatus.InputTokens}/{usageStatus.OutputTokens}. " +
-            (usageStatus.AttemptLimit is null ? "Limit off." :
-                $"Limit: {usageStatus.AttemptLimit} attempts." +
-                (usageStatus.LimitReached ? " LIMIT REACHED — world paused. Consent is needed before more paid calls." : "")) +
-            (usageStatus.Rows.Count == 0 ? string.Empty : "\n" + string.Join("\n", rows));
+            .Select(row => $"{row.Provider} / {row.Model}: {row.Attempts} calls");
+        usageMeterStatus.Text = usageStatus.AttemptLimit is { } limit
+            ? $"{usageStatus.Attempts} of {limit} model calls used on this installation."
+            : $"{usageStatus.Attempts} model calls used on this installation. No limit set.";
+        if (usageStatus.LimitReached)
+            usageMeterStatus.Text += " Time is paused. Raise the limit to allow more calls, then resume.";
+        if (usageStatus.Rows.Count > 0)
+            usageMeterStatus.Text += "\n" + string.Join("\n", rows);
+        usageMeterStatus.TooltipText = $"Calls started: {usageStatus.Attempts}; completed: {usageStatus.Completed}; " +
+            $"failed: {usageStatus.Failed}; interrupted: {usageStatus.Abandoned}. " +
+            $"Known input/output tokens: {usageStatus.InputTokens}/{usageStatus.OutputTokens}. " +
+            "Counts since this installation began; each retry counts as another call.";
         grantUsageCallsButton.Visible = usageStatus.LimitReached;
         RefreshControlAvailability();
     }
@@ -2755,11 +2766,16 @@ public partial class Main : Control
         buttons.AddChild(refreshCognitionProviderButton);
         body.AddChild(buttons);
 
-        body.AddChild(new Label { Text = "Paid model usage · installation lifetime" });
+        body.AddChild(new Label { Text = "Model calls" });
         usageMeterStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(usageMeterStatus);
-        usageAttemptLimitInput.PlaceholderText = "Optional paid-call attempt limit (blank = off)";
-        usageAttemptLimitInput.TooltipText = "Counts every hosted call attempt, including retries and abandoned calls. Tokens are informational, not the limit unit.";
+        body.AddChild(new Label
+        {
+            Text = "Optional limit for this installation. The world pauses when it runs out; leave blank for no limit.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        });
+        usageAttemptLimitInput.PlaceholderText = "Maximum model calls (blank = no limit)";
+        usageAttemptLimitInput.TooltipText = "Each model call counts when it starts, including calls that fail and retries. This is a call count, not a money or token budget.";
         body.AddChild(usageAttemptLimitInput);
         var usageButtons = new HBoxContainer();
         applyUsageLimitButton.Text = "Apply limit";
@@ -2778,7 +2794,7 @@ public partial class Main : Control
         usageButtons.AddChild(refreshUsageButton);
         body.AddChild(usageButtons);
 
-        AddPanelContents(cognitionSettingsPanel, "Inhabitant cognition", body);
+        AddPanelContents(cognitionSettingsPanel, "Agent model", body);
         RenderProviderConfiguration();
         RenderUsageStatus();
     }
@@ -3023,10 +3039,10 @@ public partial class Main : Control
         closeTile.Pressed += ClearTileSelection;
         tileHeading.AddChild(closeTile);
         tileBody.AddChild(tileHeading);
-        ConfigureTextPanel(selectedTileText, 185);
+        ConfigureTextPanel(selectedTileText, 64);
         tileBody.AddChild(selectedTileText);
         AddPanelContents(selectedTilePanel, tileBody);
-        selectedTilePanel.CustomMinimumSize = new Vector2(315, 235);
+        selectedTilePanel.CustomMinimumSize = new Vector2(315, 0);
         selectedTilePanel.ZIndex = 80;
         selectedTilePanel.Hide();
         content.AddChild(selectedTilePanel);
@@ -3054,10 +3070,11 @@ public partial class Main : Control
         menuHeadingLabel.AddThemeFontSizeOverride("font_size", 24);
         menuHeadingLabel.AddThemeColorOverride("font_color", new Color("F4F0E3"));
         menuHeading.AddChild(menuHeadingLabel);
-        var closeButton = new Button { Text = "×", TooltipText = "Return to the world" };
-        StyleButton(closeButton);
-        closeButton.Pressed += () => _ = CloseGameMenuAsync();
-        menuHeading.AddChild(closeButton);
+        menuCloseButton.Text = "×";
+        menuCloseButton.TooltipText = "Return to the world";
+        StyleButton(menuCloseButton);
+        menuCloseButton.Pressed += () => _ = CloseGameMenuAsync();
+        menuHeading.AddChild(menuCloseButton);
         body.AddChild(menuHeading);
 
         var menuActions = new VBoxContainer();
@@ -3127,11 +3144,6 @@ public partial class Main : Control
         renderResolutionChoice.TooltipText = "Automatic renders at the current window or fullscreen display size. Fixed sizes are scaled to fit.";
         renderResolutionChoice.ItemSelected += SetRenderResolution;
         gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
-        gameSettingsContent.AddChild(new Label
-        {
-            Text = "Render Resolution scales the whole game, including UI. Different aspect ratios use letterboxing.",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        });
 
         foreach (var percentage in DisplayUiScalePolicy.SupportedPercentages)
             uiScaleChoice.AddItem($"{percentage}%");
@@ -3139,11 +3151,6 @@ public partial class Main : Control
         uiScaleChoice.TooltipText = "Scales interface controls and text without changing the selected render resolution or terrain detail.";
         uiScaleChoice.ItemSelected += SetUiScale;
         gameSettingsContent.AddChild(DisplaySettingRow("UI Scale", uiScaleChoice));
-        gameSettingsContent.AddChild(new Label
-        {
-            Text = "UI Scale enlarges interface text and controls without changing map/terrain resolution.",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-        });
 
         var clockFormatRow = new HBoxContainer();
         clockFormatRow.AddChild(new Label { Text = "Time display" });
@@ -3618,6 +3625,8 @@ public partial class Main : Control
         developerScroll.Hide();
         menuPausedWorld = false;
         menuPauseConfirmed = false;
+        menuCloseButton.Text = "×";
+        menuCloseButton.TooltipText = "Return to the world";
     }
 
     private void OpenMenuForSetup()
@@ -3625,6 +3634,7 @@ public partial class Main : Control
         returnToMainMenu = true;
         mainMenuOverlay.Hide();
         menuPausedWorld = false;
+        menuCloseButton.TooltipText = "Back to Main Menu";
         menuResumeButton.Text = "Back to Main Menu";
         SetWorldMenuActionsVisible(false);
         menuHeadingLabel.Text = "Set up your world";
@@ -3635,6 +3645,7 @@ public partial class Main : Control
 
     private void SetFullscreen(bool enabled)
     {
+        SaveDisplayPreferences(displayPreferences with { Fullscreen = enabled });
         DisplayServer.WindowSetMode(enabled
             ? DisplayServer.WindowMode.Fullscreen
             : DisplayServer.WindowMode.Windowed);
@@ -3648,11 +3659,14 @@ public partial class Main : Control
     private void ApplySavedDisplaySettings()
     {
         var window = GetWindow();
+        DisplayServer.WindowSetMode(displayPreferences.UsesFullscreen
+            ? DisplayServer.WindowMode.Fullscreen
+            : DisplayServer.WindowMode.Windowed);
         var windowSize = new Vector2I(displayPreferences.WindowWidth, displayPreferences.WindowHeight);
         var renderSize = new Vector2I(displayPreferences.RenderWidth, displayPreferences.RenderHeight);
         window.ContentScaleMode = Window.ContentScaleModeEnum.Viewport;
         window.ContentScaleAspect = Window.ContentScaleAspectEnum.Keep;
-        if (DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Windowed)
+        if (!displayPreferences.UsesFullscreen)
             window.Size = DisplaySizePresets[DisplaySizeIndex(windowSize)];
         window.ContentScaleSize = displayPreferences.UsesAutomaticRenderResolution
             ? AutomaticRenderSize()
@@ -4727,6 +4741,17 @@ public partial class Main : Control
         }
 
         climateLabel.Visible = Size.X >= 1100;
+        var uiScale = DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent);
+        float panelWidth(int width) => Math.Min(width * uiScale, Math.Max(1, viewport.X - 28));
+        rosterPanel.CustomMinimumSize = new Vector2(panelWidth(330), 330);
+        eventsPanel.CustomMinimumSize = new Vector2(panelWidth(390), 360);
+        settlementPanel.CustomMinimumSize = new Vector2(panelWidth(420), 380);
+        worldInfoPanel.CustomMinimumSize = new Vector2(panelWidth(365), 280);
+        selectedTilePanel.CustomMinimumSize = new Vector2(panelWidth(315), 0);
+        filtersPanel.CustomMinimumSize = new Vector2(panelWidth(305), 0);
+        mainMenuCard.CustomMinimumSize = new Vector2(panelWidth(440), 0);
+        worldMenuCard.CustomMinimumSize = new Vector2(panelWidth(480), 0);
+        manualSaveCard.CustomMinimumSize = new Vector2(panelWidth(470), 0);
 
         if (observationSession.Current?.Baseline.Snapshot is { } snapshot && HasMap(snapshot))
         {
@@ -4754,20 +4779,20 @@ public partial class Main : Control
         eventsPanel.Position = new Vector2(
             Math.Max(14, viewport.X - Math.Max(eventsPanel.Size.X, eventsPanel.CustomMinimumSize.X) - 14),
             14);
-        var familySize = new Vector2(Math.Clamp(viewport.X - 28, 320, 840),
+        var familySize = new Vector2(Math.Clamp(viewport.X - 28, 320, 840 * uiScale),
             Math.Clamp(viewport.Y - 28, 280, 600));
         familyTreePanel.Size = familySize;
         familyTreePanel.Position = new Vector2(
             Math.Max(14, (viewport.X - familySize.X) / 2),
             Math.Max(14, (viewport.Y - familySize.Y) / 2));
-        var memoriesSize = new Vector2(Math.Clamp(viewport.X - 28, 320, 600),
+        var memoriesSize = new Vector2(Math.Clamp(viewport.X - 28, 320, 600 * uiScale),
             Math.Clamp(viewport.Y - 28, 280, 430));
         memoriesPanel.Size = memoriesSize;
         memoriesPanel.Position = new Vector2(
             Math.Max(14, (viewport.X - memoriesSize.X) / 2),
             Math.Max(14, (viewport.Y - memoriesSize.Y) / 2));
 
-        var menuWidth = Math.Min(560, Math.Max(320, viewport.X - 28));
+        var menuWidth = panelWidth(560);
         gameMenuPanel.CustomMinimumSize = new Vector2(menuWidth, 0);
 
         var toastSize = statusToast.GetCombinedMinimumSize();
@@ -4985,32 +5010,39 @@ public partial class Main : Control
                     tile.Y >= item.Position.Y && tile.Y < item.Position.Y + item.Height)
                 .Select(item => item.DisplayName ?? Pretty(item.DefinitionId)))
             .ToArray();
-        var climate = WorldTerrainMap.ClimateName(terrainMap.ClimateAt(tile.X, tile.Y)) ?? "unavailable";
+        var climate = WorldTerrainMap.ClimateName(terrainMap.ClimateAt(tile.X, tile.Y));
         var elevation = terrainMap.ElevationAt(tile.X, tile.Y);
-        var hydrology = WorldTerrainMap.HydrologyName(terrainMap.HydrologyAt(tile.X, tile.Y)) ?? "unavailable";
-        var surface = WorldTerrainMap.SurfaceName(terrainMap.SurfaceAt(tile.X, tile.Y)) ?? "unavailable";
-        var vegetation = WorldTerrainMap.VegetationName(terrainMap.VegetationAt(tile.X, tile.Y)) ?? "unavailable";
+        var hydrology = WorldTerrainMap.HydrologyName(terrainMap.HydrologyAt(tile.X, tile.Y));
+        var surface = WorldTerrainMap.SurfaceName(terrainMap.SurfaceAt(tile.X, tile.Y));
+        var vegetation = WorldTerrainMap.VegetationName(terrainMap.VegetationAt(tile.X, tile.Y));
         var town = snapshot.Towns.FirstOrDefault(item => item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y));
         var propertyOwnerId = snapshot.PlacedBuildings.FirstOrDefault(item => item.HouseholdId is not null &&
             tile.X >= item.Position.X && tile.X < item.Position.X + item.Width &&
             tile.Y >= item.Position.Y && tile.Y < item.Position.Y + item.Height)?.HouseholdId;
-        var propertyName = propertyOwnerId is null ? "none recorded" :
-            snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == propertyOwnerId)?.Name ?? propertyOwnerId;
-        selectedTileText.Text =
-            $"Tile {tile.X}, {tile.Y}\n" +
-            $"Terrain kind: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}\n" +
-            $"Climate: {climate}\n" +
-            $"Surface: {surface}\n" +
-            $"Hydrology: {hydrology}\n" +
-            $"Vegetation: {vegetation}\n" +
-            $"Weather: {Pretty(region?.Weather ?? snapshot.Authoring?.Weather ?? "unavailable")}\n" +
-            $"Regional soil moisture: {(region?.SoilMoisture is { } moisture ? moisture + "/100" : "unavailable")}\n" +
-            $"Elevation: {(elevation is { } level ? level + "/255" : "unavailable")}\n" +
-            $"Fertility: unavailable\n" +
-            $"Town border: {(town?.Name ?? "none established")}\n" +
-            $"Household property: {propertyName}\n" +
-            $"Road: {(snapshot.RoadTiles.Any(point => point.X == tile.X && point.Y == tile.Y) ? "generated" : "none")}\n" +
-            $"Objects: {(objects.Length == 0 ? "none observed" : string.Join(", ", objects))}";
+        var lines = new List<string>
+        {
+            $"Tile {tile.X}, {tile.Y}",
+            $"Terrain: {WorldTerrainMap.NameFor(terrainMap.At(tile.X, tile.Y))}",
+        };
+        if (climate is not null) lines.Add($"Climate: {climate}");
+        if (surface is not null) lines.Add($"Surface: {surface}");
+        if (hydrology is not null and not "Land") lines.Add($"Water: {hydrology}");
+        if (vegetation is not null and not "None") lines.Add($"Vegetation: {vegetation}");
+        if ((region?.Weather ?? snapshot.Authoring?.Weather) is { } weather)
+            lines.Add($"Weather: {Pretty(weather)}");
+        if (region?.SoilMoisture is { } moisture)
+            lines.Add($"Soil moisture: {moisture}/100");
+        if (elevation is { } level) lines.Add($"Elevation: {level}/255");
+        if (town is not null) lines.Add($"Town: {town.Name}");
+        if (propertyOwnerId is not null)
+            lines.Add($"Household property: {snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == propertyOwnerId)?.Name ?? propertyOwnerId}");
+        if (snapshot.RoadTiles.Any(point => point.X == tile.X && point.Y == tile.Y)) lines.Add("Road");
+        if (objects.Length > 0) lines.Add($"Objects: {string.Join(", ", objects)}");
+        selectedTileText.Text = string.Join('\n', lines);
+        selectedTileText.CustomMinimumSize = new Vector2(0, Math.Min(
+            Math.Max(64, mapCanvas.Size.Y - 96),
+            Math.Max(64, (lines.Count * 20 + 12) * DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent))));
+        selectedTilePanel.Size = selectedTilePanel.GetCombinedMinimumSize();
     }
 
     private void UpdateTileHover(Vector2 canvasPosition)
@@ -5075,9 +5107,11 @@ public partial class Main : Control
             return;
         }
 
-        var cardWidth = Math.Min(370, Math.Max(300, mapCanvas.Size.X - 24));
+        var cardWidth = Math.Min(370 * DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent),
+            Math.Max(300, mapCanvas.Size.X - 24));
         selectedInhabitantCard.CustomMinimumSize = new Vector2(cardWidth, 0);
         var cardSize = selectedInhabitantCard.GetCombinedMinimumSize();
+        selectedInhabitantCard.Size = cardSize;
         if (string.Equals(inhabitant.Lifecycle, "dead", StringComparison.OrdinalIgnoreCase))
         {
             selectedInhabitantCard.Position = new Vector2(Math.Max(12, mapCanvas.Size.X - cardWidth - 12), 12);

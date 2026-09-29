@@ -77,18 +77,20 @@ public sealed class GameUiTextTests
             Assert.False(store.Load().UseTwelveHourClock);
             store.Save(new GameDisplayPreferences(UseTwelveHourClock: true,
                 WindowWidth: 1600, WindowHeight: 900, RenderWidth: 1920, RenderHeight: 1080,
-                UiScalePercent: 150));
+                UiScalePercent: 150, Fullscreen: false));
             var restored = new GameDisplayPreferencesStore(Path.Combine(directory, "game-settings.json")).Load();
             Assert.True(restored.UseTwelveHourClock);
             Assert.Equal((1600, 900), (restored.WindowWidth, restored.WindowHeight));
             Assert.Equal((1920, 1080), (restored.RenderWidth, restored.RenderHeight));
             Assert.False(restored.UsesAutomaticRenderResolution);
             Assert.Equal(150, restored.UiScalePercent);
+            Assert.False(restored.UsesFullscreen);
             store.Save(restored with { DateFormat = "ymd" });
             Assert.Equal("ymd", store.Load().DateFormat);
             Assert.Equal((1600, 900), (store.Load().WindowWidth, store.Load().WindowHeight));
             Assert.Equal((1920, 1080), (store.Load().RenderWidth, store.Load().RenderHeight));
             Assert.Equal(150, store.Load().UiScalePercent);
+            Assert.False(store.Load().UsesFullscreen);
         }
         finally
         {
@@ -105,6 +107,7 @@ public sealed class GameUiTextTests
         Assert.Equal(2f, DisplayUiScalePolicy.ScaleFactor(200));
         Assert.Equal(100, DisplayUiScalePolicy.NormalizePercent(123));
         Assert.Equal(100, new GameDisplayPreferences().UiScalePercent);
+        Assert.True(new GameDisplayPreferences().UsesFullscreen);
 
         var directory = Directory.CreateTempSubdirectory("clanker-display-ui-scale-");
         try

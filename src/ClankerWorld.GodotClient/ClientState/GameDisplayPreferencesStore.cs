@@ -14,8 +14,12 @@ public sealed record GameDisplayPreferences(
     int RenderWidth = 1280,
     int RenderHeight = 720,
     bool? AutoRenderResolution = null,
-    int UiScalePercent = 100)
+    int UiScalePercent = 100,
+    bool? Fullscreen = null)
 {
+    // Older settings did not record window mode. Default those installations
+    // to fullscreen, while honoring an explicit windowed choice thereafter.
+    public bool UsesFullscreen => Fullscreen ?? true;
     // Older settings have no mode flag. Their default 720p value was not a
     // useful indication of the monitor's native resolution, so migrate it to
     // Automatic while preserving explicit non-default render choices.
