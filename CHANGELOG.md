@@ -241,6 +241,11 @@ release yet.
   from tile to tile, and rounds corners, while staying in a narrow band so
   every tile still reads as a square of its own ground. Water keeps its
   shoreline edges, and the zoomed-out overview is unchanged.
+- Coasts, lakes and rivers now have rounded, wandering shores instead of
+  straight tile-edge strips. The land reaches a narrow way into the water, and
+  the lighter shallows and the thin foam line on coasts and lakes follow that
+  edge; rivers keep a quiet bank without foam and still read as one-tile
+  channels.
 - The Town panel and Event Log are easier to scan. The Town panel puts
   shared stores, projects, the household council and social activity under
   headings, and says "No one is working on a project right now" instead of

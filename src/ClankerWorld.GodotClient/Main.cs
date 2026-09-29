@@ -872,9 +872,39 @@ public partial class Main : Control
             if ((transitionMap.WaterEdgeMaskAt(1, 1, false) & 2) == 0 ||
                 (transitionMap.SurfaceBoundaryMaskAt(1, 1, false) & 2) == 0)
                 throw new InvalidOperationException("Generated water and ground changes must expose functional tile-edge transitions.");
-            if (transitionMap.StyleAt(2, 1) != TerrainStyle.River || transitionMap.ShoreMaskAt(2, 1, false) != 15 ||
-                transitionMap.ShoreMaskAt(1, 1, false) != 0)
-                throw new InvalidOperationException("Water tiles must expose shoreline edges toward land, and land tiles none.");
+            var coastPieces = new List<(TerrainStyle Style, int Piece)>();
+            var edgeProbe = new List<(TerrainStyle Style, int Piece)>();
+            TerrainTransitions.CollectCoast(transitionMap, 2, 1, false, coastPieces);
+            var riverSides = coastPieces.Count(item => item.Piece < TerrainTransitions.OuterCornerPiece(0, 0));
+            TerrainTransitions.CollectCoast(transitionMap, 1, 1, false, edgeProbe);
+            if (transitionMap.StyleAt(2, 1) != TerrainStyle.River || riverSides != 4 || coastPieces.Count != 8 || edgeProbe.Count != 0)
+                throw new InvalidOperationException($"A river tile surrounded by land must take a rounded bank on every side and corner, and land tiles none: {coastPieces.Count} pieces.");
+            foreach (var atlasSize in new[] { 16, 32 })
+                for (var start = 0; start < TerrainTransitions.Levels; start++)
+                    for (var end = 0; end < TerrainTransitions.Levels; end++)
+                    {
+                        var piece = TerrainTransitions.EdgePiece(0, start, end, 0);
+                        var land = CoastEdges.Piece(CoastEdges.LandRow, piece, atlasSize);
+                        var shallow = CoastEdges.Piece(CoastEdges.ShallowRow, piece, atlasSize);
+                        var foam = CoastEdges.Piece(CoastEdges.FoamRow, piece, atlasSize);
+                        var last = atlasSize - 1;
+                        var band = CoastEdges.Band(false, atlasSize);
+                        int Depth(Image image, int column)
+                        {
+                            var depth = 0;
+                            while (depth < atlasSize && image.GetPixel(column, depth).A > 0) depth++;
+                            return depth;
+                        }
+                        if (Depth(land, 0) != TerrainTransitions.Reach(start, atlasSize) ||
+                            Depth(land, last) != TerrainTransitions.Reach(end, atlasSize) ||
+                            Depth(shallow, 0) != TerrainTransitions.Reach(start, atlasSize) + band ||
+                            Depth(shallow, last) != TerrainTransitions.Reach(end, atlasSize) + band)
+                            throw new InvalidOperationException($"{atlasSize}px shores must meet each tile corner at its shared reach, with the shallow band just beyond.");
+                        for (var column = 0; column < atlasSize; column++)
+                            for (var row = 0; row < atlasSize; row++)
+                                if (foam.GetPixel(column, row).A > 0 && land.GetPixel(column, row).A > 0)
+                                    throw new InvalidOperationException($"{atlasSize}px foam must lie along the land's edge, not on it.");
+                    }
             foreach (var atlasSize in new[] { 16, 32 })
                 foreach (var style in Enum.GetValues<TerrainStyle>())
                 {

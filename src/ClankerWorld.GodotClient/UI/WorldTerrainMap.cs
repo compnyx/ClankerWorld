@@ -214,16 +214,6 @@ public sealed class WorldTerrainMap
         };
     }
 
-    /// <summary>
-    /// Bit mask of cardinal edges where a water tile meets land, for
-    /// shoreline and river-bank pieces; N/E/S/W are bits 1/2/4/8.
-    /// </summary>
-    public byte ShoreMaskAt(int x, int y, bool wrapsEastWest)
-    {
-        if (!TerrainTextures.IsWater(StyleAt(x, y))) return 0;
-        return EdgeMask(x, y, wrapsEastWest, (nx, ny) => !TerrainTextures.IsWater(StyleAt(nx, ny)));
-    }
-
     private byte? LayerAt(byte[]? layer, int x, int y) =>
         x >= 0 && x < Width && y >= 0 && y < Height && layer is not null
             ? layer[y * Width + x] : null;

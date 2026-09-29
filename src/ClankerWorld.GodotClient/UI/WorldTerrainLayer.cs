@@ -346,11 +346,12 @@ public partial class WorldTerrainLayer : Control
         else
         {
             // Zoomed in far enough to show detail: draw each tile's generated
-            // pixel-art ground, soft edges where a neighboring surface reaches
-            // into it, then shoreline pieces where water meets land.
+            // pixel-art ground, then soft edges where a neighboring land
+            // surface reaches into it, or a rounded shore on water tiles.
             var atlasSize = TerrainTextures.AtlasTileSize(tileSize);
             var atlas = TerrainTextures.Atlas(atlasSize);
             var edges = TerrainTransitions.Atlas(atlasSize);
+            var coasts = CoastEdges.Atlas(atlasSize);
             for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
             {
                 for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
@@ -359,11 +360,14 @@ public partial class WorldTerrainLayer : Control
                     var tile = new Rect2(new Vector2(x * stride, y * stride), new Vector2(tileSize, tileSize));
                     var style = world.StyleAt(mapX, y);
                     DrawTextureRectRegion(atlas, tile, TerrainTextures.Region(style, TerrainTextures.VariantAt(mapX, y), atlasSize));
+                    if (TerrainTextures.IsWater(style))
+                    {
+                        DrawCoast(coasts, tile, mapX, y, style, atlasSize);
+                        continue;
+                    }
                     TerrainTransitions.Collect(world, mapX, y, wrapsEastWest, transitionPieces);
                     foreach (var (over, piece) in transitionPieces)
                         DrawTextureRectRegion(edges, tile, TerrainTransitions.Region(over, piece, atlasSize));
-                    var shore = world.ShoreMaskAt(mapX, y, wrapsEastWest);
-                    if (shore != 0) DrawShore(tile, style, shore);
                 }
             }
         }
@@ -412,38 +416,27 @@ public partial class WorldTerrainLayer : Control
     }
 
     /// <summary>
-    /// A light shallow band along each water edge that meets land, plus a thin
-    /// foam line on coasts and lakes (rivers keep a quieter bank), in whole
-    /// art pixels so it stays crisp at every zoom.
+    /// Rounds one water tile's shore: a lighter shallow band and (on coasts
+    /// and lakes) a thin foam line under the land that reaches in from each
+    /// neighbor, all following the same wandering edge. Rivers keep a quieter
+    /// bank without foam.
     /// </summary>
-    private void DrawShore(Rect2 tile, TerrainStyle style, byte mask)
+    private void DrawCoast(Texture2D coasts, Rect2 tile, int x, int y, TerrainStyle style, int atlasSize)
     {
-        var pixel = tileSize / 32f;
+        if (world is null) return;
+        TerrainTransitions.CollectCoast(world, x, y, wrapsEastWest, transitionPieces);
+        if (transitionPieces.Count == 0) return;
         var river = style == TerrainStyle.River;
-        var band = Mathf.Max(1f, Mathf.Round(pixel * (river ? 2 : 3)));
-        var foam = river ? 0f : Mathf.Max(1f, Mathf.Round(pixel));
-        var shallow = TerrainTextures.BaseColor(style).Lightened(0.16f);
-        var foamColor = new Color(0.94f, 0.97f, 0.95f, 0.65f);
-        if ((mask & 1) != 0)
-        {
-            DrawRect(new Rect2(tile.Position, new Vector2(tile.Size.X, band)), shallow);
-            DrawRect(new Rect2(tile.Position, new Vector2(tile.Size.X, foam)), foamColor);
-        }
-        if ((mask & 2) != 0)
-        {
-            DrawRect(new Rect2(tile.End.X - band, tile.Position.Y, band, tile.Size.Y), shallow);
-            DrawRect(new Rect2(tile.End.X - foam, tile.Position.Y, foam, tile.Size.Y), foamColor);
-        }
-        if ((mask & 4) != 0)
-        {
-            DrawRect(new Rect2(tile.Position.X, tile.End.Y - band, tile.Size.X, band), shallow);
-            DrawRect(new Rect2(tile.Position.X, tile.End.Y - foam, tile.Size.X, foam), foamColor);
-        }
-        if ((mask & 8) != 0)
-        {
-            DrawRect(new Rect2(tile.Position, new Vector2(band, tile.Size.Y)), shallow);
-            DrawRect(new Rect2(tile.Position, new Vector2(foam, tile.Size.Y)), foamColor);
-        }
+        var shallow = CoastEdges.ShallowColor(style);
+        foreach (var (_, piece) in transitionPieces)
+            DrawTextureRectRegion(coasts, tile,
+                CoastEdges.Region(river ? CoastEdges.RiverShallowRow : CoastEdges.ShallowRow, piece, atlasSize), shallow);
+        if (!river)
+            foreach (var (_, piece) in transitionPieces)
+                DrawTextureRectRegion(coasts, tile, CoastEdges.Region(CoastEdges.FoamRow, piece, atlasSize), CoastEdges.Foam);
+        foreach (var (land, piece) in transitionPieces)
+            DrawTextureRectRegion(coasts, tile, CoastEdges.Region(CoastEdges.LandRow, piece, atlasSize),
+                TerrainTextures.BaseColor(land));
     }
 
     private void DrawNaturalObject(Vector2 position, byte kind, byte stage)

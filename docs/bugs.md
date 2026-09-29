@@ -99,7 +99,7 @@ review and is not carried forward.
   rejected. Hills should visibly lead into mountain regions; there is no hill
   terrain kind yet. Generator changes must not invalidate the running world.
   The repository client now draws provisional pixel-art ground textures, relief
-  mountains and shoreline edges at close zoom, and soft land-to-land edges
+  mountains, rounded shores at close zoom, and soft land-to-land edges
   that computment asked for after the striped version was rejected; they stay
   in a narrow band so tiles still read as squares (laptop check pending). The
   distribution problems above are generator issues and remain open.
