@@ -1525,16 +1525,22 @@ public partial class Main : Control
             var startedMap = largeMap with { FounderSetup = null };
             RenderWorldHud(startedMap);
             for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            if (!pausedBadge.Visible || !mapCanvas.GetGlobalRect().Encloses(pausedBadge.GetGlobalRect()))
-                throw new InvalidOperationException($"A paused, started world must show a paused badge inside the world view: visible={pausedBadge.Visible} badge={pausedBadge.GetGlobalRect()}.");
+            // The HUD's pause control shows stopped time on its own, and the
+            // weather holds still until time runs again.
+            var frozenAt = weatherLayer.AnimationTime;
+            for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (pauseButton.ThemeTypeVariation != "EmberButton" || pauseButton.Text != "Paused" ||
+                !weatherLayer.Paused || weatherLayer.AnimationTime != frozenAt)
+                throw new InvalidOperationException($"A paused world must show Paused on its pause control and freeze its weather: {pauseButton.Text}, {weatherLayer.AnimationTime - frozenAt}s.");
             RenderWorldHud(startedMap with { Authoring = startedMap.Authoring! with { IsPaused = false } });
-            if (pausedBadge.Visible)
-                throw new InvalidOperationException("The paused badge must disappear while time runs.");
+            for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (pauseButton.ThemeTypeVariation == "EmberButton" || weatherLayer.Paused || weatherLayer.AnimationTime <= frozenAt)
+                throw new InvalidOperationException("Weather must move again, and the pause control return to normal, once time runs.");
             RenderWorldHud(largeMap);
             UpdateTileHover(mapCanvas.Size / 2);
             var hoveredCenter = TileAtCanvas(mapCanvas.Size / 2, largeMap);
             if (!hoverReadout.Visible || !hoverReadoutLabel.Text.EndsWith($"{hoveredCenter.X}, {hoveredCenter.Y}", StringComparison.Ordinal) ||
-                hoverReadout.MouseFilter != Control.MouseFilterEnum.Ignore || pausedBadge.MouseFilter != Control.MouseFilterEnum.Ignore)
+                hoverReadout.MouseFilter != Control.MouseFilterEnum.Ignore)
                 throw new InvalidOperationException($"Hovering ground must show a click-through readout ending in the tile position: {hoverReadoutLabel.Text}");
             var beforeRoad = largeMap with { RoadTiles = [] };
             UpdateHoverReadout(beforeRoad, hoveredCenter);
@@ -4990,7 +4996,7 @@ public partial class Main : Control
     {
         clockLabel.Text = DisplayWorldClock(snapshot.WorldTick);
         RenderHudState(snapshot);
-        UpdatePausedBadge(snapshot);
+        weatherLayer.Paused = snapshot.Authoring?.IsPaused == true;
         menuResumeButton.Text = menuPausedWorld ? "Resume" : "Close menu";
     }
 
