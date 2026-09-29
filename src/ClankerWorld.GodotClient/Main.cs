@@ -5376,8 +5376,19 @@ public partial class Main : Control
 
     private static string FriendlyFailure(Exception exception) => exception switch
     {
-        System.Net.Http.HttpRequestException requestException when requestException.StatusCode is not null =>
-            $"HTTP {(int)requestException.StatusCode.Value} {requestException.StatusCode.Value}",
+        System.Net.Http.HttpRequestException { StatusCode: { } code } => code switch
+        {
+            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                "this device is not allowed in. Try connecting it again",
+            System.Net.HttpStatusCode.NotFound => "the server does not know about that",
+            System.Net.HttpStatusCode.Conflict => "the world changed. Try again",
+            System.Net.HttpStatusCode.TooManyRequests => "the server is busy. Try again in a moment",
+            >= System.Net.HttpStatusCode.InternalServerError => "the server had a problem",
+            _ => $"the server said no ({(int)code})",
+        },
+        System.Net.Http.HttpRequestException => "cannot reach the world server",
+        OperationCanceledException => "the server took too long to answer",
+        System.Text.Json.JsonException => "the server sent something unexpected",
         _ => exception.Message,
     };
 
