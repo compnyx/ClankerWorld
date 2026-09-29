@@ -1037,7 +1037,7 @@ public sealed class OwnerWorldApi
         CancellationToken cancellationToken) =>
         pairing.ActivatePairingAsync(serverUri, pairingStart, deviceKey, cancellationToken);
 
-    public Task<OwnerWorldReconnect> ReconnectAsync(
+    public async Task<OwnerWorldReconnect> ReconnectAsync(
         Uri serverUri,
         OwnerAuthorityIdentity authority,
         string deviceId,
@@ -1048,9 +1048,11 @@ public sealed class OwnerWorldApi
         IOwnerDeviceSigner deviceKey,
         CancellationToken cancellationToken)
     {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(4));
         var action = new OwnerReconnectAction(afterEventId, knownTerrainWorldId, knownTerrainDigest,
             knownMapLayersDigest);
-        return pairing.SendSignedActionAsync<OwnerReconnectAction, OwnerWorldReconnect>(
+        return await pairing.SendSignedActionAsync<OwnerReconnectAction, OwnerWorldReconnect>(
             serverUri,
             authority,
             deviceId,
@@ -1059,7 +1061,7 @@ public sealed class OwnerWorldApi
             OwnerWorldActionPayload.Reconnect(action),
             action,
             deviceKey,
-            cancellationToken);
+            deadline.Token).ConfigureAwait(false);
     }
 
     public Task<OwnerControlReceipt> SetPausedAsync(

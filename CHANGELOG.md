@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- A stalled world refresh stops after four seconds instead of holding the
+  client for the default network timeout. Owner actions cancel an older refresh
+  so it cannot overwrite their result; Pause remains available during polling.
+
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel
