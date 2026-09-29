@@ -868,6 +868,27 @@ public partial class Main : Control
                     if (style != TerrainStyle.Unknown && first.GetData().SequenceEqual(second.GetData()))
                         throw new InvalidOperationException($"{style} needs two distinct texture variants.");
                 }
+            var spriteData = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var nature in Enum.GetValues<NatureSprite>())
+                {
+                    var sprite = NatureSprites.Sprite(nature, atlasSize);
+                    var covered = 0;
+                    for (var sy = 0; sy < atlasSize; sy++)
+                        for (var sx = 0; sx < atlasSize; sx++)
+                            if (sprite.GetPixel(sx, sy).A > 0.05f) covered++;
+                    if (sprite.GetPixel(0, 0).A > 0 || sprite.GetPixel(atlasSize - 1, 0).A > 0 ||
+                        covered < atlasSize * atlasSize * 0.03f || covered > atlasSize * atlasSize * 0.9f)
+                        throw new InvalidOperationException($"{nature} {atlasSize}px sprite must sit on a transparent tile with visible art: {covered} pixels.");
+                    if (atlasSize == 32 && !spriteData.Add(Convert.ToBase64String(sprite.GetData())))
+                        throw new InvalidOperationException($"{nature} must look different from every other nature sprite.");
+                }
+            for (byte code = 1; code <= 9; code++)
+                if (NatureSprites.ForTree(code) is null)
+                    throw new InvalidOperationException($"Tree state {code} has no sprite.");
+            for (byte kind = 1; kind <= 11; kind++)
+                if (NatureSprites.ForNaturalObject(kind, 0) is null)
+                    throw new InvalidOperationException($"Natural object {kind} has no sprite.");
             testHydrology[3] = 1;
             testSurfaces[3] = 4;
             var seamLayers = testLayers with
@@ -4332,7 +4353,10 @@ public partial class Main : Control
             AddMapObjectVisual(
                 "resource:" + resource.Id,
                 resource.Position,
-                ResourceGlyph(resource.Kind, resource.NaturalObjectKind),
+                // Natural sites are drawn as terrain sprites; their marker only
+                // adds hover help and a caption, not a second symbol.
+                WorldTerrainMap.NaturalObjectName(resource.NaturalObjectKind) is null
+                    ? ResourceGlyph(resource.Kind, resource.NaturalObjectKind) : string.Empty,
                 ResourceMarker(resource.Kind, resource.NaturalObjectKind) + (resource.Quantity is null ? "" : " " + GameUiText.ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity)),
                 GameUiText.ResourceTooltip(resource));
         }
@@ -4554,7 +4578,8 @@ public partial class Main : Control
             renderedMapSnapshot?.WrapsEastWest == true), position.Y * stride + 4);
         visual.Size = new Vector2(stride * Math.Clamp(width, 1, 32) - TileGap - 8,
             stride * Math.Clamp(height, 1, 32) - TileGap - 8);
-        visual.Text = MapObjectLabelFits(visual, label) ? $"{glyph}\n{label}" : glyph;
+        visual.Text = !MapObjectLabelFits(visual, label) ? glyph :
+            glyph.Length == 0 ? label : $"{glyph}\n{label}";
         visual.TooltipText = tooltip;
     }
 
