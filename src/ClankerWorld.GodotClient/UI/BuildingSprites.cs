@@ -14,6 +14,8 @@ public enum BuildingKind : byte
     Hearth,
     Weaving,
     Workshop,
+    Path,
+    Bedroll,
     Generic,
 }
 
@@ -48,7 +50,9 @@ public static class BuildingSprites
     /// <summary>Legacy camp objects that have a building look; others keep their text marker.</summary>
     public static BuildingKind? KindForObject(string kind) => kind switch
     {
-        "campfire" => BuildingKind.Hearth,
+        "campfire" or "cooking" => BuildingKind.Hearth,
+        "path" => BuildingKind.Path,
+        "bedroll" => BuildingKind.Bedroll,
         "shelter" => BuildingKind.Shelter,
         "storage" => BuildingKind.Storehouse,
         "workshop" => BuildingKind.Workshop,
@@ -89,6 +93,8 @@ public static class BuildingSprites
         BuildingKind.Shelter => (new Color("8C8A4E"), new Color("6D6B3C"), new Color("403F22"), new Color("A8A564")),
         BuildingKind.Storehouse => (new Color("8E6C47"), new Color("6E5236"), new Color("3F2E1F"), new Color("AC8A60")),
         BuildingKind.Workshop => (new Color("6F7C6A"), new Color("566150"), new Color("30372D"), new Color("8E9B88")),
+        BuildingKind.Path => (new Color("A89F8C"), new Color("857C69"), new Color("5F5848"), new Color("C4BBA6")),
+        BuildingKind.Bedroll => (new Color("A0523E"), new Color("7E3F30"), new Color("4A2A20"), new Color("C97A5E")),
         _ => (new Color("8D8577"), new Color("6E675C"), new Color("3F3A33"), new Color("AAA293")),
     };
 
@@ -101,6 +107,12 @@ public static class BuildingSprites
                 return;
             case BuildingKind.Weaving:
                 PaintWeavingFrame(canvas, width, height);
+                return;
+            case BuildingKind.Path:
+                PaintPath(canvas, width, height);
+                return;
+            case BuildingKind.Bedroll:
+                PaintBedroll(canvas, width, height);
                 return;
         }
 
@@ -221,6 +233,41 @@ public static class BuildingSprites
         canvas.Lumpy(cx, cy, 4.5f, new Color("E0662A"), 5, 1);
         canvas.Lumpy(cx, cy - 0.5f, 2.8f, new Color("F5A742"), 4, 2);
         canvas.Disc(cx, cy - 0.5f, 1.2f, new Color("FFE08A"));
+    }
+
+    /// <summary>Flat, uneven flagstones laid across the footprint; a path has no roof.</summary>
+    private static void PaintPath(PixelCanvas canvas, int width, int height)
+    {
+        var palette = Palette(BuildingKind.Path);
+        for (var row = 0; row * 10 + 4 < height - 3; row++)
+            for (var column = 0; column * 10 + 3 < width - 3; column++)
+            {
+                var offset = row % 2 == 0 ? 0 : 5;
+                var x = 3 + column * 10 + offset + (int)(PixelArt.Hash(column, row, 57) % 2);
+                var y = 4 + row * 10 + (int)(PixelArt.Hash(column, row, 58) % 2);
+                if (x + 7 > width - 2) continue;
+                canvas.Rect(x + 1, y + 1, 8, 7, Shadow);
+                canvas.Rect(x, y, 8, 7, palette.Edge);
+                canvas.Rect(x + 1, y, 6, 6, palette.Lit);
+                canvas.Rect(x + 1, y + 4, 6, 2, palette.Shade);
+                canvas.Dot(x + 2, y + 1, palette.Ridge);
+            }
+    }
+
+    /// <summary>A blanket rolled out on the ground with a folded head end.</summary>
+    private static void PaintBedroll(PixelCanvas canvas, int width, int height)
+    {
+        var palette = Palette(BuildingKind.Bedroll);
+        var cx = width / 2f;
+        var cy = height / 2f;
+        canvas.Rect(cx - 7, cy - 11, 16, 24, Shadow);
+        canvas.Rect(cx - 8, cy - 12, 16, 24, palette.Edge);
+        canvas.Rect(cx - 7, cy - 11, 14, 22, palette.Lit);
+        canvas.Rect(cx - 7, cy + 3, 14, 8, palette.Shade);
+        canvas.Rect(cx - 7, cy - 11, 14, 5, new Color("E4DAC2"));
+        canvas.Rect(cx - 7, cy - 7, 14, 1, new Color("B9AB8E"));
+        for (var stripe = cy - 4; stripe < cy + 10; stripe += 4)
+            canvas.Rect(cx - 7, stripe, 14, 1, palette.Ridge);
     }
 
     private static void PaintWeavingFrame(PixelCanvas canvas, int width, int height)
