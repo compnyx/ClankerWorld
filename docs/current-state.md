@@ -176,6 +176,21 @@ a strategic action. A failed request cannot complete a pending
 instruction. Hosted requests wait outside tick commits, so they do not stall
 unrelated agents or world systems.
 
+The hosted model is currently a one-shot selector, not yet an in-world
+conversation partner. Its prompt includes legal choices, a fullness value
+misnamed `hunger_basis_points`, up to four personal memory excerpts and bounded
+known-map facts, but omits the agent's name, personality, aspiration, current
+condition, relationships and recent thoughts. It does not explain that higher
+"hunger" values mean *more full*, or establish a survival-settlement role.
+These omissions are confirmed prompt gaps; whether they caused a particular
+playtest behavior has not been measured. Jev's routine-choice payload is
+smaller and different from the personal-model payload. Provider response
+confidence is used for low-confidence fallback; its probability map does not
+choose the action. No dedicated conversation-turn, free-form invention-proposal
+or free-form will call is connected to normal play. See
+[architecture](architecture.md) for the current provider boundary and
+[known gaps](bugs.md) for follow-up evidence.
+
 | Role | Options | Typical current work |
 | --- | --- | --- |
 | Routine survival and local curiosity | Deterministic, Jev | Eat, gather, move, wear clothing, tend fire, seek warmth, make a bounded scouting outing or idle |
