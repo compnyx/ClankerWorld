@@ -262,6 +262,18 @@ test; computment's Windows playtest remains pending.
   survival. There is no separate numeric safety need; `safe_idle` is a fallback
   action, not a safety meter. The current runtime now removes energy and sleeping; food and urgent
   weather exposure still constrain some actions.
+- **Adults without a household have no built heat or shelter — confirmed
+  gap:** agents no longer start Shelters, Storehouses, Cooking fires or Stone
+  hearths, because House and Warehouse replace them in the accepted roster. A
+  House needs a household, so an adult added on unclaimed Town land cannot
+  build one and, in a new world, has only clothing and natural storm cover
+  against cold. Old saves keep their standing Shelters and fires. The fix
+  belongs to the open housing rules (invitation into an existing House, or
+  forming a household), not to bringing back the retired buildings.
+- **Clothing still comes from the Weaving frame — confirmed gap:** the roster
+  removes the Weaving frame and assigns clothing to a Tailor Shop whose
+  production chain is still open. Until a Tailor Shop exists, agents may still
+  build a Weaving frame, since it is the only clothing source.
 - **Save compatibility policy remains open:** Load World now preflights saved
   checkpoints and required local model credentials, labels compatible,
   incompatible or unknown, and preserves and blocks only proven-unloadable
