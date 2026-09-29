@@ -14,6 +14,13 @@ release yet.
   now zooms toward the pointer instead of the screen center. The open Settings
   category shows as a selected tab instead of looking disabled, and New World
   labels its name and seed fields.
+- Keyboard shortcuts in the world: Space or P pauses and resumes, N and
+  Shift+N step through living agents and bring each into view, C re-centers
+  the selected agent, H returns to the Town, + and − zoom, and M, F, I, R, T
+  and E open the Map, Filters, World Info, Agents, Town and Event Log. F1 or ?
+  shows the full controls list, and top-bar tooltips name each key. Clicking
+  a top-bar button or the map no longer leaves the arrow keys and Space stuck
+  on that button.
 - Plainer in-game wording: the agent card names households and relatives
   ("Member of Camp Alpha", "Parent of Mira") instead of internal IDs, leaves
   out an unassigned role or unreported condition, and reads "Wants to take it
