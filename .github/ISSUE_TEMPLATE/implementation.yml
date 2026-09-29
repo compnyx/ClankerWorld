@@ -1,0 +1,40 @@
+name: Implementation task
+description: The design is settled and needs to be built.
+labels: ["type:implementation"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What should the player, agent or operator be able to do afterwards?
+    validations:
+      required: true
+  - type: textarea
+    id: authority
+    attributes:
+      label: Decision this follows
+      description: Link the vision section, decision issue or design that settles this. If none exists, open a Decision issue first.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: A checklist someone else can verify in the normal game path.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this deliberately does not do. Write "None" if nothing.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Saves, replay and docs
+      description: Does this change saved state, events or replay? Which canonical documents need updating?

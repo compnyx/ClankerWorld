@@ -1,0 +1,30 @@
+name: Prototype or experiment
+description: Something must be tried before it can be decided.
+labels: ["type:prototype"]
+body:
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: What we want to learn
+      description: State it as a question or a guess we can prove wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: experiment
+    attributes:
+      label: Smallest experiment
+      description: The least work that would answer it. Say what is thrown away afterwards.
+    validations:
+      required: true
+  - type: textarea
+    id: judge
+    attributes:
+      label: How we will judge the result
+      description: What we will measure or look at, and what result means yes or no.
+    validations:
+      required: true
+  - type: textarea
+    id: next
+    attributes:
+      label: What happens next
+      description: Which decision or implementation task the result unlocks.

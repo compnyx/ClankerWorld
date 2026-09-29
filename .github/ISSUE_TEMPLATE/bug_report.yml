@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in the game or host behaves wrongly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not paste API keys, pairing codes, private saves or raw provider payloads.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe it in plain words. Say who is affected (a player, an agent or an operator).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps. Include the world seed if it matters; do not attach a private save.
+      placeholder: |
+        1. Create a Small world with seed "example"
+        2. Choose a Town site
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Build or commit
+      description: The game version or the commit hash.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where it happens
+      options:
+        - Godot client (what you see and click)
+        - World host or simulation (what happens in the world)
+        - Saves and loading
+        - Model calls and keys
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots or log lines
+      description: Optional. Remove anything secret first.
+  - type: textarea
+    id: done
+    attributes:
+      label: How we will know it is fixed
+      description: A check someone else can run or see.

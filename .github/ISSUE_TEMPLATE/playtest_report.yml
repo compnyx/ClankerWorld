@@ -1,0 +1,40 @@
+name: Playtest report
+description: You played and noticed things. Rough notes are fine.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One report can hold several observations. Confirmed problems will be split into Bug issues and recorded in the known-bugs register. Do not paste API keys, pairing codes or private saves.
+  - type: input
+    id: build
+    attributes:
+      label: Build or commit, and date played
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: What you did and what the world did, in order.
+    validations:
+      required: true
+  - type: textarea
+    id: felt-wrong
+    attributes:
+      label: What felt wrong or confusing
+      description: Things that were unclear, slow, too hard, too easy, or hard to read.
+  - type: textarea
+    id: felt-right
+    attributes:
+      label: What felt good
+      description: Worth keeping.
+  - type: textarea
+    id: wording
+    attributes:
+      label: Text you did not understand
+      description: Any button, tooltip or message that was confusing. Quote it.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots
+      description: Optional.
