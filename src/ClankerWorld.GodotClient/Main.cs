@@ -1587,6 +1587,10 @@ public partial class Main : Control
                 throw new InvalidOperationException("Escape must cancel an active Town-site selection.");
             if (topBar.GetChildren().OfType<Button>().Any(button => button.FocusMode != Control.FocusModeEnum.None))
                 throw new InvalidOperationException("Top-bar buttons must not keep keyboard focus from map controls.");
+            if (!pauseButton.TooltipText.Contains("(Space)", StringComparison.Ordinal) ||
+                !inhabitantsButton.TooltipText.Contains("(R)", StringComparison.Ordinal) ||
+                !eventsButton.TooltipText.Contains("(E)", StringComparison.Ordinal))
+                throw new InvalidOperationException("Top-bar tooltips must keep naming their keyboard shortcuts after refreshes.");
             RenderMap(occupied);
             ClearInhabitantSelection();
             _UnhandledKeyInput(new InputEventKey { Keycode = Key.I, Pressed = true });
@@ -2923,7 +2927,6 @@ public partial class Main : Control
         topBar.AddChild(worldInfoButton);
 
         inhabitantsButton.Text = "Inhabitants";
-        inhabitantsButton.TooltipText = "Agents (R). N selects the next agent.";
         StyleButton(inhabitantsButton);
         inhabitantsButton.Pressed += ToggleInhabitants;
         topBar.AddChild(inhabitantsButton);
@@ -2979,7 +2982,6 @@ public partial class Main : Control
         topBar.AddChild(startWorldButton);
 
         pauseButton.Text = "Pause";
-        pauseButton.TooltipText = "Pause or resume the world (Space)";
         StyleButton(pauseButton, primary: true);
         pauseButton.Pressed += () => _ = TogglePauseAsync();
         topBar.AddChild(pauseButton);
@@ -4629,12 +4631,12 @@ public partial class Main : Control
         var paused = snapshot.Authoring?.IsPaused == true;
         clockLabel.Text = DisplayWorldClock(snapshot.WorldTick);
         inhabitantsButton.Text = $"Agents {LivingPopulation(snapshot)}";
-        inhabitantsButton.TooltipText = "Living agents · open the agent list";
+        inhabitantsButton.TooltipText = "Living agents · open the agent list (R). N selects the next agent.";
         climateLabel.Text = snapshot.Authoring is { } authoring
             ? $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))}"
             : string.Empty;
         pauseButton.Text = paused ? "Play" : "Pause";
-        pauseButton.TooltipText = paused ? "Resume the world" : "Pause the world";
+        pauseButton.TooltipText = paused ? "Resume the world (Space)" : "Pause the world (Space)";
         menuResumeButton.Text = menuPausedWorld ? "Resume" : "Close menu";
     }
 
