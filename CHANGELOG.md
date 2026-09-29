@@ -8,6 +8,8 @@ release yet.
 
 ### Added
 
+- Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
