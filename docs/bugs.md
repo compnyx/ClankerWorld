@@ -502,6 +502,16 @@ Missing heads, missing ancestors and digest-corrupt segments block replacement.
 Archives remain on disk for repair. This does not select a retention policy or
 claim atomic protection against an external process deleting files after preflight.
 
+### Interrupted exploration path (#315)
+
+When legal intervening movement leaves a scout away from the old path endpoint,
+resuming scouting explicitly aborts that outing and starts from the actual
+position. The visited ledger remains; no intervening tiles are invented and the
+adjacency validator is unchanged. Unfinished outing discoveries remain personal
+knowledge, but do not produce a completed field artifact merely because of the
+interruption. The regression follows a public travel instruction and validates
+save/restore on every subsequent tick, including completion of the new outing.
+
 ### Death and barter reservations (#316)
 
 Estate escrow now cancels only open offers using the ordinary barter cancellation
