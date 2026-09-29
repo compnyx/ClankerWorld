@@ -35,9 +35,9 @@ public sealed partial class PrivateWorldRuntimeService(
         Message = "social_standing tick={WorldTick} inhabitant={InhabitantId} subject={SubjectId} trust={Trust} reason={Reason}")]
     private static partial void LogSocialStanding(ILogger logger, long worldTick, string inhabitantId, string subjectId, int trust, string reason);
 
-    [LoggerMessage(EventId = 2217, Level = LogLevel.Information,
-        Message = "inhabitant_content_proposal tick={WorldTick} inhabitant={InhabitantId} package={PackageId} kind=building lifecycle=proposed")]
-    private static partial void LogInhabitantContentProposal(ILogger logger, long worldTick, string inhabitantId, string packageId);
+    [LoggerMessage(EventId = 2270, Level = LogLevel.Information,
+        Message = "retired_buildings tick={WorldTick} standing={Standing} projects={Projects} outcome=kept_not_offered")]
+    private static partial void LogRetiredBuildings(ILogger logger, long worldTick, int standing, int projects);
 
     [LoggerMessage(EventId = 2218, Level = LogLevel.Information,
         Message = "hosted_decision tick={WorldTick} inhabitant={InhabitantId} outcome={Outcome}")]
@@ -74,10 +74,31 @@ public sealed partial class PrivateWorldRuntimeService(
     {
         runtime.AgentBeliefChanged += OnAgentBeliefChanged;
         if (logger is not null)
+        {
             foreach (var town in runtime.Towns)
                 TownTelemetry.Transition(logger, runtime.WorldTick, town.Id, TownTransitionKind.StateLoaded,
                     town.ResidentIds.Count, town.AssignedBuildingIds.Count, town.BorderTiles.Count);
+            LogRetiredBuildingsLoaded(logger);
+        }
         return base.StartAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Old saves keep their retired buildings and finish projects already under
+    /// way; one line on load explains why agents never start another.
+    /// </summary>
+    private void LogRetiredBuildingsLoaded(ILogger logger)
+    {
+        var retired = runtime.WorldContent.Buildings.Where(RetiredBuildings.Contains)
+            .Select(definition => definition.CanonicalId).ToHashSet(StringComparer.Ordinal);
+        if (retired.Count == 0) return;
+        var standing = runtime.WorldSimulation.Buildings.Count(building => retired.Contains(building.DefinitionId));
+        var projects = runtime.Inhabitants.Count(person =>
+            person.Project is { Stage: not ("completed" or "cancelled") } project &&
+            TownConstructionCandidateIds.TryParse(project.CandidateId, out var selection) &&
+            selection.IsBuilding && retired.Contains(selection.DefinitionId));
+        if (standing > 0 || projects > 0)
+            LogRetiredBuildings(logger, runtime.WorldTick, standing, projects);
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)
@@ -258,12 +279,6 @@ public sealed partial class PrivateWorldRuntimeService(
                     if (subject is null || standing is null) continue;
                     var reason = remainder.Length > subject.Length ? remainder[(subject.Length + 1)..] : "cooperation";
                     LogSocialStanding(logger, result.WorldTick, actor, subject, standing.Trust, reason);
-                }
-                foreach (var worldEvent in result.Events.Where(item => item.Kind == "inhabitant_building_proposed"))
-                {
-                    var actor = EventActor(worldEvent.Detail);
-                    if (actor is null || worldEvent.Detail.Length <= actor.Length + 1) continue;
-                    LogInhabitantContentProposal(logger, result.WorldTick, actor, worldEvent.Detail[(actor.Length + 1)..]);
                 }
                 foreach (var worldEvent in result.Events.Where(item => item.Kind is "project_chosen" or "project_progress" or
                              "project_request_fulfilled" or "town_resources_stored" or "town_resource_collected"))
