@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
+
 ### Added
 
 - A new look for every menu and panel: wooden frames around parchment

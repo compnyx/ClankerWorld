@@ -2795,18 +2795,22 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 candidates);
             var requiresPersonalProvider = checkpoint.Births.Any(birth => birth.ChildId == inhabitant.Id);
             var knownMapFacts = KnownMapFactsForCognition(inhabitant.Id);
+            var self = new CognitionSelfContext(inhabitant.Id, inhabitant.Name, inhabitant.AgeBand.ToString(),
+                physical.Personality, physical.Aspiration, inhabitant.HouseholdId,
+                physical.Survival?.WarmthBasisPoints, physical.Survival?.IllnessBasisPoints,
+                physical.RecentThoughts is { Count: > 0 } thoughts ? thoughts[^1].Text : null);
             var observation = new InhabitantObservation(
                 inhabitant.Id,
                 WorldTick,
                 society.Checkpoint.RunEpoch,
                 generation,
-                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories, [], knownMapFacts),
+                ObservationDigest(inhabitant.Id, physical, candidates, retrievedMemories, [], knownMapFacts, self),
                 physical.HungerBasisPoints,
                 candidates,
                 NeedsName: inhabitant.NeedsName,
                 RequiresPersonalProvider: requiresPersonalProvider,
                 RetrievedMemories: retrievedMemories,
-                KnownMapFacts: knownMapFacts);
+                KnownMapFacts: knownMapFacts, Self: self);
             if (jevEnabled && !requiresPersonalProvider && providerFactory is not null)
             {
                 try
@@ -2826,7 +2830,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                             {
                                 MemoryCompactionCandidates = memoryCandidates,
                                 ObservationDigest = ObservationDigest(
-                                    inhabitant.Id, physical, candidates, retrievedMemories, memoryCandidates, knownMapFacts),
+                                    inhabitant.Id, physical, candidates, retrievedMemories, memoryCandidates, knownMapFacts, self),
                             };
                         }
                     }
@@ -3735,7 +3739,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         IReadOnlyList<CognitionCandidate> candidates,
         IReadOnlyList<CognitionMemoryExcerpt> memories,
         IReadOnlyList<CognitionMemoryCompactionCandidate> compactionCandidates,
-        IReadOnlyList<CognitionKnowledgeFact> knownMapFacts)
+        IReadOnlyList<CognitionKnowledgeFact> knownMapFacts,
+        CognitionSelfContext self)
     {
         var text = new StringBuilder()
             .Append("clankerworld.private-world-observation/v1|")
@@ -3774,6 +3779,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 .Append(fact.Terrain).Append('|').Append(string.Join(',', fact.ResourceKinds))
                 .Append('|').Append(fact.DiscovererId).Append('|').Append(fact.Acquisition)
                 .Append('|').Append(fact.LearnedTick);
+        text.Append("|self=").Append(JsonSerializer.Serialize(self));
         return $"sha256:{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text.ToString())))}";
     }
 
