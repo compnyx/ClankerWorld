@@ -238,6 +238,13 @@ release yet.
 
 ### Changed
 
+- Weather on the map now moves. Rain falls as short drops that land with
+  small splash rings, storms darken the sky with heavier slanted rain and a
+  soft flash of lightning every several seconds, and snow drifts down. Rain,
+  storms and snow no longer fill square blocks: their edges wander in
+  irregular shapes that creep slowly and fade out softly. A very light haze of
+  cloud drifts over the land now and then, more often under cloudy or rainy
+  skies, without covering the view.
 - Neighboring land surfaces now blend at close zoom instead of meeting in a
   hard tile-grid line. Grass reaches softly into sand, forest into grass, snow
   into rock and tundra, and mountains shed a rocky edge. The edge wanders and
@@ -308,6 +315,9 @@ release yet.
   and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
+
+- A damaged named-save entry no longer hides other saves or stops autosave
+  rotation. Damaged files are preserved, with a safe diagnostic for recovery.
 
 - Hovering the Town panel no longer pops up a technical tooltip of world
   ticks, revisions, map digests and internal system counts.

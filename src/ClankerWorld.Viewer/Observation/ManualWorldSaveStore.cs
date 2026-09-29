@@ -19,11 +19,14 @@ public sealed class ManualWorldSaveStore
         WorldAutosaveSettings? AutosaveSettings, string? WorldId = null);
     private readonly object gate = new();
     private readonly string directory;
+    private readonly ILogger<ManualWorldSaveStore>? logger;
+    private readonly HashSet<string> reportedInvalidMetadata = new(StringComparer.Ordinal);
 
-    public ManualWorldSaveStore(string activeSavePath)
+    public ManualWorldSaveStore(string activeSavePath, ILogger<ManualWorldSaveStore>? logger = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(activeSavePath);
         directory = Path.GetFullPath(activeSavePath) + ".manual";
+        this.logger = logger;
     }
 
     public static string NormalizeName(string? name)
@@ -117,15 +120,46 @@ public sealed class ManualWorldSaveStore
         lock (gate)
         {
             if (!Directory.Exists(directory)) return [];
-            return Directory.EnumerateFiles(directory, "*.meta.json")
-                .Select(path => JsonSerializer.Deserialize<Metadata>(File.ReadAllBytes(path)))
-                .Where(item => item is not null && (worldId is null || item.WorldId == worldId) &&
-                    IsId(item.Save.Id) && File.Exists(StatePath(item.Save.Id)))
-                .Select(item => item!.Save)
+            var entries = new List<ManualWorldSave>();
+            var invalidPaths = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var path in Directory.EnumerateFiles(directory, "*.meta.json"))
+            {
+                // Metadata cannot redirect rotation onto a different checkpoint.
+                var fileId = Path.GetFileName(path)[..^".meta.json".Length];
+                try
+                {
+                    var item = JsonSerializer.Deserialize<Metadata>(File.ReadAllBytes(path));
+                    if (item?.Save is null || !IsId(fileId) || item.Save.Id != fileId)
+                    {
+                        ReportInvalid(path, fileId, "invalid_metadata", invalidPaths);
+                        continue;
+                    }
+                    if (!File.Exists(StatePath(fileId)))
+                    {
+                        ReportInvalid(path, fileId, "missing_checkpoint", invalidPaths);
+                        continue;
+                    }
+                    reportedInvalidMetadata.Remove(path);
+                    if (worldId is null || item.WorldId == worldId) entries.Add(item.Save);
+                }
+                catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+                {
+                    ReportInvalid(path, fileId, exception is JsonException ? "invalid_json" : "unreadable_metadata", invalidPaths);
+                }
+            }
+            reportedInvalidMetadata.IntersectWith(invalidPaths);
+            return entries
                 .OrderByDescending(item => item.CreatedUtc)
                 .ThenBy(item => item.Id, StringComparer.Ordinal)
                 .ToArray();
         }
+    }
+
+    private void ReportInvalid(string path, string fileId, string reason, HashSet<string> invalidPaths)
+    {
+        invalidPaths.Add(path);
+        if (reportedInvalidMetadata.Add(path) && logger is not null)
+            ManualWorldSaveTelemetry.InvalidMetadata(logger, IsId(fileId) ? fileId : "invalid", reason);
     }
 
     public void KeepNewestAutosaves(int count, string? preserveId = null, string? worldId = null)

@@ -2,6 +2,10 @@ namespace ClankerWorld.Viewer.Observation;
 
 public static partial class ManualWorldSaveTelemetry
 {
+    [LoggerMessage(EventId = 2257, Level = LogLevel.Warning,
+        Message = "manual_save outcome=excluded_from_list save={SaveId} reason={Reason} files_preserved=true")]
+    public static partial void InvalidMetadata(ILogger logger, string saveId, string reason);
+
     [LoggerMessage(EventId = 2250, Level = LogLevel.Information,
         Message = "manual_save outcome=created save={SaveId} tick={WorldTick}")]
     public static partial void Created(ILogger logger, string saveId, long worldTick);
