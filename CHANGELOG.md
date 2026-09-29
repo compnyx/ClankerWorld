@@ -815,6 +815,11 @@ release yet.
 
 ### Changed
 
+- Main Menu, New World, save and load, founder setup, filter and Mod Library
+  text now uses short, plain sentences. Save lists and messages show the
+  in-world date and time instead of tick numbers, and error and confirmation
+  messages say what happened and that your save is safe.
+
 - Completed the pre-release ClankerWorld rename across save/content identifiers,
   package and signature domains, Windows user storage/device-key names, and the
   systemd template and installation paths. Previous development saves and
@@ -830,6 +835,8 @@ release yet.
   run only while at least one authenticated game client remains connected.
   Closing or losing the last client stops the world after a five-second grace
   period; reconnecting does not clear a manual pause or simulate offline time.
+- Connection and server errors now read as plain sentences ("cannot reach the
+  world server", "the server cannot handle another connection request") instead of raw HTTP status text.
 - Changed inhabitant cognition from one provider request per person per world
   second to bounded, persistent intentions. Inhabitants now carry out legal
   movement, rest, gathering, eating, and building work locally until the plan
@@ -861,6 +868,11 @@ release yet.
   diagnostics.
 - Expanded the map from a fixture grid into layered terrain, resources,
   buildings, and selectable inhabitants with contextual inspection.
+- World Info, tile details, the Event Log and the memories panel now use plain
+  wording: the year length, map size and soil moisture read naturally, event
+  lines no longer mention internal steps, and agent plans read like "look after
+  someone who is ill" or "offer a trade". Resource tips say "Grows back" or
+  "Does not grow back".
 
 ### Fixed
 

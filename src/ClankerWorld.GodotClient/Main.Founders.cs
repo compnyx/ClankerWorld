@@ -55,7 +55,7 @@ public partial class Main
             snapshot.Objects.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y) ||
             snapshot.Resources.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y))
         {
-            SetStatus("Choose an empty passable tile for this founder", good: false);
+            SetStatus("Pick an empty spot you can walk to.", good: false);
             return;
         }
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
@@ -65,7 +65,7 @@ public partial class Main
                 new OwnerFounderMoveAction(founderId, tile.X, tile.Y), signer, CancellationToken.None);
             movingFounderId = null;
             moveFounderButton.Text = "Move founder";
-            return result.Changed ? $"Founder moved to {result.X}, {result.Y}" : "Founder already at that tile";
+            return result.Changed ? $"Founder moved to {result.X}, {result.Y}" : "The founder is already there";
         });
     }
 
@@ -86,7 +86,7 @@ public partial class Main
             providerConfiguration = await ownerApi.GetProviderStatusAsync(
                 ResolveWorldUri(), authority, deviceId, signer, CancellationToken.None);
             PopulateFounderCredentials();
-            return $"Last founder undone · {result.Placed}/{result.Required} placed. Add a replacement when ready.";
+            return $"Last founder removed · {result.Placed}/{result.Required} placed. Add another when you're ready.";
         });
     }
 
@@ -125,7 +125,7 @@ public partial class Main
             var result = await ownerApi.AcceptFirstTownLayoutAsync(ResolveWorldUri(), authority, deviceId,
                 new OwnerFirstTownLayoutAction(tile.X, tile.Y), signer, CancellationToken.None);
             choosingFirstTownSite = false;
-            return $"First Town: {result.Buildings} buildings and {result.RoadTiles} Road tiles near {result.X}, {result.Y}. Add founders or choose another site.";
+            return $"Your Town is set: {result.Buildings} buildings and {result.RoadTiles} road tiles near {result.X}, {result.Y}. Add founders, or pick a different spot.";
         });
     }
 
@@ -148,7 +148,7 @@ public partial class Main
         };
         body.AddChild(founderProviderChoice);
 
-        founderModelInput.PlaceholderText = "Model ID for this agent";
+        founderModelInput.PlaceholderText = "Model name for this agent";
         founderModelInput.Text = DefaultProviderModel("openai");
         body.AddChild(founderModelInput);
 
@@ -184,7 +184,7 @@ public partial class Main
     private void PopulateFounderCredentials()
     {
         founderCredentialChoice.Clear();
-        founderCredentialChoice.AddItem("Provider default key");
+        founderCredentialChoice.AddItem("Default key for this provider");
         founderCredentialChoice.SetItemMetadata(0, "default");
         foreach (var slot in providerConfiguration?.CredentialSlots ?? [])
         {
@@ -232,7 +232,7 @@ public partial class Main
                 ResolveWorldUri(), authority, deviceId, signer, CancellationToken.None);
             PopulateFounderCredentials();
             founderSetupPanel.Show();
-            return "Choose a model and key, then click an empty tile to place the founder";
+            return "Pick a model and key, then click an empty spot to place the founder.";
         });
     }
 
@@ -257,7 +257,7 @@ public partial class Main
             householdPropertyFilter.ButtonPressed = true;
             ResetAddAgentPlacementHint();
             founderSetupPanel.Show();
-            return "Choose an empty land tile or a household House for the new agent";
+            return "Click empty land or a House to place the new agent.";
         });
     }
 
@@ -271,7 +271,7 @@ public partial class Main
             snapshot.Objects.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y) ||
             snapshot.Resources.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y))
         {
-            SetStatus("Choose an empty passable tile or a household House", good: false);
+            SetStatus("Click empty land or a House.", good: false);
             return;
         }
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
@@ -279,10 +279,15 @@ public partial class Main
         var model = founderModelInput.Text.Trim();
         var choice = SelectedFounderCredential();
         var newKey = choice == "new";
-        if (model.Length == 0 || newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
+        if (model.Length == 0)
+        {
+            SetStatus("Pick a model first.", good: false);
+            return;
+        }
+        if (newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
             string.IsNullOrWhiteSpace(founderApiKeyInput.Text)))
         {
-            SetStatus("Choose a model and enter both a label and key for a new credential", good: false);
+            SetStatus("Give the new key a name and paste the key.", good: false);
             return;
         }
         var agentId = "agent:" + Guid.NewGuid().ToString("N");
@@ -327,7 +332,7 @@ public partial class Main
             snapshot.Objects.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y) ||
             snapshot.Resources.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y))
         {
-            SetStatus("Choose an empty land tile inside the camp", good: false);
+            SetStatus("Click empty land near the Town.", good: false);
             return;
         }
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
@@ -335,10 +340,15 @@ public partial class Main
         var model = founderModelInput.Text.Trim();
         var choice = SelectedFounderCredential();
         var newKey = choice == "new";
-        if (model.Length == 0 || newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
+        if (model.Length == 0)
+        {
+            SetStatus("Pick a model first.", good: false);
+            return;
+        }
+        if (newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
             string.IsNullOrWhiteSpace(founderApiKeyInput.Text)))
         {
-            SetStatus("Choose a model and enter both a label and key for a new credential", good: false);
+            SetStatus("Give the new key a name and paste the key.", good: false);
             return;
         }
         var founderId = "founder:" + Guid.NewGuid().ToString("N");
@@ -403,8 +413,8 @@ public partial class Main
         }
         founderSetupButton.Text = $"Add founders {setup.Placed}/{setup.Required}";
         founderSetupHint.Text = setup.Placed < setup.Required
-            ? $"Choose this founder’s provider, model, and API key. Then click an empty tile near the first Town. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed. Select a placed founder to move it, or undo the last placement."
-            : "All four founders are placed. Move a selected founder or undo the last placement if needed, then choose Start World to let time run.";
+            ? $"Pick a provider, model and key for this founder, then click an empty spot near your Town. The first two join Camp Alpha and the next two join Camp Beta. {setup.Placed}/{setup.Required} placed. Select a placed founder to move them, or undo the last one."
+            : "All four founders are placed. Move or undo one if you need to, then choose Start World to let time run.";
     }
 
     // Town-site selection is a map-click mode; the button shows how to leave it.
@@ -414,7 +424,7 @@ public partial class Main
 
     private void ResetAddAgentPlacementHint()
     {
-        founderSetupHint.Text = "Choose this adult’s provider, model, and key. Point at a passable tile to preview affiliation: owned building property joins that household; unclaimed Town land joins the Town without a household; outside Town borders starts an independent household. Occupied House tiles can be shared.";
+        founderSetupHint.Text = "Pick a provider, model and key for this adult, then point at a tile. On a household's property they join that household. On other Town land they join the Town only. Outside the Town they start their own household. House tiles can be shared.";
     }
 
     private void PreviewAddAgentPlacement(OwnerWorldSnapshot snapshot, Vector2I tile)
@@ -427,7 +437,7 @@ public partial class Main
             snapshot.Objects.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y) ||
             snapshot.Resources.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y))
         {
-            founderSetupHint.Text = "Choose an empty passable tile or a household House to preview affiliation.";
+            founderSetupHint.Text = "Point at empty land or a House to see where this adult would belong.";
             return;
         }
         var ownerId = snapshot.PlacedBuildings.FirstOrDefault(item => item.HouseholdId is not null &&

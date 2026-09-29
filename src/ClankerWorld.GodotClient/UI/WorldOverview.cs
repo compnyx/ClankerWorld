@@ -28,7 +28,7 @@ public partial class WorldOverview : Control
         MouseFilter = MouseFilterEnum.Stop;
         TextureFilter = TextureFilterEnum.Nearest;
         CustomMinimumSize = new Vector2(230, 130);
-        TooltipText = "Click to jump; drag the bright camera rectangle to move the world view.";
+        TooltipText = "Click to jump there, or drag the bright box to move the view.";
         Resized += QueueRedraw;
     }
 

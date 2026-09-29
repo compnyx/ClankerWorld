@@ -650,8 +650,8 @@ public partial class Main : Control
             };
             Render(sample with { WorldTick = 3_600, CalendarPace = new OwnerWorldCalendarPace(360, 40) }, []);
             if (clockLabel.Text != "01-02-0001 · 00:00" ||
-                !worldInfoText.Text.Contains("40 days/year", StringComparison.Ordinal) ||
-                !worldInfoText.Text.Contains("First Town: Founding · 4 residents · 4 border tiles", StringComparison.Ordinal))
+                !worldInfoText.Text.Contains("40 days", StringComparison.Ordinal) ||
+                !worldInfoText.Text.Contains("First Town · Founding · 4 residents", StringComparison.Ordinal))
                 throw new InvalidOperationException("World Info must show the saved calendar and only the first Town's established founding, membership and border facts.");
             Render(sample with { JevEnabled = true }, []);
             if (!jevAssistanceToggle.ButtonPressed)
@@ -791,7 +791,7 @@ public partial class Main : Control
                 throw new InvalidOperationException($"Map Filters must open inside the world view: map={mapCanvas.GetGlobalRect()} filters={filtersPanel.GetGlobalRect()} site_visible={townSiteButton.Visible}.");
             townBorderFilter.ButtonPressed = false;
             householdPropertyFilter.ButtonPressed = true;
-            if (!worldInfoText.Text.Contains("Town borders are hidden by Map filters", StringComparison.Ordinal))
+            if (!worldInfoText.Text.Contains("Town borders are hidden", StringComparison.Ordinal))
                 throw new InvalidOperationException("The Town border filter must update the visible map explanation.");
             HandleMapInput(new InputEventMouseButton
             {
@@ -1160,7 +1160,7 @@ public partial class Main : Control
                 worldOverview.VisibleTiles.Size.X >= 256)
                 throw new InvalidOperationException($"A regional map must draw only the visible terrain without per-tile nodes: children={terrainLayer.GetChildCount()}, visible={terrainLayer.VisibleTileCount}, overview={worldOverview.VisibleTiles.Size}.");
             if (climateLabel.Text != "Spring · Rain" ||
-                !worldInfoText.Text.Contains("Soil moisture nearby: 78/100", StringComparison.Ordinal) ||
+                !worldInfoText.Text.Contains("Soil moisture here: 78%", StringComparison.Ordinal) ||
                 terrainLayer.WeatherAt(150, 80) != "rain" || terrainLayer.WeatherAt(20, 20) != "snow")
                 throw new InvalidOperationException("The world HUD and info must show weather and moisture at the camera.");
             var beforeLargePan = worldOverview.VisibleTiles.Position;
@@ -1169,8 +1169,8 @@ public partial class Main : Control
                 terrainLayer.VisibleTileCount >= largeTerrain.Length / 2)
                 throw new InvalidOperationException("Panning a large map must update the camera-bounded terrain view.");
             if (climateLabel.Text != "Spring · Snow" ||
-                !worldInfoText.Text.Contains("camera: Spring · Snow", StringComparison.Ordinal) ||
-                !worldInfoText.Text.Contains("Soil moisture nearby: 12/100", StringComparison.Ordinal))
+                !worldInfoText.Text.Contains("here: Spring · Snow", StringComparison.Ordinal) ||
+                !worldInfoText.Text.Contains("Soil moisture here: 12%", StringComparison.Ordinal))
                 throw new InvalidOperationException($"Panning must update HUD and World Info to local weather: camera={cameraCenterTiles}, HUD={climateLabel.Text}, info={worldInfoText.Text}.");
             var wrappedMap = largeMap with
             {
@@ -4594,23 +4594,23 @@ public partial class Main : Control
             : "Not reported";
         var townInfo = snapshot.Towns.Count == 0 ? string.Empty :
             (townBorderFilter.ButtonPressed ? "\nTown borders are outlined in amber on the map.\n"
-                : "\nTown borders are hidden by Map filters.\n") + string.Join("\n",
+                : "\nTown borders are hidden. Turn them on in Filters.\n") + string.Join("\n",
             snapshot.Towns.Select(town =>
-                $"{town.Name}: {Pretty(town.FoundingState)} · {town.ResidentIds.Count} residents · {town.BorderTiles.Count} border tiles\n" +
+                $"{town.Name} · {Pretty(town.FoundingState)} · {town.ResidentIds.Count} residents\n" +
                 "Residents: " + string.Join(", ", town.ResidentIds.Select(id =>
                     snapshot.Inhabitants.FirstOrDefault(item => item.Id == id)?.DisplayName).Where(name => name is not null))));
         worldInfoText.Text =
             $"Date and time: {DisplayWorldClock(snapshot.WorldTick)}\n" +
-            (snapshot.CalendarPace is { } pace ? $"Calendar: {pace.DaysPerYear} days/year\n" : "") +
+            (snapshot.CalendarPace is { } pace ? $"Year length: {pace.DaysPerYear} days\n" : "") +
             $"Living agents: {LivingPopulation(snapshot)}\n" +
-            $"Map: {width} × {height} tiles\n" +
+            $"Map size: {width} × {height}\n" +
             $"Buildings: {snapshot.PlacedBuildings.Count}\n" +
-            $"Road tiles: {snapshot.RoadTiles.Count}\n" +
+            $"Roads: {snapshot.RoadTiles.Count} tiles\n" +
             townInfo + "\n" +
-            $"Resource sites: {snapshot.Resources.Count}\n" +
-            $"Season and weather at camera: {localWeather}" +
+            $"Resource locations: {snapshot.Resources.Count}\n" +
+            $"Season and weather here: {localWeather}" +
             (WeatherRegionAtCamera(snapshot)?.SoilMoisture is { } moisture
-                ? $"\nSoil moisture nearby: {moisture}/100"
+                ? $"\nSoil moisture here: {moisture}%"
                 : "");
     }
 
@@ -4707,8 +4707,8 @@ public partial class Main : Control
         }
 
         var inventory = inhabitant.Inventory.Count == 0
-            ? "none"
-            : string.Join(", ", inhabitant.Inventory.Select(item => $"{item.Kind}: {item.Quantity}"));
+            ? "nothing"
+            : string.Join(", ", inhabitant.Inventory.Select(item => $"{Pretty(item.Kind)}: {item.Quantity}"));
         var currentActivity = string.IsNullOrWhiteSpace(inhabitant.Route.Status)
             ? "wandering"
             : Pretty(inhabitant.Route.Status);
@@ -4828,9 +4828,8 @@ public partial class Main : Control
             var subject = belief.AboutInhabitantId is { } subjectId
                 ? snapshot.Inhabitants.FirstOrDefault(person => person.Id == subjectId)?.DisplayName
                 : null;
-            var context = $"Belief · {evidence} · confidence {belief.ConfidenceBasisPoints / 100}%" +
+            var context = $"Belief · {evidence} · {belief.ConfidenceBasisPoints / 100}% sure" +
                 (subject is null ? "" : $" · about {subject}") +
-                (belief.SourceEventId is { } sourceEvent ? $" · event #{sourceEvent}" : "") +
                 (belief.IsCorrected
                     ? $" · corrected{(belief.CorrectedTick is { } correctedTick ? $" at {DisplayWorldClock(correctedTick)}" : "")}" : "");
             return (belief.WorldTick, 0,
@@ -5501,7 +5500,7 @@ public partial class Main : Control
         if ((region?.Weather ?? snapshot.Authoring?.Weather) is { } weather)
             lines.Add($"Weather: {Pretty(weather)}");
         if (region?.SoilMoisture is { } moisture)
-            lines.Add($"Soil moisture: {moisture}/100");
+            lines.Add($"Soil moisture: {moisture}%");
         if (elevation is { } level) lines.Add($"Elevation: {level}/255");
         if (town is not null) lines.Add($"Town: {town.Name}");
         if (propertyOwnerId is not null)
@@ -5949,8 +5948,19 @@ public partial class Main : Control
 
     private static string FriendlyFailure(Exception exception) => exception switch
     {
-        System.Net.Http.HttpRequestException requestException when requestException.StatusCode is not null =>
-            $"HTTP {(int)requestException.StatusCode.Value} {requestException.StatusCode.Value}",
+        System.Net.Http.HttpRequestException { StatusCode: { } code } => code switch
+        {
+            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                "this device is not allowed in. Try connecting it again",
+            System.Net.HttpStatusCode.NotFound => "the server does not know about that",
+            System.Net.HttpStatusCode.Conflict => "the server's state changed. Try again",
+            System.Net.HttpStatusCode.TooManyRequests => "the server cannot handle another connection request right now. Try again later",
+            >= System.Net.HttpStatusCode.InternalServerError => "the server had a problem",
+            _ => $"the server said no ({(int)code})",
+        },
+        System.Net.Http.HttpRequestException => "cannot reach the world server",
+        OperationCanceledException => "the server took too long to answer",
+        System.Text.Json.JsonException => "the server sent something unexpected",
         _ => exception.Message,
     };
 
@@ -5989,17 +5999,17 @@ public partial class Main : Control
             "inhabitant_slept" => $"{NameAt(0)} slept.",
             "child_born" => $"{NameAt(0)} was born.",
             "inhabitant_removed" => $"{NameAt(0)} died.",
-            "estate_will_accepted" => "A final will directed a personal estate.",
-            "estate_will_default" => "A personal estate followed household inheritance.",
-            "inhabitant_building_proposed" => $"{NameAt(0)} proposed a new building design.",
+            "estate_will_accepted" => "A final will decided who gets their belongings.",
+            "estate_will_default" => "Their belongings went to their household.",
+            "inhabitant_building_proposed" => $"{NameAt(0)} suggested a new building design.",
             "settlement_founded" => "A new Town was founded.",
-            "town_founding_started" => "The first Town began founding during paused setup.",
+            "town_founding_started" => "Your first Town is being set up.",
             "town_resident_joined" when parts.Length >= 2 => $"{NameAt(1)} joined the first Town.",
             "town_resident_left" when parts.Length >= 2 => $"{NameAt(1)} left the first Town.",
-            "town_membership_evaluated" => "The added adult was not placed in an established Town.",
+            "town_membership_evaluated" => "The new adult is not part of a Town yet.",
             "town_building_assigned" => "A building joined the first Town.",
             "town_border_expanded" => "The first Town border expanded.",
-            "town_founded" => "The first Town is founded.",
+            "town_founded" => "Your first Town is founded.",
             "paused" => "The world was paused.",
             "resumed" => "The world resumed.",
             _ => $"{GameUiText.HumanizeIdentifier(worldEvent.Kind)}.",
