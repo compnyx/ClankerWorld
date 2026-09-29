@@ -25,6 +25,7 @@ release yet.
 
 - Loading an older world removes only Road tiles embedded inside saved building footprints, preserving buildings, ownership, stock and all other Roads.
 - The Event Log and unread badge now select explicitly supported player events, including public partnership, care, trade and Town policy milestones; new internal event kinds no longer appear automatically as humanized diagnostics.
+- Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
 
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting

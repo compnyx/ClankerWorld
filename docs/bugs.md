@@ -500,3 +500,11 @@ Estate escrow now cancels only open offers using the ordinary barter cancellatio
 transition, which releases both parties’ reservations. Completed exchanges keep
 their state, and unrelated surviving reservations remain. The defect was a
 temporary lock until expiry, not demonstrated permanent inventory loss.
+
+### Cross-world autosave configuration (#312)
+
+The configuration handler now passes the configured world ID when trimming
+autosaves. Rotation off retains the existing one-checkpoint behavior for that
+world only. The signed endpoint regression uses two worlds and compares every
+other-world metadata/checkpoint byte for rotation 0, 5 and 10. This does not
+change retention policy or attempt recovery of previously deleted files.
