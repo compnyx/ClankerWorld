@@ -683,6 +683,15 @@ public partial class Main : Control
             if (!worldDetails.GetParsedText().Contains("Shared stores", StringComparison.Ordinal) ||
                 !worldDetails.GetParsedText().Contains("No one is working on a project right now.", StringComparison.Ordinal))
                 throw new InvalidOperationException($"The Town panel must head its sections and say when nothing is under way instead of leaving gaps: {worldDetails.GetParsedText()}");
+            RenderWorldDetails(sample with
+            {
+                Authoring = new OwnerWorldAuthoringState(false, 3, 7, 1, "initial-digest", "current-digest", "clear", "spring", []),
+            });
+            if (worldDetails.TooltipText.Length != 0 ||
+                worldDetails.GetParsedText().Contains("digest", StringComparison.OrdinalIgnoreCase) ||
+                worldDetails.GetParsedText().Contains("revision", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The Town panel must not show operator diagnostics such as revisions or digests.");
+            RenderWorldDetails(sample);
             foreach (var panel in new PanelContainer[] { rosterPanel, eventsPanel, settlementPanel, worldInfoPanel, filtersPanel, worldOverviewPanel })
             {
                 panel.Show();
@@ -5065,25 +5074,6 @@ public partial class Main : Control
     private void RenderWorldDetails(OwnerWorldSnapshot snapshot)
     {
         var authoring = snapshot.Authoring;
-        var instructions = snapshot.Instructions.Count == 0
-            ? "none"
-            : string.Join("\n", snapshot.Instructions.Select(instruction =>
-                $"#{instruction.SubmissionSequence} {instruction.Kind} → {instruction.TargetInhabitantId}: {instruction.Text} [{instruction.State}]"));
-        var cognition = snapshot.Cognition is null
-            ? "not reported"
-            : $"{snapshot.Cognition.Provider} · " +
-              $"{snapshot.Cognition.CurrentCandidateId ?? "no current intention"}";
-        var content = snapshot.ContentPackages.Count == 0
-            ? "none"
-            : string.Join(", ", snapshot.ContentPackages.Select(package =>
-                $"{package.PackageId} {package.Version} [{Pretty(package.Lifecycle)}]"));
-        var systems = snapshot.WorldSystems is not { } worldSystems
-            ? "not reported"
-            : $"{Pretty(worldSystems.Season)} / {Pretty(WeatherAtCamera(snapshot))} at camera · " +
-              $"{worldSystems.EcologyResourceCount} ecology · {worldSystems.FactionCount} factions · " +
-              $"{worldSystems.CurrencyAccountCount} wallets · {worldSystems.CultureCount} cultures · " +
-              $"{worldSystems.ChunkCount} chunks · {worldSystems.BuildingDefinitionCount} buildings · " +
-              $"{worldSystems.RecipeDefinitionCount} recipes";
         var lines = new List<TownLine>();
         if (authoring is not null)
             lines.Add(new(TownStyle.Note, $"{(authoring.IsPaused ? "Paused" : "Playing")} · {DisplayWorldClock(snapshot.WorldTick)} · " +
@@ -5117,22 +5107,6 @@ public partial class Main : Control
         if (notes.Length == 0) lines.Add(new(TownStyle.Note, "Nothing to report yet."));
         lines.AddRange(notes.Select(note => new TownLine(TownStyle.Body, note)));
         WriteTownPanel(lines);
-        if (authoring is null)
-        {
-            worldDetails.TooltipText = string.Empty;
-            return;
-        }
-        worldDetails.TooltipText =
-            $"tick {snapshot.WorldTick} · revision {authoring.Revision} · epoch {authoring.RunEpoch}\n" +
-            $"state: {(authoring.IsPaused ? "PAUSED — authoring allowed" : "RUNNING — authoring disabled")}\n" +
-            $"weather/season: {authoring.Weather} / {authoring.Season}\n" +
-            $"current topology: {authoring.CurrentMapManifestDigest}\n" +
-            $"initial fixture topology: {authoring.InitialMapManifestDigest}\n" +
-            $"cognition: {cognition}\n" +
-            $"richer systems: {systems}\n" +
-            $"content packages: {content}\n" +
-            $"approved assets: {(authoring.ApprovedAssetReferences.Count == 0 ? "none" : string.Join(", ", authoring.ApprovedAssetReferences))}\n\n" +
-            $"queued instructions:\n{instructions}";
     }
 
     private void RenderEventLog()
