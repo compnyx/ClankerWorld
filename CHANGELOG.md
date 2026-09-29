@@ -773,7 +773,7 @@ release yet.
   Closing or losing the last client stops the world after a five-second grace
   period; reconnecting does not clear a manual pause or simulate offline time.
 - Connection and server errors now read as plain sentences ("cannot reach the
-  world server", "the server is busy") instead of raw HTTP status text.
+  world server", "the server cannot handle another connection request") instead of raw HTTP status text.
 - Changed inhabitant cognition from one provider request per person per world
   second to bounded, persistent intentions. Inhabitants now carry out legal
   movement, rest, gathering, eating, and building work locally until the plan

@@ -5381,8 +5381,8 @@ public partial class Main : Control
             System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
                 "this device is not allowed in. Try connecting it again",
             System.Net.HttpStatusCode.NotFound => "the server does not know about that",
-            System.Net.HttpStatusCode.Conflict => "the world changed. Try again",
-            System.Net.HttpStatusCode.TooManyRequests => "the server is busy. Try again in a moment",
+            System.Net.HttpStatusCode.Conflict => "the server's state changed. Try again",
+            System.Net.HttpStatusCode.TooManyRequests => "the server cannot handle another connection request right now. Try again later",
             >= System.Net.HttpStatusCode.InternalServerError => "the server had a problem",
             _ => $"the server said no ({(int)code})",
         },
