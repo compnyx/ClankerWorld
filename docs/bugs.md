@@ -526,6 +526,15 @@ respects existing foot-neighbour rules; temporary actor occupancy is still handl
 by movement. The generated-island regression uses accepted Add Agent placement
 and ordinary ticks, with save/reload. No boats, placement or hunger rules change.
 
+### Project input owner and location (#338, #339)
+
+Recipe planning/continuation now resolve the same actor/building owner used by
+production. Crop recipes no longer fall back to the first household’s seeds.
+Household workstation projects revalidate ingredients at the actual building;
+remote household stock is not on-site stock. A rejected start becomes blocked
+under the existing retry path instead of repeating complete preparation forever.
+This does not grant cross-household access or instantly haul remote ingredients.
+
 ### Interrupted exploration path (#315)
 
 When legal intervening movement leaves a scout away from the old path endpoint,
