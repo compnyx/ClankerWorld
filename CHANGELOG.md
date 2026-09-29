@@ -803,6 +803,11 @@ release yet.
   diagnostics.
 - Expanded the map from a fixture grid into layered terrain, resources,
   buildings, and selectable inhabitants with contextual inspection.
+- World Info, tile details, the Event Log and the memories panel now use plain
+  wording: the year length, map size and soil moisture read naturally, event
+  lines no longer mention internal steps, and agent plans read like "look after
+  someone who is ill" or "offer a trade". Resource tips say "Grows back" or
+  "Does not grow back".
 
 ### Fixed
 

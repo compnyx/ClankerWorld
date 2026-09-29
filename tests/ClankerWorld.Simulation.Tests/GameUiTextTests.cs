@@ -24,12 +24,12 @@ public sealed class GameUiTextTests
     public void ResourceHelpDistinguishesExhaustionRegrowthAndLegacyUnknownQuantities()
     {
         var wood = new OwnerWorldResource("wood", "construction", new(0, 0), false, "depleted", 0, 12, 0, 0, "spring");
-        Assert.Equal("Wild timber · 0/12\nDepleted\nFinite — no natural regrowth.", GameUiText.ResourceTooltip(wood));
+        Assert.Equal("Wild timber · 0/12\nDepleted\nDoes not grow back.", GameUiText.ResourceTooltip(wood));
         var berries = wood with { Id = "food", Kind = "food", IsRenewable = true, RegenerationAmount = 4, RegenerationIntervalDays = 1 };
-        Assert.Contains("+4 every 1 world day(s) in Spring", GameUiText.ResourceTooltip(berries), StringComparison.Ordinal);
+        Assert.Contains("+4 every 1 day in Spring", GameUiText.ResourceTooltip(berries), StringComparison.Ordinal);
         Assert.Equal("Soil 3/3", GameUiText.ResourceQuantity("fertile_land", 3, 3));
         var legacy = new OwnerWorldResource("old", "food", new(0, 0), true, "available");
-        Assert.Contains("details unavailable", GameUiText.ResourceTooltip(legacy), StringComparison.Ordinal);
+        Assert.Contains("Grows back.", GameUiText.ResourceTooltip(legacy), StringComparison.Ordinal);
         Assert.DoesNotContain("0/", GameUiText.ResourceTooltip(legacy), StringComparison.Ordinal);
     }
 
@@ -175,7 +175,10 @@ public sealed class GameUiTextTests
     [Theory]
     [InlineData("build:building:sha256:abcdef/building/stone-hearth@1.0.0", "build Stone hearth")]
     [InlineData("seek_food", "find food")]
-    [InlineData("guardian_tend:dependent-42", "care for an ill dependent")]
+    [InlineData("guardian_tend:dependent-42", "look after someone who is ill")]
+    [InlineData("trade_propose:offer-1", "offer a trade")]
+    [InlineData("council_vote_yes", "vote for a food rule")]
+    [InlineData("learn:builder", "ask to be taught a skill")]
     public void InternalIdentifiersBecomeReadablePhrases(string value, string expected)
     {
         Assert.Equal(expected, GameUiText.HumanizeIdentifier(value));
