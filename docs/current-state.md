@@ -489,3 +489,14 @@ which is not interchangeable with this prototype capability matrix.
 
 Future changes must update this document when a capability moves between
 planned, verified primitive, integrated or playable status.
+
+### Failure feedback and held-key panning
+
+Ordinary failure messages use fixed recovery hints rather than raw exception
+messages. Separate client warnings record the exception type only, not private
+paths, keys or provider response bodies. Held movement keys pan at a normalized
+fifteen tiles per second with frame time capped at 100 ms to avoid long-stall
+jumps; diagonal motion is not faster. Menus, a focused control or an unfocused
+window block held-key camera movement, and OS repeat events add no movement.
+Windows keyboard/focus and 720p/200% layout acceptance remains pending; this
+source change does not certify those separate checks.

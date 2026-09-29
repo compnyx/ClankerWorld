@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- Held movement keys now pan smoothly with elapsed frame time, with equal
+  straight and diagonal speed. Error notices give a plain recovery hint instead
+  of showing raw exception text, private file paths or server responses.
+
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel
