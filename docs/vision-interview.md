@@ -1349,3 +1349,33 @@ medicine and injuries; art reference/style and autonomous invention assets;
 save branches and mod compatibility. Resolve the finished-game experience
 before choosing an implementation sequence or narrowing it to the current
 prototype.
+
+
+## Proposed: propose survival balance experiments and urgency boundaries — owner review required
+
+**Proposed, not decided.** Review for [#140](https://github.com/compoodment/ClankerWorld/issues/140).
+This recommendation does not change accepted rules, authorize a deployment, or
+claim implementation or measured results. Implementation waits for owner choice.
+
+Recommend evaluating a stable-survival window: fullness at least 40%, warmth at
+least 60%, and no severe immediate exposure permits social, building and curiosity
+candidates together, not a rigid needs-first choice. Trial emergency thresholds
+are fullness below 15% or warmth below 20% during dangerous exposure; emergency
+rules must still permit nearby conversation and dependent-care responses when
+physically safe. These numeric thresholds are proposals, not calibrated rules.
+No energy, sleep, bed recovery or hidden equivalent is introduced.
+
+Trial own-House refuge first when reachable, then reachable forest or standing-tree
+cover; lacking a House must not force permanent idle. Retain the severe-event cap
+of three-quarters of a world day and illness as work/travel slowdown rather than
+personality suppression. Do not grant guest House access while guest refuge rights
+remain open. Keep the current recovery rates as the experiment baseline rather
+than simultaneously retuning food, exposure and care.
+
+Compare fixed-seed runs against the baseline with identical legal observations:
+share of decisions on survival, time available for social/building/exploration,
+starvation/exposure outcomes and food depletion. Propose a goal below 50% survival
+choices during stocked, stable conditions, with no material increase in preventable
+deaths. This is an evaluation target, not a claimed result. Alternatives are removing
+food pressure or hard scheduling leisure quotas; both override accepted priorities.
+Owner selection of thresholds and measures precedes implementation and playtesting.
