@@ -92,7 +92,7 @@ proposed fixes as owner decisions.
 | Client presence/network | Only authenticated reconnect renews the five-second presence lease. Source now bounds the whole signed refresh to four seconds and cancels obsolete refreshes on owner actions, registration removal and exit. Pause remains available during refresh. | Transport cancellation is regression-covered; stalled-refresh and Pause interaction on Windows remains pending. The lease is unchanged: no unsigned heartbeat or longer unattended-call window is introduced. |
 | Pairing/API limits | Source now limits public pairing creation to eight attempts/minute, pairing bodies to 16 KiB, and the general listener to 30,000,000 bytes. A separate host-local recovery start can expire one unapproved pending request when full. | Signed owner actions bypass the creation budget; local-only approval and signed activation remain required. Recovery cannot evict approved/active devices. Tests cover rejected volume, signed reconnect, hidden local endpoint and pending recovery; this is hardening, not a DoS-proof claim. |
 | Local credential storage | Source now protects installation-local provider configuration with Windows current-user DPAPI, migrates validated legacy JSON and preserves unreadable protected files. Unix permissions remain private. | Native Windows CI covers protected restart, legacy migration, damaged-file preservation and existing key deletion. The local-game Windows UI flow remains to be playtested. Backups and provider-account revocation are separate; no secure-erasure claim. |
-| Event parsing | Event `Detail` is a delimiter-joined string parsed by the host and client; the client humanizes unknown kinds in the player Event Log. | Replace fragile positional parsing with typed payloads as event contracts change and explicitly select player-visible kinds; assess actual IDs/text before claiming a current misparse. |
+| Event parsing | Event `Detail` is a delimiter-joined string parsed by the host and client; the client now explicitly selects known player-facing kinds for the Event Log and unread badge. | Replace fragile positional parsing with typed payloads as event contracts change; assess actual IDs/text before claiming a current misparse. |
 | Delivery drift | The repository has verification scripts and a systemd template, but no checked-in end-to-end live deployment/meter-migration command. The current live process predates several repository fixes. | Make the next authorized deployment repeatable with preflight, meter migration, save/credential preservation and rollback checks; do not redeploy during the active playtest without owner authorization. |
 | Map readability | Source now uses whole given names or text-element initials, distinct activity categories, and sentence-case resource captions hidden below 32-pixel tiles. Existing site sprites/glyphs and full hover/inspection facts remain. | Text/category/zoom regressions cover the display policy; Windows visual review of readability, glyph support and contrast is still pending. Provisional sprites are not approved final art. |
 | Client feedback/input/layout | Source now maps failures to fixed player recovery messages with separate exception-type diagnostics, and pans from held keys once per frame with normalized diagonal speed. Layout/UI-scale and remaining copy reports are tracked separately. | Failure redaction is regression-covered; Godot smoke exercises frame-time pan, diagonal speed and repeat rejection. Windows keyboard/focus, 720p/200% layout and real interaction acceptance remain pending (#281, #282, #285). |
@@ -262,6 +262,18 @@ test; computment's Windows playtest remains pending.
   survival. There is no separate numeric safety need; `safe_idle` is a fallback
   action, not a safety meter. The current runtime now removes energy and sleeping; food and urgent
   weather exposure still constrain some actions.
+- **Adults without a household have no built heat or shelter — confirmed
+  gap:** agents no longer start Shelters, Storehouses, Cooking fires or Stone
+  hearths, because House and Warehouse replace them in the accepted roster. A
+  House needs a household, so an adult added on unclaimed Town land cannot
+  build one and, in a new world, has only clothing and natural storm cover
+  against cold. Old saves keep their standing Shelters and fires. The fix
+  belongs to the open housing rules (invitation into an existing House, or
+  forming a household), not to bringing back the retired buildings.
+- **Clothing still comes from the Weaving frame — confirmed gap:** the roster
+  removes the Weaving frame and assigns clothing to a Tailor Shop whose
+  production chain is still open. Until a Tailor Shop exists, agents may still
+  build a Weaving frame, since it is the only clothing source.
 - **Save compatibility policy remains open:** Load World now preflights saved
   checkpoints and required local model credentials, labels compatible,
   incompatible or unknown, and preserves and blocks only proven-unloadable
@@ -489,3 +501,26 @@ required history-chain verifier as startup, before changing active state/routing
 Missing heads, missing ancestors and digest-corrupt segments block replacement.
 Archives remain on disk for repair. This does not select a retention policy or
 claim atomic protection against an external process deleting files after preflight.
+
+### Death and barter reservations (#316)
+
+Estate escrow now cancels only open offers using the ordinary barter cancellation
+transition, which releases both parties’ reservations. Completed exchanges keep
+their state, and unrelated surviving reservations remain. The defect was a
+temporary lock until expiry, not demonstrated permanent inventory loss.
+
+### Cross-world autosave configuration (#312)
+
+The configuration handler now passes the configured world ID when trimming
+autosaves. Rotation off retains the existing one-checkpoint behavior for that
+world only. The signed endpoint regression uses two worlds and compares every
+other-world metadata/checkpoint byte for rotation 0, 5 and 10. This does not
+change retention policy or attempt recovery of previously deleted files.
+
+### Durable owner retries (#335)
+
+Pause and rename persist before acknowledging success even when their in-memory
+mutation is a no-op. A failed write remains an error; after storage recovers, a
+signed retry makes the already requested value durable. The filesystem-obstruction
+regression verifies restore after both endpoint retries. No automatic Resume or
+background spending is introduced.
