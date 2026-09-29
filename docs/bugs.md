@@ -599,3 +599,14 @@ mutation is a no-op. A failed write remains an error; after storage recovers, a
 signed retry makes the already requested value durable. The filesystem-obstruction
 regression verifies restore after both endpoint retries. No automatic Resume or
 background spending is introduced.
+
+### Manual overwrite generation commit (#357)
+
+Overwrites write an immutable checkpoint generation first, then atomically replace
+the metadata pointer together with routing/autosave settings. Metadata failure or
+interruption before publication leaves the old selected pair intact. Recovery
+backups remain independently readable. Existing saves without generation pointers
+remain readable. Unpublished generation files are retained, not automatically
+deleted; this is not a retention-policy change. Old binaries do not understand
+the generation pointer and must not be used to load newly overwritten saves.
+The metadata-only sharing-lock regression runs on native Windows CI.
