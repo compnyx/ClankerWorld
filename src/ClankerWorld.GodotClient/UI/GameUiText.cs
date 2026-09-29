@@ -22,10 +22,10 @@ public static class GameUiText
             _ => HumanizeIdentifier(resource.Kind),
         };
         var stock = ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity);
-        var renewal = !resource.IsRenewable ? "Finite — no natural regrowth." :
+        var renewal = !resource.IsRenewable ? "Does not grow back." :
             resource.RegenerationAmount is > 0 && resource.RegenerationIntervalDays is > 0 && resource.RegenerationSeason is not null
-                ? $"Regrowth: +{resource.RegenerationAmount} every {resource.RegenerationIntervalDays} world day(s) in {HumanizeIdentifier(resource.RegenerationSeason)}."
-                : "Renewable — regrowth details unavailable from this host.";
+                ? $"Grows back: +{resource.RegenerationAmount} every {resource.RegenerationIntervalDays} {(resource.RegenerationIntervalDays == 1 ? "day" : "days")} in {HumanizeIdentifier(resource.RegenerationSeason)}."
+                : "Grows back.";
         return title + (stock.Length == 0 ? "" : " · " + stock) + "\n" + HumanizeIdentifier(resource.State) + "\n" + renewal;
     }
 
@@ -162,16 +162,16 @@ public static class GameUiText
         }
 
         var normalized = value.Trim();
-        if (normalized.StartsWith("guardian_tend:", StringComparison.Ordinal)) return "care for an ill dependent";
-        if (normalized.StartsWith("care:", StringComparison.Ordinal)) return "care for a child";
-        if (normalized.StartsWith("guardian_offer:", StringComparison.Ordinal)) return "offer to care for a dependent";
-        if (normalized.StartsWith("guardian_accept:", StringComparison.Ordinal)) return "accept a caregiver";
-        if (normalized.StartsWith("guardian_refuse:", StringComparison.Ordinal)) return "refuse a caregiver proposal";
-        if (normalized.StartsWith("guardian_end:", StringComparison.Ordinal)) return "withdraw from caregiving";
+        if (normalized.StartsWith("guardian_tend:", StringComparison.Ordinal)) return "look after someone who is ill";
+        if (normalized.StartsWith("care:", StringComparison.Ordinal)) return "look after a child";
+        if (normalized.StartsWith("guardian_offer:", StringComparison.Ordinal)) return "offer to look after someone";
+        if (normalized.StartsWith("guardian_accept:", StringComparison.Ordinal)) return "accept someone's care";
+        if (normalized.StartsWith("guardian_refuse:", StringComparison.Ordinal)) return "turn down an offer of care";
+        if (normalized.StartsWith("guardian_end:", StringComparison.Ordinal)) return "stop looking after someone";
         if (normalized.StartsWith("parent_", StringComparison.Ordinal))
         {
-            return normalized.StartsWith("parent_propose:", StringComparison.Ordinal) ? "discuss parenthood"
-                : normalized.StartsWith("parent_accept:", StringComparison.Ordinal) ? "agree to parenthood" : "decline or withdraw parenthood";
+            return normalized.StartsWith("parent_propose:", StringComparison.Ordinal) ? "talk about having a child"
+                : normalized.StartsWith("parent_accept:", StringComparison.Ordinal) ? "agree to have a child" : "decide against having a child";
         }
         if (normalized.StartsWith("partner_", StringComparison.Ordinal))
         {
@@ -181,22 +181,22 @@ public static class GameUiText
         }
         if (normalized.StartsWith("learn:", StringComparison.Ordinal))
         {
-            return "request practical training";
+            return "ask to be taught a skill";
         }
         if (normalized.StartsWith("lesson_", StringComparison.Ordinal))
         {
             return normalized.StartsWith("lesson_decline:", StringComparison.Ordinal) || normalized == "lesson_cancel"
-                ? "decline or stop training" : "take part in training";
+                ? "turn down or stop a lesson" : "take a lesson";
         }
         if (normalized.StartsWith("council_", StringComparison.Ordinal))
         {
-            return normalized.StartsWith("council_propose:", StringComparison.Ordinal) ? "propose a food policy"
-                : normalized == "council_vote_yes" ? "support a food policy" : "oppose a food policy";
+            return normalized.StartsWith("council_propose:", StringComparison.Ordinal) ? "suggest a food rule"
+                : normalized == "council_vote_yes" ? "vote for a food rule" : "vote against a food rule";
         }
         if (normalized.StartsWith("trade_", StringComparison.Ordinal))
         {
-            return normalized.StartsWith("trade_propose:", StringComparison.Ordinal) ? "offer an exchange"
-                : normalized.StartsWith("trade_accept:", StringComparison.Ordinal) ? "accept an exchange" : "decline an exchange";
+            return normalized.StartsWith("trade_propose:", StringComparison.Ordinal) ? "offer a trade"
+                : normalized.StartsWith("trade_accept:", StringComparison.Ordinal) ? "accept a trade" : "turn down a trade";
         }
         if (normalized.StartsWith("build:recipe:", StringComparison.Ordinal) ||
             normalized.StartsWith("build:building:", StringComparison.Ordinal))
