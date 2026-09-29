@@ -890,6 +890,73 @@ public partial class Main : Control
                     if (style != TerrainStyle.Unknown && first.GetData().SequenceEqual(second.GetData()))
                         throw new InvalidOperationException($"{style} needs two distinct texture variants.");
                 }
+            if (!TerrainTransitions.Overlaps(TerrainStyle.Grass, TerrainStyle.Sand) ||
+                TerrainTransitions.Overlaps(TerrainStyle.Sand, TerrainStyle.Grass) ||
+                !TerrainTransitions.Overlaps(TerrainStyle.Snow, TerrainStyle.Rock) ||
+                TerrainTransitions.Overlaps(TerrainStyle.Peak, TerrainStyle.Mountain) ||
+                TerrainTransitions.Overlaps(TerrainStyle.Grass, TerrainStyle.Ocean) ||
+                TerrainTransitions.Overlaps(TerrainStyle.Lake, TerrainStyle.Sand))
+                throw new InvalidOperationException("Land edges must follow the surface order and leave water to its shoreline pieces.");
+            // Pixels covered from one edge inward along a line, stopping at the first gap.
+            static int Reached(Image piece, int startX, int startY, int stepX, int stepY)
+            {
+                var count = 0;
+                for (int px = startX, py = startY; px >= 0 && py >= 0 && px < piece.GetWidth() && py < piece.GetHeight(); px += stepX, py += stepY, count++)
+                    if (piece.GetPixel(px, py).A <= 0) break;
+                return count;
+            }
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var over in new[] { TerrainStyle.Grass, TerrainStyle.Snow })
+                {
+                    var last = atlasSize - 1;
+                    var depths = new HashSet<int>();
+                    for (var start = 0; start < TerrainTransitions.Levels; start++)
+                        for (var end = 0; end < TerrainTransitions.Levels; end++)
+                            for (var variant = 0; variant < TerrainTransitions.EdgeVariants; variant++)
+                            {
+                                var north = TerrainTransitions.Piece(over, TerrainTransitions.EdgePiece(0, start, end, variant), atlasSize);
+                                var west = TerrainTransitions.Piece(over, TerrainTransitions.EdgePiece(3, start, end, variant), atlasSize);
+                                if (Reached(north, 0, 0, 0, 1) != TerrainTransitions.Reach(start, atlasSize) ||
+                                    Reached(north, last, 0, 0, 1) != TerrainTransitions.Reach(end, atlasSize) ||
+                                    Reached(west, 0, 0, 1, 0) != TerrainTransitions.Reach(start, atlasSize) ||
+                                    Reached(west, 0, last, 1, 0) != TerrainTransitions.Reach(end, atlasSize))
+                                    throw new InvalidOperationException($"{over} {atlasSize}px edges must meet each tile corner at that corner's shared reach.");
+                                for (var column = 0; column < atlasSize; column++)
+                                {
+                                    for (var row = TerrainTransitions.MaximumReach(atlasSize); row < atlasSize; row++)
+                                        if (north.GetPixel(column, row).A > 0)
+                                            throw new InvalidOperationException($"{over} {atlasSize}px edges must stay within a quarter of the tile so it still reads as a square.");
+                                    depths.Add(Reached(north, column, 0, 0, 1));
+                                }
+                            }
+                    if (depths.Count < 4)
+                        throw new InvalidOperationException($"{over} {atlasSize}px edges must wander rather than run in straight lines.");
+                    for (var level = 0; level < TerrainTransitions.Levels; level++)
+                    {
+                        var corner = TerrainTransitions.Piece(over, TerrainTransitions.OuterCornerPiece(3, level), atlasSize);
+                        var reach = TerrainTransitions.Reach(level, atlasSize);
+                        if (Reached(corner, 0, 0, 1, 0) != reach || Reached(corner, 0, 0, 0, 1) != reach || corner.GetPixel(last, last).A > 0)
+                            throw new InvalidOperationException($"{over} {atlasSize}px outer corners must meet both neighboring edges at the corner's reach.");
+                    }
+                }
+            var edgeMap = WorldTerrainMap.FromTiles(
+                Enumerable.Range(0, 9).Select(index => new OwnerWorldTile(index % 3, index / 3, index == 4 ? "meadow" : "sand")).ToArray(), 3, 3);
+            var edgePieces = new List<(TerrainStyle Style, int Piece)>();
+            TerrainTransitions.Collect(edgeMap, 1, 0, false, edgePieces);
+            var southLevels = (TerrainTransitions.CornerLevel(1, 1, 3, false), TerrainTransitions.CornerLevel(2, 1, 3, false));
+            if (edgePieces.Count != 1 || edgePieces[0].Style != TerrainStyle.Grass ||
+                edgePieces[0].Piece / (TerrainTransitions.Levels * TerrainTransitions.Levels * TerrainTransitions.EdgeVariants) != 2 ||
+                edgePieces[0].Piece % (TerrainTransitions.Levels * TerrainTransitions.Levels * TerrainTransitions.EdgeVariants) / TerrainTransitions.EdgeVariants !=
+                    southLevels.Item1 * TerrainTransitions.Levels + southLevels.Item2)
+                throw new InvalidOperationException("Sand beside grass must take one south grass edge between its south corners' reaches.");
+            TerrainTransitions.Collect(edgeMap, 0, 0, false, edgePieces);
+            if (edgePieces.Count != 1 || edgePieces[0].Piece != TerrainTransitions.OuterCornerPiece(1, TerrainTransitions.CornerLevel(1, 1, 3, false)))
+                throw new InvalidOperationException("Sand diagonal to grass must take one rounded outer corner.");
+            TerrainTransitions.Collect(edgeMap, 1, 1, false, edgePieces);
+            if (edgePieces.Count != 0)
+                throw new InvalidOperationException("Grass must not take an edge from lower sand.");
+            if (TerrainTransitions.CornerLevel(3, 5, 3, true) != TerrainTransitions.CornerLevel(0, 5, 3, true))
+                throw new InvalidOperationException("Edge corners must continue across a wrapped world seam.");
             var spriteData = new HashSet<string>(StringComparer.Ordinal);
             foreach (var atlasSize in new[] { 16, 32 })
                 foreach (var nature in Enum.GetValues<NatureSprite>())

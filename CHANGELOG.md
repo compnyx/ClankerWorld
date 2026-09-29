@@ -234,6 +234,13 @@ release yet.
 
 ### Changed
 
+- Neighboring land surfaces now blend at close zoom instead of meeting in a
+  hard tile-grid line. Grass reaches softly into sand, forest into grass, snow
+  into rock and tundra, and mountains shed a rocky edge. The edge wanders and
+  merges with a few bumps and half-transparent rim pixels, continues smoothly
+  from tile to tile, and rounds corners, while staying in a narrow band so
+  every tile still reads as a square of its own ground. Water keeps its
+  shoreline edges, and the zoomed-out overview is unchanged.
 - The Town panel and Event Log are easier to scan. The Town panel puts
   shared stores, projects, the household council and social activity under
   headings, and says "No one is working on a project right now" instead of

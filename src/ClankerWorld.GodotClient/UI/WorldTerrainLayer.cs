@@ -22,6 +22,7 @@ public partial class WorldTerrainLayer : Control
     private byte[] trees = [];
     private byte[] naturalObjects = [];
     private readonly Dictionary<int, NatureSprite> campResources = [];
+    private readonly List<(TerrainStyle Style, int Piece)> transitionPieces = [];
     private byte[] naturalStages = [];
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
@@ -345,9 +346,11 @@ public partial class WorldTerrainLayer : Control
         else
         {
             // Zoomed in far enough to show detail: draw each tile's generated
-            // pixel-art ground, then shoreline pieces where water meets land.
+            // pixel-art ground, soft edges where a neighboring surface reaches
+            // into it, then shoreline pieces where water meets land.
             var atlasSize = TerrainTextures.AtlasTileSize(tileSize);
             var atlas = TerrainTextures.Atlas(atlasSize);
+            var edges = TerrainTransitions.Atlas(atlasSize);
             for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
             {
                 for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
@@ -356,6 +359,9 @@ public partial class WorldTerrainLayer : Control
                     var tile = new Rect2(new Vector2(x * stride, y * stride), new Vector2(tileSize, tileSize));
                     var style = world.StyleAt(mapX, y);
                     DrawTextureRectRegion(atlas, tile, TerrainTextures.Region(style, TerrainTextures.VariantAt(mapX, y), atlasSize));
+                    TerrainTransitions.Collect(world, mapX, y, wrapsEastWest, transitionPieces);
+                    foreach (var (over, piece) in transitionPieces)
+                        DrawTextureRectRegion(edges, tile, TerrainTransitions.Region(over, piece, atlasSize));
                     var shore = world.ShoreMaskAt(mapX, y, wrapsEastWest);
                     if (shore != 0) DrawShore(tile, style, shore);
                 }
