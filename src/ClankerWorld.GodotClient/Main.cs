@@ -1273,6 +1273,12 @@ public partial class Main : Control
             if (!hoverReadout.Visible || !hoverReadoutLabel.Text.EndsWith($"{hoveredCenter.X}, {hoveredCenter.Y}", StringComparison.Ordinal) ||
                 hoverReadout.MouseFilter != Control.MouseFilterEnum.Ignore || pausedBadge.MouseFilter != Control.MouseFilterEnum.Ignore)
                 throw new InvalidOperationException($"Hovering ground must show a click-through readout ending in the tile position: {hoverReadoutLabel.Text}");
+            var beforeRoad = largeMap with { RoadTiles = [] };
+            UpdateHoverReadout(beforeRoad, hoveredCenter);
+            var afterRoad = beforeRoad with { RoadTiles = [new OwnerWorldPosition(hoveredCenter.X, hoveredCenter.Y)] };
+            UpdateHoverReadout(afterRoad, hoveredCenter);
+            if (!hoverReadoutLabel.Text.Contains(" · Road", StringComparison.Ordinal))
+                throw new InvalidOperationException("The hovered tile must reflect a newly observed road without moving the pointer.");
             UpdateTileHover(new Vector2(-5, -5));
             if (hoverReadout.Visible)
                 throw new InvalidOperationException("Leaving the map must hide the hover readout.");

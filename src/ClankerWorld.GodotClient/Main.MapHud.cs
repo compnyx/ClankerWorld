@@ -14,6 +14,7 @@ public partial class Main
     private readonly PanelContainer hoverReadout = new();
     private readonly Label hoverReadoutLabel = new();
     private Vector2I? hoverReadoutTile;
+    private OwnerWorldSnapshot? hoverReadoutSnapshot;
 
     private void BuildMapHud(Control canvas)
     {
@@ -81,17 +82,19 @@ public partial class Main
         if (show) PositionMapHud();
     }
 
-    /// <summary>Names the hovered ground in one line; recomputed only when the hovered tile changes.</summary>
+    /// <summary>Names the hovered ground in one line; refreshes when the tile or observed world changes.</summary>
     private void UpdateHoverReadout(OwnerWorldSnapshot? snapshot, Vector2I? tile)
     {
         if (snapshot is null || tile is not { } point || terrainMap is null || !MapContains(snapshot, point.X, point.Y))
         {
             hoverReadoutTile = null;
+            hoverReadoutSnapshot = null;
             hoverReadout.Hide();
             return;
         }
-        if (hoverReadoutTile == point && hoverReadout.Visible) return;
+        if (hoverReadoutTile == point && ReferenceEquals(hoverReadoutSnapshot, snapshot) && hoverReadout.Visible) return;
         hoverReadoutTile = point;
+        hoverReadoutSnapshot = snapshot;
         hoverReadoutLabel.Text = HoverSummary(snapshot, terrainMap, point);
         hoverReadout.Show();
         PositionMapHud();
