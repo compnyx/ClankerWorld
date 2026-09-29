@@ -56,6 +56,10 @@ that recorded events reproduce its expected results and digests.
 - Keep build revision, release labels and telemetry out of canonical digests.
 - Never infer compatibility merely from the public game version or file age.
 
+Start World persists its completed setup while time is still paused, then resumes.
+A failed checkpoint write restores the paused pre-start setup so a fresh signed
+retry can succeed after storage recovers.
+
 Signed pause and rename retries persist the requested state before reporting
 success, including when the in-memory value already matches after a failed
 write. Storage failure remains an error; recovery does not resume time.
