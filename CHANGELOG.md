@@ -305,6 +305,9 @@ release yet.
 
 ### Fixed
 
+- A damaged named-save entry no longer hides other saves or stops autosave
+  rotation. Damaged files are preserved, with a safe diagnostic for recovery.
+
 - Hovering the Town panel no longer pops up a technical tooltip of world
   ticks, revisions, map digests and internal system counts.
 - The selected-agent card no longer covers the agent it describes: when it
