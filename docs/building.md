@@ -100,3 +100,77 @@ The `windows-documentation` CI job restores the locked test dependencies using
 exercise both LF and CRLF text, so a valid Windows checkout does not fail merely
 because Git converted line endings. This focused job is not a Windows Godot
 playtest or a claim that the complete runtime suite runs on Windows.
+
+## Proposed local Windows package and authorized deployment workflow (#221, #267)
+
+**Draft operational design. No installer, end-to-end deployment command or live
+deployment is delivered by this section.** The Windows client export is not yet
+a self-contained authoritative game. The existing host/service template is not
+a verified migration/rollback workflow.
+
+### Local Windows distribution recommendation
+
+Prefer an initially bundled companion host using the same authoritative runtime,
+not a second simulation implementation. Owner review must select companion versus
+embedded lifecycle before release. The launcher should start a single local host
+bound only to loopback, wait for a versioned readiness handshake, then open the
+client against that instance. It must not discover or default to computment's VPS.
+Use a per-user writable data directory separate from versioned binaries, with
+world saves, global usage accounting and protected provider configuration in
+separate locations. Never put a provider key in launcher arguments, logs, world
+files or a package manifest. Current-user DPAPI protection does not make keys
+portable between Windows accounts.
+
+Define child-process ownership explicitly: detect an existing compatible local
+instance, reject conflicting ports/state locks, and do not kill arbitrary matching
+process names. On normal exit, pause/cancel hosted work, finish durable save, then
+stop only the launched host. A crash/disconnect must expire presence and stop paid
+work even if the companion survives. Update/rollback replaces binaries, not user
+data. Installer/portable packaging, runtime bundling and signing remain decisions;
+no dependency installation is authorized by this recommendation.
+
+Fresh-account acceptance: install/extract with no repository checkout or developer
+SDK; configure own credentials through masked UI; create/place/start, pause,
+save/quit/relaunch/reload with the VPS unreachable. Verify no server network
+listener beyond loopback, no key material in exports/logs, saved fullscreen/scale,
+usage accounting continuity, second launch, host crash, client crash and update
+rollback. Network may still be needed for the user's chosen model provider.
+
+### Future deployment command contract
+
+Implement a staged command with explicit `plan`, `stage`, `apply`, `verify` and
+`rollback` operations only after reviewing this design. These are proposed modes,
+not commands that exist today. `plan` must be read-only and identify source commit,
+artifact hashes/version, schema compatibility, destination service and separate
+state/meter/credential paths without printing private contents. Refuse ambiguous
+paths, dirty artifacts, unsupported schema migration and missing rollback space.
+
+`stage` verifies build/restore/test/Godot/export gates, hashes the exact artifacts
+and prepares a versioned release directory without touching the running service.
+Before authorized `apply`, capture a coherent paused checkpoint and preserve
+history segments, manual/auto/recovery saves, owner authority, global usage meter
+and provider configuration with restrictive permissions. Do not use an unpaused
+copy as a claimed consistent backup.
+
+Meter migration must preserve spent attempts and pending reservations. If old and
+new locations both contain accounting, refuse to choose silently; require a
+reviewed reconciliation. An unreadable meter blocks paid calls rather than
+resetting totals. Never restore a lower historical meter as part of binary
+rollback: spending is monotonic across attempted deployments. Credential movement
+must use protected storage and the intended OS account, not echo/cat or an
+unprotected temporary export.
+
+After service switch, verify actual running commit/process identity, protected
+state paths, paused world tick, save reload, handshake and blocked paid work
+before any explicit Resume. Failure rolls binaries/service configuration back
+while preserving the latest compatible state and accounting. If schema/data is
+not backward-compatible, stop for inspection rather than loading it with an old
+binary or silently discarding progress. Logs/report contain versions, hashes,
+bounded counts and outcomes, never secrets or file contents.
+
+An operator rehearsal must inject failure before stop, after backup, during meter
+migration, before readiness and after first save; prove rollback and accounting
+continuity on disposable synthetic state. The active playtest host remains out of
+scope until computment separately authorizes deployment. This proposal makes
+release gates reviewable but is not evidence of a working local package or live
+migration.
