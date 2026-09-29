@@ -674,6 +674,12 @@ public partial class Main : Control
                 !usageMeterStatus.Text.Contains("openai / test-model", StringComparison.Ordinal) ||
                 !grantUsageCallsButton.Visible || usageAttemptLimitInput.Text != "2")
                 throw new InvalidOperationException("World Settings must present paid attempts, scope, provider/model and explicit consent at the cap.");
+            usageStatus = usageStatus with { AccountingError = "Accounting unavailable. Restore a trusted backup and restart." };
+            RenderUsageStatus();
+            if (!usageMeterStatus.Text.Contains("Restore a trusted backup", StringComparison.Ordinal) ||
+                usageMeterStatus.Text.Contains("calls used", StringComparison.Ordinal) ||
+                grantUsageCallsButton.Visible || !applyUsageLimitButton.Disabled || usageAttemptLimitInput.Editable)
+                throw new InvalidOperationException("Unavailable accounting must not display zero usage or offer a cap bypass.");
             usageStatus = null;
             RenderUsageStatus();
             Render(sample, []);
@@ -2521,6 +2527,14 @@ public partial class Main : Control
         if (usageStatus is null)
         {
             usageMeterStatus.Text = "Loading model calls…";
+            return;
+        }
+        if (usageStatus.AccountingError is not null)
+        {
+            usageMeterStatus.Text = usageStatus.AccountingError;
+            usageMeterStatus.TooltipText = "Call totals are unavailable until accounting is restored.";
+            grantUsageCallsButton.Visible = false;
+            RefreshControlAvailability();
             return;
         }
         if (!usageAttemptLimitInput.HasFocus())
@@ -5466,10 +5480,10 @@ public partial class Main : Control
         cognitionApiKeyInput.Editable = !actionDisabled && SelectedProviderId() != "deterministic";
         cognitionCredentialLabelInput.Editable = !actionDisabled;
         refreshCognitionProviderButton.Disabled = actionDisabled;
-        applyUsageLimitButton.Disabled = actionDisabled;
+        applyUsageLimitButton.Disabled = actionDisabled || usageStatus?.AccountingError is not null;
         grantUsageCallsButton.Disabled = actionDisabled || usageStatus?.LimitReached != true;
         refreshUsageButton.Disabled = actionDisabled;
-        usageAttemptLimitInput.Editable = !actionDisabled;
+        usageAttemptLimitInput.Editable = !actionDisabled && usageStatus?.AccountingError is null;
         var selectedProvider = SelectedProviderId();
         var selectedProviderStatus = providerConfiguration?.Providers.FirstOrDefault(item =>
             string.Equals(item.Provider, selectedProvider, StringComparison.Ordinal));

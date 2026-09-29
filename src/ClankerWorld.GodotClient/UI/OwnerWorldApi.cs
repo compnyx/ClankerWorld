@@ -379,7 +379,7 @@ public sealed record OwnerUsageRow(string Provider, string Model, string Role,
 
 public sealed record OwnerUsageStatus(long Attempts, long Completed, long Failed,
     long Abandoned, long InputTokens, long OutputTokens, long? AttemptLimit,
-    bool LimitReached, IReadOnlyList<OwnerUsageRow> Rows);
+    bool LimitReached, IReadOnlyList<OwnerUsageRow> Rows, string? AccountingError = null);
 
 public sealed record OwnerCredentialSlotDeletionAction(string CredentialSlotId);
 

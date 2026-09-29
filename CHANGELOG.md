@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- A damaged model-call meter no longer prevents the host from starting. Paid
+  calls stay blocked, and World Settings explains how to restore accounting
+  without losing spent calls. Meter writes flush before replacing the file.
+
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel
