@@ -1349,3 +1349,33 @@ medicine and injuries; art reference/style and autonomous invention assets;
 save branches and mod compatibility. Resolve the finished-game experience
 before choosing an implementation sequence or narrowing it to the current
 prototype.
+
+
+## Proposed: propose deterministic climate-weighted weather transitions — owner review required
+
+**Proposed, not decided.** Review for [#204](https://github.com/compoodment/ClankerWorld/issues/204).
+This recommendation does not change accepted rules, authorize a deployment, or
+claim implementation or measured results. Implementation waits for owner choice.
+
+Recommend saved regional weather episodes instead of synchronized daily rerolls.
+At each episode boundary, use a seed/region/episode-index keyed deterministic draw
+weighted by local climate and the prior condition. Snapshot all neighboring states
+before computing the next batch, so iteration order and camera visibility do not
+change results. Start with the existing region topology; changing region size is a
+separate measurement, not necessary to choose this transition contract.
+
+Propose ordinary episode durations from one-quarter to one world day and severe
+episodes capped at three-quarters of a day, followed by at least one-quarter day
+of non-severe weather in that region. Adjacent upwind wet conditions may increase
+rain likelihood, but propose no moving physical front in the first iteration:
+that avoids claiming a drifting visual changes authoritative local weather. Snow
+eligibility follows local cold climate; no model calls or global synchronized
+planet-wide storm. Save episode identity, condition, start/end and generator
+version so pause/reload and future migrations preserve the active event.
+
+Alternatives: daily independent rolls are simple but abrupt; full moving-front
+physics is a much larger feature; purely visual drift cannot be gameplay authority.
+Owner selection is needed on duration ranges, non-severe gap and deferred fronts.
+Gate deterministic replay, saved calendar pace, climate distributions, wrapped
+neighbors, old active-episode migration and the severe-duration bound before
+claiming weather evolution is implemented.
