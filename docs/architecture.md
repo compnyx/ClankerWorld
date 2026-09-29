@@ -387,3 +387,43 @@ installation and state paths. Keep the previous private world and pairing
 authority only in a root-only rollback backup; copy provider credentials to the
 new protected state path without printing them. Ignored old export/build
 artifacts are historical binaries, not current source names.
+
+## Proposed generated-Road bridge extension (#158)
+
+**Draft extension; land Roads already generate and persist. Bridges and
+inter-Town routing are not implemented by this document.** Keep the two triggers
+separate: an accepted generated Road route builds a bridge immediately at a
+bridgeable river; accumulated walking may create a bridge only after the separate
+traffic rule (#157) is selected. Walking never paints Roads.
+
+Proposed route edge types are ordinary ground, existing Road, existing bridge
+and validated prospective river crossing. A prospective crossing must identify
+both banks, the complete water span, entrance tiles and a supported bridge design.
+Do not turn arbitrary water, coast or lake into a bridgeable edge. The exact
+narrow-span/clearance limits remain an owner-reviewed rule. A nearby bridge over
+a different stream cannot suppress a necessary crossing by radius alone: compare
+the actual connected banks/water segment.
+
+The route planner should cost a prospective crossing deterministically, with a
+stable tie break and a bounded search. Validate the complete proposed Road plus
+bridge footprint against buildings/resources and current terrain before commit.
+Persist Road tiles, bridge identity/design/footprint and passable crossing state
+atomically; interruption must not leave a Road pretending water is walkable.
+If the route is unavailable, preserve existing Roads and report disconnected
+rather than painting through mountains or broad water. Connect to legal adjacent
+building entrances, never through a building footprint.
+
+Road/bridge use must not recursively amplify the traffic evidence used by the
+other trigger. Record independent traversals under the selected traffic contract,
+not pathfinding probes or render visits. Roads remain after a supporting building
+or Town disappears; bridge removal/collapse policy stays separate and must not
+strand an actor by deleting its current support tile without a defined transition.
+
+Required seeded cases: ground-only control, one narrow stream, two separate close
+streams, nonbridgeable wide water, wrap seam, occupied bank, Town growth to a new
+building, repeated identical generation, reload mid-proposal, and deletion of the
+original Town/building. Assert stable route/bridge IDs, no duplicated cost/material
+consumption, no Road-from-walking, no overlap and conserved existing network.
+Godot must draw and inspect the same saved crossing that movement uses. Ship only
+after both generation and ordinary travel use that authority; a bridge sprite
+alone is not a playable crossing.
