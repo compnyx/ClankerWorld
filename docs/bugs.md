@@ -480,3 +480,11 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### History dependency preflight (#314)
+
+Catalog compatibility, final selection and named checkpoint loads use the same
+required history-chain verifier as startup, before changing active state/routing.
+Missing heads, missing ancestors and digest-corrupt segments block replacement.
+Archives remain on disk for repair. This does not select a retention policy or
+claim atomic protection against an external process deleting files after preflight.

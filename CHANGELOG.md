@@ -8,6 +8,8 @@ release yet.
 
 ### Added
 
+- World selection and named checkpoint loading verify required history segments before replacing the healthy active world. Missing or corrupted archive chains remain recoverable without becoming the active save.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
