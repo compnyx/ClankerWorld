@@ -10,6 +10,17 @@ release yet.
 
 ### Added
 
+- A damaged model-call meter no longer prevents the host from starting. Paid
+  calls stay blocked, and World Settings explains how to restore accounting
+  without losing spent calls. Meter writes flush before replacing the file.
+- A stalled world refresh stops after four seconds instead of holding the
+  client for the default network timeout. Owner actions cancel an older refresh
+  so it cannot overwrite their result; Pause remains available during polling.
+- Map name tags use a whole given name or initial instead of cutting full names
+  after seven letters. Activity symbols distinguish exploration, warmth, trade,
+  social activity and care. Resource captions use ordinary case and disappear
+  at overview zoom; full names and resource facts stay in hover/inspection.
+
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.
   Settings has a new Theme choice of Light, Dark (dark wood with cream text)
@@ -276,10 +287,29 @@ release yet.
   Agents, Town, Event Log, World Info, Filters and World Map panels now have
   a close button, and the panels are titled Agents and Event Log to match the
   top bar.
+- The top bar is now three small wooden panels floating over the map, with
+  pixel icons on every button: Map and Filters; the pause control with the
+  date, time, season and local weather; and the world actions. When time is
+  stopped the pause button turns orange and reads Paused. The Agents button
+  shows how many are alive and a small orange dot when someone is hungry, and
+  the Event Log button shows a red count of events since you last opened it,
+  with those rows dotted in the log.
+  During first-Town setup, its extra controls sit in a second row so Start
+  World and Menu stay on screen at 1280×720.
+- The Town button is gone, since a world can hold more than one Town. World
+  Info now opens on a Towns page listing every Town with its residents, when
+  it was founded and a Show button that moves the map there, followed by the
+  household stores, projects and council; the World page holds the rest. T
+  now opens Towns.
 - The Agents list now shows what each living agent is doing and flags anyone
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
   card's new Find button does the same.
+- The menus match the new look. Main Menu, Pause Menu and New World buttons
+  carry pixel icons, Quit to Menu sits apart at the bottom of the Pause Menu,
+  and Game Settings groups its choices under Interface, Display, and Date and
+  time, with Fullscreen as an on/off switch. New World now speaks of choosing
+  your first Town's site.
 - New World fits on one screen at 1280×720: the options sit in a captioned
   column beside a map preview about twice as large as before, with Back and
   Create World always in view. The preview keeps its place while it updates,

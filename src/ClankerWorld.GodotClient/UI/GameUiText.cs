@@ -9,6 +9,49 @@ public static class GameUiText
 {
     private const int MinutesPerDay = 1_440;
 
+    public static string ActorMapLabel(string displayName)
+    {
+        var words = displayName.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return "?";
+        var given = words[0];
+        return new System.Globalization.StringInfo(given).LengthInTextElements <= 12
+            ? given : System.Globalization.StringInfo.GetNextTextElement(given) + ".";
+    }
+
+    public static string ActivityMapGlyph(string? candidateId) => candidateId switch
+    {
+        "seek_food" => "→",
+        "harvest_food" or "gather_smith_ore" => "✦",
+        "consume_food" or "collect_shared_food" => "♥",
+        "seek_warmth" or "wear_clothing" or "tend_fire" => "♨",
+        "explore" => "⌖",
+        "child_help_food" => "+",
+        not null when candidateId.StartsWith("build:", StringComparison.Ordinal) => "◆",
+        not null when candidateId.StartsWith("trade_", StringComparison.Ordinal) => "⇄",
+        not null when candidateId.StartsWith("child_converse:", StringComparison.Ordinal) ||
+            candidateId.StartsWith("knowledge_share:", StringComparison.Ordinal) => "…",
+        not null when candidateId.StartsWith("child_play:", StringComparison.Ordinal) => "☆",
+        not null when candidateId.StartsWith("child_learn:", StringComparison.Ordinal) => "?",
+        not null when candidateId.StartsWith("care:", StringComparison.Ordinal) => "+",
+        "safe_idle" => "·",
+        _ => "○",
+    };
+
+    public static string ResourceMapCaption(OwnerWorldResource resource, float tileSize)
+    {
+        // At overview scale the existing terrain sprite/glyph carries the site;
+        // full facts stay in hover and selected-tile inspection.
+        if (tileSize < 32) return string.Empty;
+        var title = NaturalObjectName(resource.NaturalObjectKind) ?? resource.Kind switch
+        {
+            "construction" => "Wood",
+            "fertile_land" => "Plot",
+            _ => HumanizeIdentifier(resource.Kind),
+        };
+        var quantity = ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity);
+        return quantity.Length == 0 ? title : title + " " + quantity;
+    }
+
     public static string ResourceQuantity(string kind, int? quantity, int? capacity) => quantity is null ? "" :
         (kind == "fertile_land" ? "Soil " : "") + quantity + (capacity is null ? "" : "/" + capacity);
 
