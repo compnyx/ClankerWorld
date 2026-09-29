@@ -1,3 +1,10 @@
+---
+title: Tailor Shop replacement contract
+type: design-proposal
+status: proposal
+updated: 2026-09-29
+---
+
 # Tailor Shop replacement contract (unapproved)
 
 Review proposal for [#363](https://github.com/compoodment/ClankerWorld/issues/363).
