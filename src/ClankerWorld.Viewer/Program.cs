@@ -110,7 +110,8 @@ builder.Services.AddSingleton<PrivateWorldStateFile>(services => new PrivateWorl
     _ => services.GetRequiredService<IDecisionProvider>(),
     WorldStartPace.FounderSetup,
     allowDifferentSavedSeed: isPrivateWorld));
-builder.Services.AddSingleton(new ManualWorldSaveStore(privateRuntimeStatePath));
+builder.Services.AddSingleton(services => new ManualWorldSaveStore(privateRuntimeStatePath,
+    services.GetRequiredService<ILogger<ManualWorldSaveStore>>()));
 builder.Services.AddSingleton<PrivateWorldRuntime>(services =>
 {
     var runtime = services.GetRequiredService<PrivateWorldStateFile>().LoadOrCreate(runtimeSeed);

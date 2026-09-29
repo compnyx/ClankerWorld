@@ -89,6 +89,13 @@ the schema-4 history mechanism bounds hot histories
 and archives older events with verified hashes; reconnect explicitly resets
 stale cursors. See [architecture](architecture.md#authority-and-failure-boundaries)
 for the save and recovery boundary.
+
+Named-save listing now isolates unusable metadata entries so sound checkpoints
+remain reachable and autosave rotation can continue. It preserves damaged files
+and emits a safe warning once per bad entry until repaired; it does not repair
+corrupt checkpoints or silently delete their metadata. Windows playtesting of
+the damaged-entry case remains pending.
+
 Signed polling uses process-local one-use challenges rather than rewriting
 the authority file; old challenges fail closed after restart.
 
