@@ -4705,7 +4705,7 @@ public partial class Main : Control
                 WorldTerrainMap.NaturalObjectName(resource.NaturalObjectKind) is null &&
                     (resource.NaturalObjectKind is not null || NatureSprites.ForCampResource(resource.Kind) is null)
                     ? ResourceGlyph(resource.Kind, resource.NaturalObjectKind) : string.Empty,
-                ResourceMarker(resource.Kind, resource.NaturalObjectKind) + (resource.Quantity is null ? "" : " " + GameUiText.ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity)),
+                GameUiText.ResourceMapCaption(resource, currentTileSize),
                 GameUiText.ResourceTooltip(resource));
         }
 
@@ -4777,7 +4777,7 @@ public partial class Main : Control
                     entityLayer.AddChild(actorMarker);
                     inhabitantVisuals.Add(inhabitant.Id, actorMarker);
                 }
-                actorMarker.Caption = $"{ActivityGlyph(inhabitant.PublicIntention?.CandidateId)} {ActorLabel(inhabitant.DisplayName)}";
+                actorMarker.Caption = $"{GameUiText.ActivityMapGlyph(inhabitant.PublicIntention?.CandidateId)} {GameUiText.ActorMapLabel(inhabitant.DisplayName)}";
                 actorMarker.Variant = AgentSprites.VariantFor(inhabitant.Id);
                 actorMarker.Stage = AgentSprites.StageIndex(
                     inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "age-band")?.Detail);
@@ -6454,53 +6454,6 @@ public partial class Main : Control
     }
 
     private static string PositionKey(OwnerWorldPosition position) => $"{position.X},{position.Y}";
-
-    private static string ActorLabel(string displayName)
-    {
-        var trimmed = displayName.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return "?";
-        }
-
-        return trimmed.Length <= 8 ? trimmed : $"{trimmed[..7]}…";
-    }
-
-    private static string ActivityGlyph(string? candidateId) => candidateId switch
-    {
-        "seek_food" => "→",
-        "harvest_food" => "✦",
-        "consume_food" => "♥",
-        not null when candidateId.StartsWith("build:", StringComparison.Ordinal) => "◆",
-        "safe_idle" => "·",
-        _ => "○",
-    };
-
-    private static string ResourceMarker(string kind, string? naturalObjectKind) => naturalObjectKind switch
-    {
-        "berry_bush" => "BERRIES",
-        "wild_greens" => "GREENS",
-        "fiber_plant" => "FIBER",
-        "reeds" => "REEDS",
-        "stone_outcrop" => "STONE",
-        "iron_outcrop" => "IRON",
-        "gold_outcrop" => "GOLD",
-        "diamond_outcrop" => "DIAMOND",
-        "clay_bank" => "CLAY",
-        "wild_seed_patch" => "SEEDS",
-        "fertile_soil" => "SOIL",
-        _ => ResourceMarker(kind),
-    };
-
-    private static string ResourceMarker(string kind) => kind switch
-    {
-        "food" => "FOOD",
-        "construction" => "WOOD",
-        "stone" => "STONE",
-        "fiber" => "FIBER",
-        "seed" => "SEEDS",
-        _ => ShortMarker(kind),
-    };
 
     private static string ResourceGlyph(string kind, string? naturalObjectKind) => naturalObjectKind switch
     {

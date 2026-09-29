@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- Map name tags use a whole given name or initial instead of cutting full names
+  after seven letters. Activity symbols distinguish exploration, warmth, trade,
+  social activity and care. Resource captions use ordinary case and disappear
+  at overview zoom; full names and resource facts stay in hover/inspection.
+
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel

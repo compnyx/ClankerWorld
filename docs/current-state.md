@@ -489,3 +489,14 @@ which is not interchangeable with this prototype capability matrix.
 
 Future changes must update this document when a capability moves between
 planned, verified primitive, integrated or playable status.
+
+### Map caption readability
+
+Agent map tags use the first name when at most twelve text elements, otherwise
+its complete initial; full names remain in tooltips and agent inspection. Activity
+symbols distinguish food travel/gathering/eating, warmth, exploration, building,
+trade, conversation, play, learning, care and idle. Resource captions use ordinary
+case and appear only at tile sizes of 32 pixels or more when they fit. Existing
+site sprites/glyphs remain at overview zoom, with full resource hover and tile
+inspection. This is a source-level presentation improvement; Windows visual
+acceptance of the labels and glyphs remains pending.

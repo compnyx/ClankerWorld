@@ -9,6 +9,27 @@ public sealed class GameUiTextTests
 {
     private static readonly int[] UiScalePercentages = [100, 125, 150, 175, 200];
 
+    [Theory]
+    [InlineData("Alexandria Smith", "Alexandria")]
+    [InlineData("  Mira   Rowan  ", "Mira")]
+    [InlineData("Alexandriannnnnnnn", "A.")]
+    [InlineData("Álexandriannnnnnnn", "Á.")]
+    [InlineData("李 小龙", "李")]
+    [InlineData("  ", "?")]
+    public void MapNamesUseWholeGivenNamesOrWholeTextElementInitials(string fullName, string expected) =>
+        Assert.Equal(expected, GameUiText.ActorMapLabel(fullName));
+
+    [Fact]
+    public void MapActivityCategoriesRemainDistinctFromIdleAndUnknownActions()
+    {
+        var categories = new[] { "seek_food", "harvest_food", "consume_food", "seek_warmth", "explore",
+            "build:house", "trade_accept:offer", "child_converse:other", "child_play:other", "child_learn:other", "care:child", "safe_idle" };
+        var symbols = categories.Select(GameUiText.ActivityMapGlyph).ToArray();
+        Assert.Equal(categories.Length, symbols.Distinct(StringComparer.Ordinal).Count());
+        Assert.DoesNotContain(GameUiText.ActivityMapGlyph("future_action"), symbols);
+        Assert.Equal(GameUiText.ActivityMapGlyph("care:child"), GameUiText.ActivityMapGlyph("child_help_food"));
+    }
+
     [Fact]
     public void OwnerSnapshotReportsTheSavedWorldCalendarPace()
     {
@@ -30,6 +51,9 @@ public sealed class GameUiTextTests
         Assert.Equal("Soil 3/3", GameUiText.ResourceQuantity("fertile_land", 3, 3));
         var legacy = new OwnerWorldResource("old", "food", new(0, 0), true, "available");
         Assert.Contains("Grows back.", GameUiText.ResourceTooltip(legacy), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, GameUiText.ResourceMapCaption(legacy, 16));
+        Assert.Equal("Food", GameUiText.ResourceMapCaption(legacy, 48));
+        Assert.Equal("Construction 0/12", GameUiText.ResourceMapCaption(wood, 48));
         Assert.DoesNotContain("0/", GameUiText.ResourceTooltip(legacy), StringComparison.Ordinal);
     }
 
