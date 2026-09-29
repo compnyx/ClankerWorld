@@ -375,6 +375,7 @@ public partial class WorldTerrainLayer : Control
             var atlas = TerrainTextures.Atlas(atlasSize);
             var edges = TerrainTransitions.Atlas(atlasSize);
             var coasts = CoastEdges.Atlas(atlasSize);
+            var water = WaterTextures.Atlas(atlasSize);
             for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
             {
                 for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
@@ -382,9 +383,11 @@ public partial class WorldTerrainLayer : Control
                     var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
                     var tile = new Rect2(new Vector2(x * stride, y * stride), new Vector2(tileSize, tileSize));
                     var style = world.StyleAt(mapX, y);
-                    DrawTextureRectRegion(atlas, tile, TerrainTextures.Region(style, TerrainTextures.VariantAt(mapX, y), atlasSize));
                     if (TerrainTextures.IsWater(style))
                     {
+                        // Water comes from a larger repeating block, so its
+                        // patches and crests continue across tile edges.
+                        DrawTextureRectRegion(water, tile, WaterTextures.Region(style, mapX, y, atlasSize));
                         // Lighter water fans in first (a river mouth into the
                         // sea), then the rounded shore goes on top.
                         TerrainTransitions.CollectWater(world, mapX, y, wrapsEastWest, transitionPieces);
@@ -393,6 +396,7 @@ public partial class WorldTerrainLayer : Control
                         DrawCoast(coasts, tile, mapX, y, style, atlasSize);
                         continue;
                     }
+                    DrawTextureRectRegion(atlas, tile, TerrainTextures.Region(style, TerrainTextures.VariantAt(mapX, y), atlasSize));
                     TerrainTransitions.Collect(world, mapX, y, wrapsEastWest, transitionPieces);
                     foreach (var (over, piece) in transitionPieces)
                         DrawTextureRectRegion(edges, tile, TerrainTransitions.Region(over, piece, atlasSize));

@@ -12,6 +12,55 @@ may track active implementation work, but closing an issue does not remove an
 entry here until the fix is merged and verified through the normal product
 path.
 
+## GitHub implementation and verification tracking
+
+Each current report below has GitHub tracking. A document entry is not a
+reason to close an unfixed issue. Historical implemented repairs stay resolved;
+normal Windows/VPS verification remains separate from source/test evidence.
+The September 29 reconciliation uses the current vision ledger, not the retired
+concept. Open design choices remain open rather than becoming implementation
+requirements by accident.
+
+| Register area | Tracking |
+| --- | --- |
+| Windows checkout/test | [#254](https://github.com/compoodment/ClankerWorld/issues/254) |
+| Personal-model needs and identity | [#255](https://github.com/compoodment/ClankerWorld/issues/255) |
+| Prompt shape and cost | [#256](https://github.com/compoodment/ClankerWorld/issues/256) |
+| Conversation and memory | [#257](https://github.com/compoodment/ClankerWorld/issues/257) |
+| Provider parity and observability | [#258](https://github.com/compoodment/ClankerWorld/issues/258) |
+| Tick failure and recovery | [#259](https://github.com/compoodment/ClankerWorld/issues/259) |
+| Persistence scale and retention | [#260](https://github.com/compoodment/ClankerWorld/issues/260) |
+| Save-list isolation | [#261](https://github.com/compoodment/ClankerWorld/issues/261) |
+| Usage-meter durability | [#262](https://github.com/compoodment/ClankerWorld/issues/262) |
+| Client presence/network | [#263](https://github.com/compoodment/ClankerWorld/issues/263) |
+| Pairing/API limits | [#264](https://github.com/compoodment/ClankerWorld/issues/264) |
+| Local credential storage | [#265](https://github.com/compoodment/ClankerWorld/issues/265) |
+| Event parsing | [#266](https://github.com/compoodment/ClankerWorld/issues/266) |
+| Delivery drift | [#267](https://github.com/compoodment/ClankerWorld/issues/267) |
+| Map readability | [#268](https://github.com/compoodment/ClankerWorld/issues/268) |
+| Client feedback/input/layout | [#269](https://github.com/compoodment/ClankerWorld/issues/269) |
+| Repair saved starter Roads overlapping building footprints | [#279](https://github.com/compoodment/ClankerWorld/issues/279) |
+| Correct sand, forest-floor vegetation and mountain transition distribution | [#280](https://github.com/compoodment/ClankerWorld/issues/280) |
+| Finish UI-scale sizing and saved fullscreen defaults | [#281](https://github.com/compoodment/ClankerWorld/issues/281) |
+| Finish player-facing settings, inspection and household naming cleanup | [#282](https://github.com/compoodment/ClankerWorld/issues/282) |
+| Finish supported vegetation propagation and approved object art | [#283](https://github.com/compoodment/ClankerWorld/issues/283) |
+| Decide long-term save compatibility and retention policy | [#284](https://github.com/compoodment/ClankerWorld/issues/284) |
+| Windows/live verification queue | [#285](https://github.com/compoodment/ClankerWorld/issues/285) |
+| Historical resolved register | [#286](https://github.com/compoodment/ClankerWorld/issues/286) |
+| Camera bounds and final zoom selection | [#127](https://github.com/compoodment/ClankerWorld/issues/127) |
+| Roads and bridges | [#158](https://github.com/compoodment/ClankerWorld/issues/158) |
+| Non-survival pacing | [#140](https://github.com/compoodment/ClankerWorld/issues/140) |
+| Curiosity and purposeful exploration | [#137](https://github.com/compoodment/ClankerWorld/issues/137) |
+| Mountain visibility targets | [#150](https://github.com/compoodment/ClankerWorld/issues/150) |
+| Agent naming and collision retries | [#136](https://github.com/compoodment/ClankerWorld/issues/136) |
+
+Issues #244 and #246–#251 were closed only to deduplicate against this
+document; linked successor issues above restore actionable tracking because
+the contributing account cannot reopen other authors’ issues. Historical
+AW-B001–AW-B022 evidence is indexed in #286; already-linked #107–#120 reports
+retain their original issue histories. Rejected recommendations below are not
+new defects.
+
 ## Live verification pending
 
 The provider-held tick fix is installed on the live VPS host. Computment is
@@ -31,16 +80,16 @@ proposed fixes as owner decisions.
 
 | Area | Confirmed current gap | Next evidence / repair boundary |
 | --- | --- | --- |
-| Windows checkout/test | `DocumentationFilesDeclareTheirAuthorityMetadata` requires LF front matter and the repository has no `.gitattributes`; CRLF checkout can fail despite valid docs. CI runs tests only on Ubuntu. `global.json` pins SDK 10.0.401 with `latestPatch`. | Make the documentation test newline-neutral or guarantee LF checkout, then run it on Windows. Choose SDK roll-forward deliberately; a lower feature band is not guaranteed compatible. Add a Windows test job when the supported client platform can be exercised in CI. |
+| Windows checkout/test | Documentation front-matter validation now accepts LF and CRLF; a focused Windows documentation CI job uses the existing pinned SDK. | Linux regression covers both newline styles; Windows CI must pass before claiming Windows verification. Broader Windows runtime coverage remains separate. SDK roll-forward stays unchanged. See [#254](https://github.com/compoodment/ClankerWorld/issues/254). |
 | Personal-model needs and identity | The provider receives fullness as unlabeled `hunger_basis_points` (0 starving, 10,000 full), and no name, life stage, personality, aspiration, household, current activity, warmth/illness, inventory, nearby relationships or recent thought. The system prompt has output/memory rules but no settlement role frame. | Give the model a compact, truthful self/state/nearby context and plain-language need scale. Replay representative observations and compare legal choices, idling, food decisions and thought quality before attributing current pacing complaints to this cause. Preserve per-agent knowledge boundaries. |
 | Prompt shape and cost | Internal epoch/tick and Jev-salience fields are sent to the personal model; candidate lists are code-ordered and may include several site-coordinate variants. The response asks for a full probability map and confidence, and sets no explicit output-token or temperature limit. | Simplify model-facing text and bound output/candidate volume; measure quality and cost. **Keep a confidence policy or replace it explicitly:** confidence below 0.5 currently invokes `safe_idle`. Probabilities do not select the action. Do not assume `response_format: json_object` works uniformly across endpoints. |
 | Conversation and memory | The legal-candidate interface has no free-form adult dialogue turn, gossip/lie propagation, generated invention proposal or free-form will. Child conversation is a fixed result. Recent thoughts are not fed back, and experiences are not automatically turned into memories. | Design separately bounded dialogue/planning/invention/will call contracts with validated structured effects and a safe failure path; preserve speech-versus-truth provenance. This is a finished-game vision gap, not authorization for arbitrary text to mutate world state. |
 | Provider parity and observability | Jev's choice payload differs from the personal-model payload and lacks retrieved memories/map facts/persona. A malformed hosted response falls to the safe fallback without an adapter-level repair retry. Player-visible reason for an idle agent is still weak after a provider failure. | Define Jev's limited role, expose a clear agent-level waiting/failure/limit state, and assess a bounded repair retry against extra paid attempts. Record safe, bounded outcome telemetry; never raw prompts, responses or keys. |
 | Tick failure and recovery | The background one-second loop awaits `TryAdvanceOnceAsync` without a catch around the main tick or active recovery save. Only rotating autosave failure is caught. A thrown tick/save exception can stop the hosted service under its default behavior. | Prove the failure with a tiny host or injected save/tick error; hold the world and report a recoverable halt without silently discarding state. Distinguish corrupt persisted state from a transient write failure. |
 | Persistence scale and retention | Each advanced tick re-encodes the active world and fsyncs a replacement file. Manual-save overwrite creates a full recovery copy every time; only autosaves rotate. History segments are digest-addressed, with no retention policy found in the state-file path. | Measure bytes and encode/fsync latency on a representative larger world before changing cadence; preserve pause/quit/crash guarantees. Decide backup and history retention with the save policy, not an arbitrary silent deletion rule. |
-| Save-list isolation | `ManualWorldSaveStore.List` deserializes all metadata in one LINQ sequence; one malformed file can abort the entire list and autosave rotation. | Isolate and report a bad entry while keeping sound saves reachable; verify with one damaged metadata file beside a valid save. |
-| Usage-meter durability | `ProviderUsageStore` throws on an unreadable existing meter during construction, preventing host startup; its fixed `.tmp` write has no fsync. This is separate from the already-repaired reservation write rollback and the live meter-path incident above. | Start with hosted calls blocked and an actionable owner error on unreadable accounting; use durable atomic replacement and test restart after an interrupted write. Never reset spent attempts silently. |
-| Client presence/network | Only authenticated reconnect renews the default five-second presence lease. The client polls every second with the default 100-second `HttpClient` timeout and no refresh cancellation; a hung refresh suppresses later polls and gates UI actions. | Exercise a stalled signed reconnect on Windows. Bound/cancel refresh, show connection state and keep pause available; evaluate a cheap signed heartbeat or a measured lease change without permitting unattended calls. |
+| Save-list isolation | Source repair isolates malformed, unreadable, missing-checkpoint or ID-mismatched metadata instead of aborting the whole list. Damaged files remain untouched. | Focused regressions cover sound-save access, autosave rotation, metadata repair and safe warning deduplication. Normal Windows save-list playtest remains pending; see [#261](https://github.com/compoodment/ClankerWorld/issues/261). |
+| Usage-meter durability | Source fix keeps the host reachable with paid calls blocked when accounting is unreadable or inconsistent. The owner sees a restore-and-restart error instead of an apparent reset. Unique private replacement files are flushed before rename. | Restart and damaged-meter regressions cover preserved accounting and interrupted temporary files. Windows recovery playtest remains pending. Restore only trusted accounting; never reset spent attempts silently. |
+| Client presence/network | Only authenticated reconnect renews the five-second presence lease. Source now bounds the whole signed refresh to four seconds and cancels obsolete refreshes on owner actions, registration removal and exit. Pause remains available during refresh. | Transport cancellation is regression-covered; stalled-refresh and Pause interaction on Windows remains pending. The lease is unchanged: no unsigned heartbeat or longer unattended-call window is introduced. |
 | Pairing/API limits | Eight ten-minute pending pairings can fill the unauthenticated creation capacity; the loopback-bound public listener has no explicit request-body/rate policy. | Assess reachable tailnet threat and legitimate retry flow, then bound pairing/request volume without weakening local-only approval or blocking the real owner. This is hardening, not a demonstrated exploit. |
 | Local credential storage | Provider keys are written as JSON in an installation-local file; Unix file modes are tightened, but Windows has no equivalent encryption in this store. | Before the player-local Windows release, use appropriate current-user protected storage and a clear forget-key flow while preserving save/credential separation. Existing in-app deletion does not erase backups. |
 | Event parsing | Event `Detail` is a delimiter-joined string parsed by the host and client; the client humanizes unknown kinds in the player Event Log. | Replace fragile positional parsing with typed payloads as event contracts change and explicitly select player-visible kinds; assess actual IDs/text before claiming a current misparse. |

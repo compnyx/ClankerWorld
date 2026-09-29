@@ -469,6 +469,64 @@ public sealed partial class ViewerHttpTests
         Assert.Throws<InvalidOperationException>(runtime.Resume);
     }
 
+    [Theory]
+    [InlineData("truncated")]
+    [InlineData("null")]
+    [InlineData("missing-save")]
+    [InlineData("aliased-id")]
+    public void DamagedSaveMetadataDoesNotHideSoundSavesOrStopRotation(string damage)
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-damaged-save-");
+        try
+        {
+            using var runtime = new PrivateWorldRuntime("damaged-save-list");
+            runtime.Pause();
+            var path = Path.Combine(directory.FullName, "world.json");
+            var log = new RecordingLogger<ManualWorldSaveStore>();
+            var store = new ManualWorldSaveStore(path, log);
+            var manual = store.Create("Keep me", runtime, []);
+            var settings = new WorldAutosaveSettings(runtime.Society.WorldId, true, 5, 5, DateTimeOffset.MinValue, 0);
+            var old = store.CreateAutosave(runtime, [], settings);
+            var newest = store.CreateAutosave(runtime, [], settings);
+            var damagedId = Guid.NewGuid().ToString("N");
+            var metadataPath = Path.Combine(path + ".manual", damagedId + ".meta.json");
+            var bytes = damage switch
+            {
+                "truncated" => "{private-provider-secret",
+                "null" => "null",
+                "missing-save" => "{}",
+                _ => File.ReadAllText(Path.Combine(path + ".manual", manual.Id + ".meta.json"))
+                    .Replace("\"IsAutosave\":false", "\"IsAutosave\":true", StringComparison.Ordinal)
+            };
+            File.WriteAllText(metadataPath, bytes);
+
+            var listed = store.List(runtime.Society.WorldId);
+            Assert.Equal(3, listed.Count);
+            Assert.Single(listed, save => save.Id == manual.Id && !save.IsAutosave);
+            store.KeepNewestAutosaves(1, newest.Id, runtime.Society.WorldId);
+            Assert.DoesNotContain(store.List(), save => save.Id == old.Id);
+            Assert.Contains(store.List(), save => save.Id == newest.Id);
+            Assert.Equal(runtime.Society.WorldId, store.Read(manual.Id).Society.Society.WorldId);
+            Assert.Equal(bytes, File.ReadAllText(metadataPath));
+            var message = Assert.Single(log.Messages);
+            Assert.Contains("outcome=excluded_from_list", message, StringComparison.Ordinal);
+            Assert.Contains("save=" + damagedId, message, StringComparison.Ordinal);
+            Assert.DoesNotContain("private-provider-secret", message, StringComparison.Ordinal);
+            Assert.DoesNotContain(directory.FullName, message, StringComparison.Ordinal);
+            // A repaired entry becomes reachable again without restarting the host.
+            var repaired = File.ReadAllText(Path.Combine(path + ".manual", manual.Id + ".meta.json"))
+                .Replace(manual.Id, damagedId, StringComparison.Ordinal);
+            File.WriteAllText(metadataPath, repaired);
+            File.Copy(Path.Combine(path + ".manual", manual.Id + ".save"),
+                Path.Combine(path + ".manual", damagedId + ".save"));
+            Assert.Contains(store.List(), save => save.Id == damagedId);
+            File.WriteAllText(metadataPath, bytes);
+            _ = store.List();
+            Assert.Equal(2, log.Messages.Count);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     [Fact]
     public async Task AutosaveScheduleRotatesOnlyAutomaticSnapshotsAndPersistsOwnerChoices()
     {
