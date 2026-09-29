@@ -83,6 +83,21 @@ public sealed class WarehouseContentTests
             },
         };
         Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(invalidFood));
+        var invalidGrain = invalidFood with
+        {
+            Society = invalidFood.Society with
+            {
+                Society = invalidFood.Society.Society with
+                {
+                    Inventory = invalidFood.Society.Society.Inventory with
+                    {
+                        Lots = invalidFood.Society.Society.Inventory.Lots.Select(lot =>
+                            lot.Id == "invalid-warehouse-food" ? lot with { ItemKind = "grain" } : lot).ToArray(),
+                    },
+                },
+            },
+        };
+        Assert.Throws<InvalidDataException>(() => PrivateWorldRuntime.Restore(invalidGrain));
 
         var house = seed.WorldContent.Buildings.Single(item => item.LocalId == "house-1x1");
         var materialPickup = reloaded with

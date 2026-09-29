@@ -183,6 +183,23 @@ public sealed partial class PrivateWorldRuntime
         AppendEvent("warehouse_content_staged", manifest.PackageId);
     }
 
+    private void StageFarmContent()
+    {
+        var packages = contentRegistry.ExportState().Packages;
+        if (packages.Any(package => package.Manifest.PackageId == FarmContent.PackageId) ||
+            !packages.Any(package => package.Manifest.PackageId == HouseContent.PackageId &&
+                package.Lifecycle == ContentPackageLifecycle.Active))
+            return;
+        var manifest = FarmContent.Create();
+        var resolution = ContentPackageResolver.Resolve(packages.Select(package => package.Manifest).Append(manifest),
+            [manifest.PackageId]);
+        contentRegistry.Propose(manifest, WorldTick);
+        contentRegistry.Validate(manifest.PackageId, resolution, WorldTick);
+        contentRegistry.Approve(manifest.PackageId, WorldTick);
+        contentRegistry.Stage(manifest.PackageId, WorldTick);
+        AppendEvent("farm_content_staged", manifest.PackageId);
+    }
+
     private void StageHouseCookingContent()
     {
         var packages = contentRegistry.ExportState().Packages;
@@ -384,6 +401,12 @@ public sealed partial class PrivateWorldRuntime
                 return;
             }
         }
+        if (building?.Tags.Contains("farmhouse", StringComparer.Ordinal) == true &&
+            society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId is null)
+        {
+            SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "A household is required to claim a Farmhouse." });
+            return;
+        }
         if (building?.Tags.Contains("warehouse", StringComparer.Ordinal) == true &&
             (TownForResident(inhabitantId) is not { } townId ||
              worldSimulation.Buildings.Any(placed => placed.TownId == townId &&
@@ -398,8 +421,10 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
-        var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true ||
-            recipe?.WorkstationBuildingId == House1x1DefinitionId
+        var constructionOwner = building?.Tags.Any(tag => tag is "house" or "farmhouse") == true ||
+            recipe?.Tags.Contains("grain", StringComparer.Ordinal) == true ||
+            recipe?.WorkstationBuildingId is { } workstationId && worldContent.Buildings.Any(definition =>
+                definition.CanonicalId == workstationId && definition.Tags.Any(tag => tag is "house" or "farmhouse"))
             ? HouseholdFor(inhabitantId) : society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId is null
                 ? inhabitantId : HouseholdId;
         var missing = inputs.FirstOrDefault(input => !HasAvailableQuantities([input], constructionOwner));
@@ -453,7 +478,7 @@ public sealed partial class PrivateWorldRuntime
                 return;
             }
         }
-        else if (!TryFindRecipeSite(recipe!, out _, out position))
+        else if (!TryFindRecipeSite(recipe!, out _, out position, inhabitantId))
         {
             SetProject(inhabitantId, project with { Stage = "blocked", Blocker = "Waiting for a free work site" });
             return;
@@ -603,9 +628,13 @@ public sealed partial class PrivateWorldRuntime
                 : worldContent.Recipes.FirstOrDefault(item => item.CanonicalId == selection.DefinitionId)?.Inputs;
             var constructionOwner = selection.IsBuilding &&
                 worldContent.Buildings.Any(item => item.CanonicalId == selection.DefinitionId &&
-                    item.Tags.Contains("house", StringComparer.Ordinal)) ||
+                    item.Tags.Any(tag => tag is "house" or "farmhouse")) ||
                 !selection.IsBuilding && worldContent.Recipes.Any(item =>
-                    item.CanonicalId == selection.DefinitionId && item.WorkstationBuildingId == House1x1DefinitionId)
+                    item.CanonicalId == selection.DefinitionId &&
+                    (item.Tags.Contains("grain", StringComparer.Ordinal) ||
+                     item.WorkstationBuildingId is { } workstationId && worldContent.Buildings.Any(definition =>
+                         definition.CanonicalId == workstationId &&
+                         definition.Tags.Any(tag => tag is "house" or "farmhouse"))))
                 ? HouseholdFor(person.InhabitantId) :
                     society.Checkpoint.GetInhabitant(person.InhabitantId).HouseholdId is null
                         ? person.InhabitantId : HouseholdId;

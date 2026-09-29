@@ -8,6 +8,15 @@ release yet.
 
 ### Added
 
+- Household builders can claim a provisional 1×1 Farmhouse. A distinct
+  universal-grain crop now yields household-owned grain; household members
+  carry grain to their Farmhouse before milling it into flour. Only that
+  household can process there, and the resulting flour remains inspectable
+  on site after reload. Unclaimed Farmhouses cannot produce, and food crops or
+  flour cannot be stored in the communal Warehouse. A field's output now goes
+  to its actual farmer's household instead of the old camp-alpha fallback.
+  Initial Farmhouse generation, farm fields' full growth states, private Silo,
+  sales and final recipes/footprints remain unfinished.
 - Town residents can build one 2×2 Warehouse inside their Town's growing
   building area. Adults may carry spare personal wood, stone, fiber or seeds
   there as communal stock; residents of another household can collect stored

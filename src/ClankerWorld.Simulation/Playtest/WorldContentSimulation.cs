@@ -142,7 +142,10 @@ public static class WorldContentSimulationRules
             }
 
             var isHouse = definition.Tags.Contains("house", StringComparer.Ordinal);
-            if (isHouse != !string.IsNullOrWhiteSpace(building.HouseholdId) ||
+            var acceptsHouseholdOwner = isHouse || definition.Tags.Contains("farmhouse", StringComparer.Ordinal);
+            if (isHouse && string.IsNullOrWhiteSpace(building.HouseholdId) ||
+                building.HouseholdId is not null && string.IsNullOrWhiteSpace(building.HouseholdId) ||
+                building.HouseholdId is not null && !acceptsHouseholdOwner ||
                 building.HouseholdId is { } householdId && householdId != householdId.Trim())
             {
                 throw new InvalidDataException($"Placed building '{building.InstanceId}' has invalid household ownership.");

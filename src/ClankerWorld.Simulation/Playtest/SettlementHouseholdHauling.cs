@@ -16,7 +16,8 @@ public sealed partial class PrivateWorldRuntime
     private InventoryLot? UnlocatedHouseholdStock(string householdId) =>
         society.Checkpoint.Inventory.Lots
             .Where(lot => lot.OwnerId == householdId && lot.StorageBuildingId is null &&
-                AvailableLotQuantity(lot) > 0)
+                AvailableLotQuantity(lot) > 0 &&
+                (lot.ItemKind != "grain" || FarmhouseForHousehold(householdId) is null))
             .OrderBy(lot => lot.ItemKind == "food" ? 0 : 1)
             .ThenBy(lot => lot.Id, StringComparer.Ordinal).FirstOrDefault();
 
@@ -29,7 +30,7 @@ public sealed partial class PrivateWorldRuntime
         if (CarriedHouseDelivery(actor) is { } carried)
         {
             candidates.Add(new("haul_household_stock",
-                "Carry already collected household supplies into the House.", 18,
+                "Deliver already collected household supplies to their building.", 18,
                 carried.DeliveryBuildingId));
             return;
         }

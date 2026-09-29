@@ -269,6 +269,20 @@ generation does not yet place a Warehouse; the 2×3 expansion, whole-inventory
 logistics, border-change policy and formal ownership remain open. Legacy
 Storehouses remain in old saves; agents stop proposing new ones after Warehouse
 content activates.
+An additive provisional 1×1 Farmhouse can be claimed by a household when
+placed or built. A universal-grain fertile-land recipe yields distinct grain
+and seed stock for the actual worker's household, instead of the prototype
+alpha-household fallback. Members physically carry unlocated household grain
+from camp (or already located grain from their House) to their own Farmhouse;
+the grain remains carried through save/reload and appears in Farmhouse
+inspection only after arrival. Milling consumes only grain physically at that
+Farmhouse and leaves flour there as private household stock. Unclaimed
+Farmhouses cannot process, and another household cannot work at a claimed
+Farmhouse. Grain and flour are excluded from communal Warehouse stock. The
+Farmhouse's wood/stone cost, 1×1 footprint, grain/seed yields and flour recipe
+are provisional pending balance/footprint decisions. It is not generated in
+the first Town yet; field stages, the adjacent private Silo, crop variety and
+sale of flour remain unfinished.
 Food provenance distinguishes foraging, crops, cooked meals and camp rations;
 inhabitants prefer a different available source, while monotonous diets reduce
 their diet score. Spoiled reserved ingredients cancel
