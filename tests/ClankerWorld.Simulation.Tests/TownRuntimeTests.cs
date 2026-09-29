@@ -137,9 +137,19 @@ public sealed class TownRuntimeTests
             Assert.Contains(world.ExportState().Events, item => item.Kind == "town_building_assigned");
             Assert.Contains(world.ExportState().Events, item => item.Kind == "town_border_expanded");
             Assert.NotEmpty(world.RoadTiles);
-            Assert.Contains(position, world.RoadTiles);
+            Assert.DoesNotContain(position, world.RoadTiles);
+            Assert.Contains(world.RoadTiles, road => map.FootNeighbors(position).Contains(road) &&
+                !map.IsDiagonalFootStep(position, road));
+            Assert.Empty(world.RoadTiles.Intersect(world.WorldSimulation.Buildings.SelectMany(building =>
+            {
+                var size = world.WorldContent.Buildings.Single(item => item.CanonicalId == building.DefinitionId);
+                return WorldContentSimulationRules.Footprint(size, building.Position);
+            })));
             Assert.All(world.RoadTiles, point => Assert.True(map.IsBuildable(point)));
             Assert.Contains(world.ExportState().Events, item => item.Kind == "town_road_generated");
+            var roadOverlap = world.PlaceBuilding("road-overlap-test", definition.CanonicalId, world.RoadTiles[0]);
+            Assert.False(roadOverlap.Applied);
+            Assert.Contains("Road", roadOverlap.Failure);
 
             var snapshot = new OwnerWorldObservationStore(world).GetSnapshot();
             var projectedTown = Assert.Single(snapshot.Towns);

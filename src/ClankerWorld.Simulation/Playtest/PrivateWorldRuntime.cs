@@ -2006,6 +2006,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         var definitions = worldContent.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
         var occupied = map.CampObjects.Select(item => item.Position)
             .Concat(map.Resources.Select(item => item.Position))
+            .Concat(roadTiles)
             .Concat(worldSimulation.Buildings.SelectMany(building =>
             {
                 if (!definitions.TryGetValue(building.DefinitionId, out var definition))
@@ -2198,6 +2199,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         var occupied = map.CampObjects
             .Select(item => item.Position)
             .Concat(map.Resources.Select(item => item.Position))
+            .Concat(roadTiles)
             .ToHashSet();
         var buildingDefinitions = worldContent.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
         foreach (var placed in worldSimulation.Buildings)
@@ -2216,7 +2218,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
 
         if (footprint.Any(occupied.Contains))
         {
-            failure = "The building footprint overlaps an existing object, resource, or building.";
+            failure = "The building footprint overlaps an existing object, resource, Road, or building.";
             return false;
         }
 

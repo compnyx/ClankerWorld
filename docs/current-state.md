@@ -228,11 +228,15 @@ and save/reload. Weather still rolls by day. Away from buildings, an agent can
 now seek nearby forest or a standing tree in a storm; cover reduces exposure
 at the agent's actual tile. A Town-assigned building can now lay persistent,
 world-owned Road tiles along a bounded dry-land route to the camp or existing
-Road network. Roads appear in the world/overview and tile inspection, bias foot
+Road network. New Roads meet a building beside its footprint at a passable
+entrance; they do not paint through that building. First-Town setup uses the
+same entrance rule and connected orthogonal branches, and future construction
+sites exclude existing Roads. Roads appear in the
+world/overview and tile inspection, bias foot
 routing and remove a diagonal wait tick where both tiles have Road. The current
 70% step-cost factor is provisional; ordinary walking never creates Roads.
 Unroutable buildings remain disconnected rather than painting Roads over water
-or mountains. Starter layout Roads, inter-Town links and bridges remain absent.
+or mountains. Inter-Town links and bridges remain absent.
 A first 1×1 House design now has saved household
 ownership and only its household receives nearby refuge and house-fire warmth;
 its construction consumes that household's materials rather than the prototype

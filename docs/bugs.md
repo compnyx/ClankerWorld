@@ -39,11 +39,14 @@ specific paired-client check; see the resolution evidence below.
   Town border before the player chooses a site. Fresh New World setup should
   show no established Town or obsolete starter camp until its layout is
   accepted; preserve the active playtest save while changing generation.
-- **Starter Roads cross building footprints — confirmed:** the current planner
-  seeds and joins routes at building anchor tiles. Replan Roads outside each
-  footprint with adjacent entrances and a coherent connected layout; the
+- **Starter Roads cross building footprints — confirmed in playtest build:**
+  the deployed planner seeds and joins routes at building anchor tiles. New
+  Roads need to stay outside each footprint and meet adjacent entrances; the
   player's sketch favors a central spine with short branches, not a rigid
-  blueprint. Existing Road speed and generated ownership rules remain.
+  blueprint. Existing Road speed and generated ownership rules remain. The
+  source repair now keeps new starter/growth Roads beside entrances and bars
+  later construction on Roads; previously saved overlapping Road tiles still
+  require a compatibility-safe repair and the running world is not rewritten.
 - **Terrain distribution and art need revision — partly traced:** current
   surface classification makes every low-elevation bank beside any water
   sandy, including rivers; vegetation is classified independently so a tree

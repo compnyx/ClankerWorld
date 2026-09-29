@@ -20,24 +20,42 @@ public sealed partial class PrivateWorldRuntime
     private void GenerateRoadToBuilding(PlacedBuilding building)
     {
         if (building.TownId is null) return;
-        var target = building.Position;
-        var network = roadTiles.Count > 0
-            ? roadTiles
-            : new HashSet<GridPoint> { map.GetObject("storage").Position };
+        var buildingDesign = worldContent.Buildings.Single(item => item.CanonicalId == building.DefinitionId);
+        var footprint = WorldContentSimulationRules.Footprint(buildingDesign, building.Position).ToHashSet();
         var occupied = map.Resources.Select(item => item.Position)
-            .Concat(map.CampObjects.Where(item => item.Id != "storage").Select(item => item.Position))
-            .Concat(worldSimulation.Buildings.Where(item => item.InstanceId != building.InstanceId)
+            .Concat(map.CampObjects.Select(item => item.Position))
+            .Concat(worldSimulation.Buildings
                 .SelectMany(item =>
                 {
                     var design = worldContent.Buildings.Single(value => value.CanonicalId == item.DefinitionId);
                     return WorldContentSimulationRules.Footprint(design, item.Position);
                 }))
             .ToHashSet();
+        var entrances = footprint.SelectMany(point => map.FootNeighbors(point)
+                .Where(next => !map.IsDiagonalFootStep(point, next)))
+            .Where(point => !occupied.Contains(point) && map.IsBuildable(point))
+            .Distinct().OrderBy(point => point.Y).ThenBy(point => point.X).ToArray();
+        if (entrances.Length == 0)
+        {
+            AppendEvent("town_road_unconnected", $"{building.TownId}:{building.InstanceId}:no_entrance");
+            return;
+        }
+        var network = roadTiles.Count > 0 ? roadTiles.ToHashSet() : map.CampObjects
+            .Where(item => item.Id == "storage")
+            .SelectMany(item => map.FootNeighbors(item.Position)
+                .Where(point => !map.IsDiagonalFootStep(item.Position, point)))
+            .Where(point => map.IsBuildable(point) && !occupied.Contains(point))
+            .ToHashSet();
+        if (network.Count == 0) network.Add(entrances[0]);
         var open = new PriorityQueue<GridPoint, (int Cost, int Y, int X, int Order)>();
-        var best = new Dictionary<GridPoint, int> { [target] = 0 };
+        var best = new Dictionary<GridPoint, int>();
         var predecessor = new Dictionary<GridPoint, GridPoint>();
         var order = 0;
-        open.Enqueue(target, (0, target.Y, target.X, order++));
+        foreach (var entrance in entrances)
+        {
+            best[entrance] = 0;
+            open.Enqueue(entrance, (0, entrance.Y, entrance.X, order++));
+        }
 
         while (open.TryDequeue(out var current, out var priority) && best.Count <= MaximumLandRoadSearchTiles)
         {
@@ -48,8 +66,8 @@ public sealed partial class PrivateWorldRuntime
                 while (true)
                 {
                     if (roadTiles.Add(current)) added++;
-                    if (current == target) break;
-                    current = predecessor[current];
+                    if (!predecessor.TryGetValue(current, out var previous)) break;
+                    current = previous;
                 }
                 if (added > 0)
                     AppendEvent("town_road_generated", $"{building.TownId}:{building.InstanceId}:tiles:{added}");
@@ -59,9 +77,7 @@ public sealed partial class PrivateWorldRuntime
             foreach (var next in map.FootNeighbors(current))
             {
                 if (!map.IsBuildable(next) || occupied.Contains(next) && !network.Contains(next) ||
-                    map.IsDiagonalFootStep(current, next) &&
-                    (!map.IsBuildable(new GridPoint(next.X, current.Y)) ||
-                     !map.IsBuildable(new GridPoint(current.X, next.Y))))
+                    map.IsDiagonalFootStep(current, next))
                     continue;
                 var cost = checked(priority.Cost + map.FootStepCost(current, next));
                 if (best.TryGetValue(next, out var previous) && previous <= cost) continue;

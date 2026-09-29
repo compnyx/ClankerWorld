@@ -43,8 +43,11 @@ public static class FirstTownLayoutPlanner
         {
             var placed = new List<FirstTownLayoutBuilding>();
             var occupied = new HashSet<GridPoint>(unavailable);
-            var roads = new HashSet<GridPoint> { warehouse };
             AddBuilding(definitions[0], warehouse, placed, occupied);
+            var warehouseEntrances = Entrances(definitions[0].Definition, warehouse)
+                .Where(point => map.IsBuildable(point) && !occupied.Contains(point)).ToArray();
+            if (warehouseEntrances.Length == 0) continue;
+            var roads = new HashSet<GridPoint> { warehouseEntrances[0] };
             var complete = true;
             foreach (var definition in definitions.Skip(1))
             {
@@ -54,9 +57,10 @@ public static class FirstTownLayoutPlanner
                     if (!Fits(map, definition.Definition, candidate, occupied) || roads.Contains(candidate) ||
                         Footprint(definition.Definition, candidate).Any(roads.Contains))
                         continue;
-                    var ownFootprint = Footprint(definition.Definition, candidate)
-                        .Where(point => point != candidate).ToHashSet();
-                    var path = RoadPath(map, roughSite, candidate, roads, occupied, ownFootprint);
+                    var ownFootprint = Footprint(definition.Definition, candidate).ToHashSet();
+                    var path = Entrances(definition.Definition, candidate)
+                        .Select(entrance => RoadPath(map, roughSite, entrance, roads, occupied, ownFootprint))
+                        .FirstOrDefault(route => route is not null);
                     if (path is null) continue;
                     AddBuilding(definition, candidate, placed, occupied);
                     roads.UnionWith(path);
@@ -90,6 +94,20 @@ public static class FirstTownLayoutPlanner
         Enumerable.Range(0, definition.Height).SelectMany(dy =>
             Enumerable.Range(0, definition.Width).Select(dx => new GridPoint(anchor.X + dx, anchor.Y + dy)));
 
+    private static GridPoint[] Entrances(BuildingDefinition definition, GridPoint anchor) =>
+        Footprint(definition, anchor)
+            .SelectMany(point => new[]
+            {
+                new GridPoint(point.X, point.Y - 1),
+                new GridPoint(point.X + 1, point.Y),
+                new GridPoint(point.X, point.Y + 1),
+                new GridPoint(point.X - 1, point.Y),
+            })
+            .Where(point => point.X < anchor.X || point.X >= anchor.X + definition.Width ||
+                point.Y < anchor.Y || point.Y >= anchor.Y + definition.Height)
+            .Distinct()
+            .OrderBy(point => point.Y).ThenBy(point => point.X).ToArray();
+
     private static bool Fits(SeededMap map, BuildingDefinition definition, GridPoint anchor,
         HashSet<GridPoint> occupied) =>
         Footprint(definition, anchor).All(point => map.IsBuildable(point) && !occupied.Contains(point));
@@ -106,6 +124,7 @@ public static class FirstTownLayoutPlanner
         GridPoint start, HashSet<GridPoint> network, HashSet<GridPoint> occupied,
         HashSet<GridPoint> ownFootprint)
     {
+        if (!RoadGround(start)) return null;
         var queue = new Queue<GridPoint>();
         var predecessor = new Dictionary<GridPoint, GridPoint>();
         var visited = new HashSet<GridPoint> { start };
@@ -124,12 +143,10 @@ public static class FirstTownLayoutPlanner
             }
             foreach (var next in map.FootNeighbors(current))
             {
-                if (Math.Abs(next.X - center.X) > RoadSearchRadius ||
+                if (map.IsDiagonalFootStep(current, next) ||
+                    Math.Abs(next.X - center.X) > RoadSearchRadius ||
                     Math.Abs(next.Y - center.Y) > RoadSearchRadius || visited.Contains(next) ||
-                    !RoadGround(next) ||
-                    map.IsDiagonalFootStep(current, next) &&
-                    (!RoadGround(new GridPoint(next.X, current.Y)) ||
-                     !RoadGround(new GridPoint(current.X, next.Y))))
+                    !RoadGround(next))
                     continue;
                 visited.Add(next);
                 predecessor[next] = current;
@@ -139,6 +156,6 @@ public static class FirstTownLayoutPlanner
         return null;
 
         bool RoadGround(GridPoint point) => map.IsBuildable(point) && !ownFootprint.Contains(point) &&
-            (!occupied.Contains(point) || network.Contains(point));
+            !occupied.Contains(point);
     }
 }

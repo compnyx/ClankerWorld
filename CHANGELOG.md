@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- Starter Town and later Town-building Roads now connect beside building
+  entrances, never through their footprints. New branches use connected
+  orthogonal ground tiles instead of painting a building anchor as Road. Future
+  construction sites cannot overlap an existing Road.
+
 - Small/Medium world zoom-out now stops before showing empty space beyond the
   map, while larger maps retain a shared 8 px overview floor. Maximum zoom-in
   now frames roughly the same world height across 720p and 1440p render sizes.

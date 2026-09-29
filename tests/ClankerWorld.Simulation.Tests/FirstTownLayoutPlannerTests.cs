@@ -89,15 +89,24 @@ public sealed class FirstTownLayoutPlannerTests
         }
 
         var roads = plan.RoadTiles.ToHashSet();
-        var reachable = new HashSet<GridPoint> { plan.Buildings[0].Position };
+        Assert.Empty(roads.Intersect(occupied));
+        Assert.NotEmpty(plan.RoadTiles);
+        var firstRoad = plan.RoadTiles[0];
+        var reachable = new HashSet<GridPoint> { firstRoad };
         var pending = new Queue<GridPoint>();
-        pending.Enqueue(plan.Buildings[0].Position);
+        pending.Enqueue(firstRoad);
         while (pending.TryDequeue(out var current))
         {
-            foreach (var next in map.FootNeighbors(current).Where(roads.Contains))
+            foreach (var next in map.FootNeighbors(current).Where(point => roads.Contains(point) &&
+                         !map.IsDiagonalFootStep(current, point)))
                 if (reachable.Add(next)) pending.Enqueue(next);
         }
-        Assert.All(plan.Buildings, building => Assert.Contains(building.Position, reachable));
+        Assert.True(roads.SetEquals(reachable));
+        Assert.All(plan.Buildings, building =>
+            Assert.Contains(roads, road => Enumerable.Range(0, building.Height)
+                .SelectMany(dy => Enumerable.Range(0, building.Width)
+                    .Select(dx => new GridPoint(building.Position.X + dx, building.Position.Y + dy)))
+                .Any(tile => Math.Abs(road.X - tile.X) + Math.Abs(road.Y - tile.Y) == 1)));
         Assert.All(plan.RoadTiles, point => Assert.True(map.IsBuildable(point)));
     }
 }
