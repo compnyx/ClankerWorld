@@ -241,6 +241,11 @@ until guest-entry rules are decided.
 The current four-unit load is a prototype rule, not an accepted carrying
 capacity. House access requires recorded household membership even when an
 unassigned resident can still use the old camp fallback.
+A household with an existing House no longer proposes a second House;
+in-progress duplicate House plans end without spending supplies. A newcomer
+placed on that House's property joins its household and can use the home, but
+unaffiliated residents do not yet negotiate entry or decide to form a new
+household. The invitation and permission rules remain open.
 Other gathering, cross-household helper and production paths do not yet
 physically deliver goods to House storage. Legacy Shelters remain loadable.
 Houses are not yet guaranteed at world start; expansion and guest entry are

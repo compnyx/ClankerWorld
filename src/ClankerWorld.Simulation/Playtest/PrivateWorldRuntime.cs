@@ -3037,6 +3037,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:household_required");
                 return;
             }
+            if (houseOwner is not null && HouseForHousehold(houseOwner) is not null)
+            {
+                AppendEvent("build_rejected", $"{inhabitantId}:{candidateId}:existing_house");
+                return;
+            }
 
             var position = rankedSite.Position;
             if (state.Position != position)
@@ -3420,7 +3425,8 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var layout = CreateTownLayoutContext(inhabitant.Id);
             foreach (var definition in worldContent.Buildings)
             {
-                if (definition.Tags.Contains("house", StringComparer.Ordinal) && inhabitant.HouseholdId is null)
+                if (definition.Tags.Contains("house", StringComparer.Ordinal) &&
+                    (inhabitant.HouseholdId is null || HouseForHousehold(inhabitant.HouseholdId) is not null))
                     continue;
                 if (definition.PackageDigest == LegacyStarterDigest && definition.LocalId == "shelter" &&
                     worldContent.Buildings.Any(building => building.Tags.Contains("house", StringComparer.Ordinal)))

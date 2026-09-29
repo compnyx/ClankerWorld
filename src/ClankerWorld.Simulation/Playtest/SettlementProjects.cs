@@ -353,6 +353,20 @@ public sealed partial class PrivateWorldRuntime
             SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "Content is no longer active" });
             return;
         }
+        if (building?.Tags.Contains("house", StringComparer.Ordinal) == true)
+        {
+            var householdId = society.Checkpoint.GetInhabitant(inhabitantId).HouseholdId;
+            if (householdId is null)
+            {
+                SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "A household is required to own a House." });
+                return;
+            }
+            if (HouseForHousehold(householdId) is not null)
+            {
+                SetProject(inhabitantId, project with { Stage = "cancelled", Blocker = "This household already has a House." });
+                return;
+            }
+        }
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
         var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true ||
             recipe?.WorkstationBuildingId == House1x1DefinitionId

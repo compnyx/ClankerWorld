@@ -1,3 +1,4 @@
+using ClankerWorld.Simulation.Cognition;
 using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Simulation.Kernel;
 using ClankerWorld.Simulation.Playtest;
@@ -102,6 +103,20 @@ public sealed class FounderSetupTests
         Assert.Equal("household:camp-alpha", restored.Society.GetInhabitant(secondAgentId).HouseholdId);
         Assert.Contains(agentId, restored.Towns.Single().ResidentIds);
         Assert.Contains(secondAgentId, restored.Towns.Single().ResidentIds);
+
+        var capture = new CandidateCaptureProvider();
+        var proposed = world.ExportState();
+        proposed = proposed with
+        {
+            Inhabitants = proposed.Inhabitants.Select(person => person.InhabitantId == agentId
+                ? person with { Aspiration = "build a home", HungerBasisPoints = 9_000 }
+                : person).ToArray(),
+        };
+        using var observing = PrivateWorldRuntime.Restore(proposed,
+            id => id == agentId ? capture : new CandidateCaptureProvider());
+        Assert.True((await observing.AdvanceOneTickAsync()).Advanced);
+        Assert.Contains(capture.CandidateIds, id => id.StartsWith("build:building:", StringComparison.Ordinal));
+        Assert.DoesNotContain(capture.CandidateIds, id => id.Contains(house.CanonicalId, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -185,6 +200,24 @@ public sealed class FounderSetupTests
         finally
         {
             directory.Delete(recursive: true);
+        }
+    }
+
+    private sealed class CandidateCaptureProvider : IDecisionProvider
+    {
+        public IReadOnlyList<string> CandidateIds { get; private set; } = [];
+        public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
+        public long ProviderEpoch => 0;
+
+        public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            CandidateIds = request.Observation.Candidates.Select(candidate => candidate.Id).ToArray();
+            return ValueTask.FromResult(new CognitionDecisionResponse(request.RequestId,
+                request.Observation.InhabitantId, Kind, ProviderEpoch, request.Observation.RunEpoch,
+                request.Observation.DecisionGeneration, request.Observation.ObservationDigest,
+                "safe_idle", 1, request.Observation.Candidates.ToDictionary(candidate => candidate.Id,
+                    candidate => candidate.Id == "safe_idle" ? 1d : 0d)));
         }
     }
 }

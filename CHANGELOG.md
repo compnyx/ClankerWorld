@@ -120,6 +120,10 @@ release yet.
 
 ### Fixed
 
+- Adults in a household that already has a House no longer plan a redundant
+  new House. An in-progress second-House project ends with a visible reason
+  before spending supplies; household invitation and new-household choices for
+  unaffiliated adults remain open.
 - New World map preview no longer fails with HTTP 409 when the previously
   selected world is running. Preview leaves that world untouched; creating or
   selecting a different world still pauses it first.

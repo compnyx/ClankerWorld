@@ -9,6 +9,51 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class SettlementProjectTests
 {
     [Fact]
+    public async Task ExistingHouseEndsAStaleSecondHouseProjectWithoutConsumingMaterials()
+    {
+        using var seed = new PrivateWorldRuntime("one-house-per-household-project", _ => new IdleProvider());
+        Assert.True(seed.StageStarterContent());
+        for (var tick = 0; tick < 6; tick++)
+            Assert.True((await seed.AdvanceOneTickAsync()).Advanced);
+        var state = seed.ExportState();
+        var actor = state.Society.Society.Inhabitants.First(person =>
+            person.HouseholdId == "household:camp-alpha").Id;
+        var sites = state.Map.Tiles.Select(tile => tile.Position).Where(point =>
+            state.Map.IsBuildable(point) &&
+            !state.Map.CampObjects.Any(item => item.Position == point) &&
+            !state.Map.Resources.Any(item => item.Position == point) &&
+            !state.Inhabitants.Any(person => person.Position == point)).Take(2).ToArray();
+        Assert.Equal(2, sites.Length);
+        var house = seed.WorldContent.Buildings.Single(building => building.LocalId == "house-1x1");
+        Assert.True(seed.PlaceBuilding("existing-alpha-house", house.CanonicalId, sites[0],
+            "household:camp-alpha").Applied);
+        state = seed.ExportState();
+        var woodBefore = seed.Society.Inventory.Lots.Where(lot =>
+            lot.OwnerId == "household:camp-alpha" && lot.ItemKind == "wood").Sum(lot => lot.Quantity);
+        state = state with
+        {
+            Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == actor
+                ? person with
+                {
+                    HungerBasisPoints = 9_000,
+                    Project = new SettlementProject(TownConstructionCandidateIds.Building(house.CanonicalId, sites[1]),
+                        house.DisplayName, seed.WorldTick, "acquiring", LastTransitionTick: seed.WorldTick),
+                }
+                : person).ToArray(),
+        };
+        using var world = PrivateWorldRuntime.Restore(state, _ => new IdleProvider());
+        Assert.True((await world.AdvanceOneTickAsync()).Advanced);
+        var project = world.Inhabitants.Single(person => person.InhabitantId == actor).Project!;
+        Assert.Equal("cancelled", project.Stage);
+        Assert.Equal("This household already has a House.", project.Blocker);
+        Assert.Single(world.WorldSimulation.Buildings, building => building.HouseholdId == "household:camp-alpha");
+        Assert.Equal(woodBefore, world.Society.Inventory.Lots.Where(lot =>
+            lot.OwnerId == "household:camp-alpha" && lot.ItemKind == "wood").Sum(lot => lot.Quantity));
+        Assert.Contains(world.ExportState().Events, item => item.Kind == "project_progress" &&
+            item.Detail.Contains("already has a House", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task CarriedProjectWoodAndHouseholdHelpAreDeliveredAtHome()
     {
         using var seed = new PrivateWorldRuntime("project-material-home", _ => new IdleProvider());
@@ -32,6 +77,7 @@ public sealed class SettlementProjectTests
             !state.Map.CampObjects.Any(item => item.Position == point) &&
             !state.Map.Resources.Any(item => item.Position == point) &&
             !state.Inhabitants.Any(person => person.Position == point));
+        var projectBuilding = seed.WorldContent.Buildings.Single(building => building.LocalId == "workshop");
         var inventory = state.Society.Society.Inventory with
         {
             Lots = state.Society.Society.Inventory.Lots.Where(lot =>
@@ -45,8 +91,8 @@ public sealed class SettlementProjectTests
                     Position = state.Map.GetObject("storage").Position,
                     HungerBasisPoints = 9_000,
                     Project = new SettlementProject(
-                        TownConstructionCandidateIds.Building(house.CanonicalId, buildSite),
-                        house.DisplayName, seed.WorldTick, "acquiring", LastTransitionTick: seed.WorldTick),
+                        TownConstructionCandidateIds.Building(projectBuilding.CanonicalId, buildSite),
+                        projectBuilding.DisplayName, seed.WorldTick, "acquiring", LastTransitionTick: seed.WorldTick),
                 } : person).ToArray(),
             Society = state.Society with
             {
