@@ -502,6 +502,36 @@ respects existing foot-neighbour rules; temporary actor occupancy is still handl
 by movement. The generated-island regression uses accepted Add Agent placement
 and ordinary ticks, with save/reload. No boats, placement or hunger rules change.
 
+### Interrupted exploration path (#315)
+
+When legal intervening movement leaves a scout away from the old path endpoint,
+resuming scouting explicitly aborts that outing and starts from the actual
+position. The visited ledger remains; no intervening tiles are invented and the
+adjacency validator is unchanged. Unfinished outing discoveries remain personal
+knowledge, but do not produce a completed field artifact merely because of the
+interruption. The regression follows a public travel instruction and validates
+save/restore on every subsequent tick, including completion of the new outing.
+
+### Inherited physical knowledge items (#317)
+
+An indivisible quantity-one field map/record retains its physical lot ID during
+estate distribution. Only ownership/location changes; creator, discovery facts
+and artifact linkage remain. Ordinary divisible estate stock retains its split
+IDs and quantity rules. Regression uses a naturally created artifact with default
+and selected-heir settlement, actual recovery-file reload and heir inspection;
+receiving it does not broadcast facts to the population. Existing trade/share
+paths continue to use the same stable physical link.
+
+### Founder placement consistency (#336, #337)
+
+Founder placement restores the prior in-memory world and protected provider
+configuration if its checkpoint commit fails. Selection and founder/add-agent
+setup use a shared transaction lock across checkpoint and routing restoration,
+preventing a concurrent successful placement from losing its assignment. This
+handles ordinary operation failures, not process termination between separate
+files or a second failure while writing rollback; those remain operator recovery
+cases. It is not a claim that every owner endpoint is a multi-file transaction.
+
 ### Death and barter reservations (#316)
 
 Estate escrow now cancels only open offers using the ordinary barter cancellation
@@ -516,3 +546,11 @@ autosaves. Rotation off retains the existing one-checkpoint behavior for that
 world only. The signed endpoint regression uses two worlds and compares every
 other-world metadata/checkpoint byte for rotation 0, 5 and 10. This does not
 change retention policy or attempt recovery of previously deleted files.
+
+### Durable owner retries (#335)
+
+Pause and rename persist before acknowledging success even when their in-memory
+mutation is a no-op. A failed write remains an error; after storage recovers, a
+signed retry makes the already requested value durable. The filesystem-obstruction
+regression verifies restore after both endpoint retries. No automatic Resume or
+background spending is introduced.
