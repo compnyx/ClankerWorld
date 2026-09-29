@@ -35,19 +35,6 @@ public partial class Main
 
     private void BuildControlsPanel(Control content)
     {
-        var body = new VBoxContainer();
-        body.AddThemeConstantOverride("separation", 8);
-        var heading = new HBoxContainer();
-        var title = new Label { Text = "Controls", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        title.AddThemeFontSizeOverride("font_size", 20);
-        title.AddThemeColorOverride("font_color", new Color("F4F0E3"));
-        heading.AddChild(title);
-        var close = new Button { Text = "×", TooltipText = "Close (F1)", FocusMode = Control.FocusModeEnum.None };
-        StyleButton(close);
-        close.Pressed += controlsPanel.Hide;
-        heading.AddChild(close);
-        body.AddChild(heading);
-
         var grid = new GridContainer { Columns = 2 };
         grid.AddThemeConstantOverride("h_separation", 18);
         grid.AddThemeConstantOverride("v_separation", 5);
@@ -58,8 +45,7 @@ public partial class Main
             grid.AddChild(keyLabel);
             grid.AddChild(new Label { Text = action });
         }
-        body.AddChild(grid);
-        AddPanelContents(controlsPanel, body);
+        AddClosablePanelContents(controlsPanel, "Controls", grid);
         controlsPanel.ZIndex = 85;
         controlsPanel.Resized += PositionControlsPanel;
         controlsPanel.Hide();
