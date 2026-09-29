@@ -466,6 +466,15 @@ default. At its cap the host persists an explicit world pause before another
 paid request; ordinary deterministic choices remain free. The owner can grant
 100 further paid attempts in World Settings, then resume the world separately,
 or remove the cap.
+Unreadable or inconsistent accounting leaves the host reachable with paid calls
+blocked. World Settings reports unavailable totals and asks the operator to
+restore a trusted meter backup and restart; changing the cap cannot bypass this
+state. The damaged file is preserved. Replacement writes use private, unique
+temporary files flushed before rename; leftover partial files are never used
+as accounting authority. This is process-interruption protection, not a claim
+of directory-fsync durability under every filesystem or power-loss scenario.
+Windows recovery interaction remains unverified.
+
 The installation-local meter persists across worlds and host restarts but does
 not claim to reconcile against a provider invoice; token counts may be zero
 for attempts that never returned usage. At most 64 named provider/model/role

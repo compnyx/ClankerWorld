@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- A damaged model-call meter no longer prevents the host from starting. Paid
+  calls stay blocked, and World Settings explains how to restore accounting
+  without losing spent calls. Meter writes flush before replacing the file.
+
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.
   Settings has a new Theme choice of Light, Dark (dark wood with cream text)
