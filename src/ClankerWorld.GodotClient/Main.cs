@@ -211,6 +211,8 @@ public partial class Main : Control
     private OwnerWorldSnapshot? renderedMapSnapshot;
     private int currentTileSize = DefaultTileSize;
     private float cameraZoom = 1;
+    private float minimumCameraZoom = 0.65f;
+    private float maximumCameraZoom = 4f;
     private Vector2 cameraCenterTiles;
     private string? cameraWorldId;
     private bool draggingMap;
@@ -340,6 +342,31 @@ public partial class Main : Control
                 gameMenuPanel.CustomMinimumSize.X <= baseSettingsPanelWidth ||
                 selectedTilePanel.CustomMinimumSize.X <= baseTilePanelWidth)
                 throw new InvalidOperationException("UI Scale did not enlarge controls and panel geometry.");
+
+            uiScaleChoice.Select(0);
+            SetUiScale(0);
+            var generatedMap = smokeMap with
+            {
+                WorldId = "zoom-bounds-smoke",
+                PackedTerrain = new OwnerWorldPackedTerrain(256, 128, "terrain-kind-v1",
+                    Convert.ToBase64String(new byte[256 * 128])),
+            };
+            cameraZoom = 0.65f;
+            RenderMap(generatedMap);
+            if (mapStage.Size.Y * 0.7f < mapCanvas.Size.Y - 1)
+                throw new InvalidOperationException("Small-map zoom-out exposed the north/south map edge at 1440p.");
+            cameraZoom = maximumCameraZoom;
+            RenderMap(generatedMap);
+            var highResolutionVisibleRows = mapCanvas.Size.Y / currentTileSize;
+            displayWindow.Size = new Vector2I(1280, 720);
+            displayWindow.ContentScaleSize = new Vector2I(1280, 720);
+            for (var frame = 0; frame < 2; frame++)
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            cameraZoom = maximumCameraZoom;
+            RenderMap(generatedMap);
+            var lowResolutionVisibleRows = mapCanvas.Size.Y / currentTileSize;
+            if (Math.Abs(highResolutionVisibleRows - lowResolutionVisibleRows) > 2)
+                throw new InvalidOperationException($"Maximum zoom-in showed different world heights at 1440p and 720p: {highResolutionVisibleRows:0.0} versus {lowResolutionVisibleRows:0.0} rows.");
         }
         finally
         {
@@ -4810,6 +4837,29 @@ public partial class Main : Control
         var availableHeight = Math.Max(1, mapCanvas.Size.Y - 36 - ((mapHeight - 1) * TileGap));
         var fittedTileSize = (int)Math.Floor(Math.Min(availableWidth / mapWidth, availableHeight / mapHeight));
         var baseTileSize = Math.Clamp(fittedTileSize, 12, 220);
+        if (mapWidth >= 256 && mapHeight >= 128)
+        {
+            // Small and Medium maps stop before their north/south edges become
+            // black letterbox space. Larger maps share the same 8 px overview
+            // floor, independent of their total geographic area.
+            var minimumTileSize = mapWidth <= 512 && mapHeight <= 256
+                ? Math.Max(8, (int)MathF.Ceiling(MathF.Max(
+                    mapCanvas.Size.X / (mapWidth * 0.7f),
+                    mapCanvas.Size.Y / (mapHeight * 0.7f))))
+                : 8;
+            // Frame a similar number of world rows at maximum zoom-in on a
+            // 720p or 1440p display instead of fixing the maximum to 48 px.
+            var maximumTileSize = Math.Max(minimumTileSize,
+                Math.Clamp((int)MathF.Ceiling(mapCanvas.Size.Y / 14f), 48, 256));
+            minimumCameraZoom = Math.Max(0.65f, minimumTileSize / (float)baseTileSize);
+            maximumCameraZoom = Math.Max(minimumCameraZoom, maximumTileSize / (float)baseTileSize);
+        }
+        else
+        {
+            minimumCameraZoom = 0.65f;
+            maximumCameraZoom = 4f;
+        }
+        cameraZoom = Math.Clamp(cameraZoom, minimumCameraZoom, maximumCameraZoom);
         currentTileSize = Math.Clamp((int)MathF.Round(baseTileSize * cameraZoom), 8, 880);
 
         var stageSize = new Vector2(
@@ -4932,7 +4982,8 @@ public partial class Main : Control
             }
             else if (mouse.Pressed && mouse.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
             {
-                var nextZoom = Math.Clamp(cameraZoom * (mouse.ButtonIndex == MouseButton.WheelUp ? 1.25f : 0.8f), 0.65f, 4);
+                var nextZoom = Math.Clamp(cameraZoom * (mouse.ButtonIndex == MouseButton.WheelUp ? 1.25f : 0.8f),
+                    minimumCameraZoom, maximumCameraZoom);
                 if (Math.Abs(nextZoom - cameraZoom) > 0.001f)
                 {
                     cameraZoom = nextZoom;

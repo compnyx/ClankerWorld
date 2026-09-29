@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- Small/Medium world zoom-out now stops before showing empty space beyond the
+  map, while larger maps retain a shared 8 px overview floor. Maximum zoom-in
+  now frames roughly the same world height across 720p and 1440p render sizes.
+
 - Removed the noisy per-tile grain, striped surface edges and large circular
   cloud overlays from the provisional world view. Rain and snow marks still
   show regional weather without changing the simulation or saved terrain.
