@@ -191,6 +191,7 @@ if (advanceRuntime)
 var app = builder.Build();
 if (app.Services.GetRequiredService<ProviderUsageStore>().Capture().AccountingError is not null)
     ProviderUsageTelemetry.AccountingBlocked(app.Logger);
+ProviderCredentialTelemetry.Ready(app.Logger, OperatingSystem.IsWindows() ? "windows_current_user" : "private_file_permissions");
 app.Services.GetRequiredService<ProviderUsageStore>().LimitReached += () =>
 {
     if (isPrivateWorld)
