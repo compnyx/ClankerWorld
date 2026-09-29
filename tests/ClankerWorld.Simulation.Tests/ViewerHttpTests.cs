@@ -14,13 +14,42 @@ using Microsoft.Extensions.Logging;
 
 namespace ClankerWorld.Simulation.Tests;
 
-public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory) : IClassFixture<ViewerWebApplicationFactory>
+public sealed partial class ViewerHttpTests : IDisposable
 {
+    // The public pairing budget is host-wide; independent scenarios own independent hosts.
+    private readonly ViewerWebApplicationFactory factory = new();
+
+    public void Dispose() => factory.Dispose();
+
     private static readonly System.Text.Json.JsonSerializerOptions WebJsonOptions =
         new(System.Text.Json.JsonSerializerDefaults.Web);
 
     private const string ApprovedAssetDigest =
         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    [Fact]
+    public async Task PairingVolumeIsBoundedWithoutBlockingAnExistingOwnersSignedRequests()
+    {
+        using var host = new ViewerWebApplicationFactory();
+        using var client = host.CreateClient();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var device = await StartAndActivateAsync(host, client, key);
+        for (var index = 0; index < 7; index++)
+        {
+            using var rejected = await client.PostAsJsonAsync("/api/v1/pairings", new StartOwnerPairingHttpRequest("invalid"));
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        }
+        using var limited = await client.PostAsJsonAsync("/api/v1/pairings", new StartOwnerPairingHttpRequest("invalid"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.NotNull(limited.Headers.RetryAfter);
+        using var owner = await SendSignedAsync(host, client, key, device.DeviceId, "/api/v1/owner/reconnect",
+            new OwnerReconnectAction(0), OwnerHttpBinding.ReconnectPayload(new OwnerReconnectAction(0)));
+        Assert.Equal(HttpStatusCode.OK, owner.StatusCode);
+        using var hidden = await client.PostAsJsonAsync("/api/v1/local/pairings", new StartOwnerPairingHttpRequest("invalid"));
+        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        using var oversized = await client.PostAsJsonAsync("/api/v1/pairings", new StartOwnerPairingHttpRequest(new string('x', 17_000)));
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
+    }
 
     [Fact]
     public void DefaultProviderUsageMeterUsesTheConfiguredPrivateStateDirectory()

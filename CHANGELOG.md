@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- Public pairing creation is limited to eight attempts per minute and pairing
+  request bodies to 16 KiB. Signed owner actions remain available. Host-local
+  recovery can replace one unapproved request in a full pairing queue without
+  discarding an approved pairing or revoking an active device.
+
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.
   Settings has a new Theme choice of Light, Dark (dark wood with cream text)
