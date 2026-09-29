@@ -1112,9 +1112,8 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                 Assert.Equal(personalStatus.Revision, host.Services.GetRequiredService<ProviderConfigurationStore>().CaptureStatus().Revision);
 
                 var providerPath = host.Services.GetRequiredService<ProviderConfigurationStore>().Path;
-                var providerStore = host.Services.GetRequiredService<ProviderConfigurationStore>();
                 Assert.Equal(secret, new ProviderConfigurationStore(providerPath,
-                    providerStore.CaptureRuntimeConfiguration()).CaptureRuntimeConfiguration().OpenAi.ApiKey);
+                    new ProviderConfigurationSeed("deterministic", null, null, null, null, null, null)).CaptureRuntimeConfiguration().OpenAi.ApiKey);
                 if (OperatingSystem.IsWindows())
                     Assert.DoesNotContain(secret, File.ReadAllText(providerPath), StringComparison.Ordinal);
                 foreach (var file in Directory.EnumerateFiles(directory).Where(path => path != providerPath))
@@ -1200,7 +1199,7 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                     action with { CredentialSlotId = Guid.NewGuid().ToString("N") }));
             Assert.Equal(HttpStatusCode.Unauthorized, tampered.StatusCode);
             Assert.Equal(secret, Assert.Single(new ProviderConfigurationStore(store.Path,
-                store.CaptureRuntimeConfiguration()).CaptureRuntimeConfiguration().CredentialSlots!).ApiKey);
+                new ProviderConfigurationSeed("deterministic", null, null, null, null, null, null)).CaptureRuntimeConfiguration().CredentialSlots!).ApiKey);
             if (OperatingSystem.IsWindows())
                 Assert.DoesNotContain(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
 
@@ -1216,7 +1215,7 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
             var status = await removed.Content.ReadFromJsonAsync<OwnerProviderConfigurationStatus>();
             Assert.Empty(status!.CredentialSlots!);
             Assert.Empty(new ProviderConfigurationStore(store.Path,
-                store.CaptureRuntimeConfiguration()).CaptureRuntimeConfiguration().CredentialSlots!);
+                new ProviderConfigurationSeed("deterministic", null, null, null, null, null, null)).CaptureRuntimeConfiguration().CredentialSlots!);
             Assert.DoesNotContain(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
             Assert.DoesNotContain(secret, await removed.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         }
