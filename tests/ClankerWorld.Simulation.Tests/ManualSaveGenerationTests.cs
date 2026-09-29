@@ -58,8 +58,9 @@ public sealed class ManualSaveGenerationTests
             runtime.SetJevEnabled(false);
             using (var locked = new FileStream(Path.Combine(path + ".manual", save.Id + ".meta.json"), FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                Assert.Throws<IOException>(() => store.Overwrite(save.Id, runtime,
+                var failure = Record.Exception(() => store.Overwrite(save.Id, runtime,
                     [assignments[0] with { Model = "new-model" }], settings with { Enabled = false }));
+                Assert.True(failure is IOException or UnauthorizedAccessException, failure?.ToString() ?? "Expected metadata replacement to fail.");
             }
             var reopened = new ManualWorldSaveStore(path);
             Assert.Equal(original, PrivateWorldRuntimeCodec.Encode(reopened.Read(save.Id)));
