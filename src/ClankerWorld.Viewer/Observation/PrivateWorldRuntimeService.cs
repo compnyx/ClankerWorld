@@ -18,6 +18,14 @@ public sealed partial class PrivateWorldRuntimeService(
     ProviderConfigurationStore? providers = null) : BackgroundService
 {
     private string? lastGateState;
+    private bool recoveryWritePending;
+    private bool invalidStateHalt;
+    private bool writingCheckpoint;
+
+    [LoggerMessage(EventId = 2287, Level = LogLevel.Error,
+        Message = "world_recovery outcome={Outcome} tick={WorldTick} reason={Reason}")]
+    private static partial void LogRecovery(ILogger logger, string outcome, long worldTick, string reason);
+
 
     [LoggerMessage(EventId = 2215, Level = LogLevel.Information,
         Message = "work_practice tick={WorldTick} inhabitant={InhabitantId} building={Building} farming={Farming} crafting={Crafting}")]
@@ -101,6 +109,55 @@ public sealed partial class PrivateWorldRuntimeService(
     /// </summary>
     public async ValueTask<bool> TryAdvanceOnceAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (invalidStateHalt)
+        {
+            runtime.Pause();
+            return false;
+        }
+        try
+        {
+            if (recoveryWritePending)
+            {
+                // Keep the advanced in-memory state, retry only its checkpoint,
+                // and require a later explicit Resume after recovery succeeds.
+                runtime.Pause();
+                writingCheckpoint = true;
+                stateFile.Save(runtime);
+                writingCheckpoint = false;
+                recoveryWritePending = false;
+                if (logger is not null) LogRecovery(logger, "saved_paused", runtime.WorldTick, "write_recovered");
+                return false;
+            }
+            return await TryAdvanceCoreAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            runtime.Pause();
+            runtime.CancelPendingHostedDecisions();
+            var writeFailure = writingCheckpoint && exception is (IOException or UnauthorizedAccessException);
+            writingCheckpoint = false;
+            if (writeFailure)
+            {
+                if (!recoveryWritePending && logger is not null)
+                    LogRecovery(logger, "held_for_write", runtime.WorldTick, exception.GetType().Name);
+                recoveryWritePending = true;
+            }
+            else
+            {
+                invalidStateHalt = true;
+                if (logger is not null) LogRecovery(logger, "halted_for_inspection", runtime.WorldTick, exception.GetType().Name);
+            }
+            return false;
+        }
+    }
+
+    private async ValueTask<bool> TryAdvanceCoreAsync(CancellationToken cancellationToken)
+    {
         if (!clientPresence.HasActiveClient)
         {
             runtime.CancelPendingHostedDecisions();
@@ -130,7 +187,10 @@ public sealed partial class PrivateWorldRuntimeService(
         LogGateTransition(result.Advanced ? "advancing" : result.Outcome, result.WorldTick);
         if (result.Advanced)
         {
-            if (stateFile.Save(runtime) && logger is not null)
+            writingCheckpoint = true;
+            var compacted = stateFile.Save(runtime);
+            writingCheckpoint = false;
+            if (compacted && logger is not null)
             {
                 var checkpoint = runtime.ExportState();
                 LogHistoryCompacted(logger, result.WorldTick, checkpoint.EventHistoryFloor, checkpoint.Events.Count);
