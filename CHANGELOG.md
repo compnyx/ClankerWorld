@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.
+
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
   changing saved membership, property or custom household names. Founder setup

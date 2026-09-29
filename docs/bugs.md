@@ -481,3 +481,11 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Mandatory instruction completion (#341)
+
+Recognized MustDo requests complete only when the requested legal action makes
+its corresponding state change (food acquired/eaten or a travel step). An accepted
+unrelated action, blocked movement or unavailable food does not consume the
+instruction. Pending instructions persist across reload. Suggestive instruction
+semantics remain unchanged; this does not reinterpret travel as a full-route goal.
