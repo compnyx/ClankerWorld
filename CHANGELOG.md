@@ -8,6 +8,8 @@ release yet.
 
 ### Added
 
+- Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
