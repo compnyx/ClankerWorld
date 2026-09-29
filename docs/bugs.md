@@ -508,3 +508,11 @@ autosaves. Rotation off retains the existing one-checkpoint behavior for that
 world only. The signed endpoint regression uses two worlds and compares every
 other-world metadata/checkpoint byte for rotation 0, 5 and 10. This does not
 change retention policy or attempt recovery of previously deleted files.
+
+### Durable owner retries (#335)
+
+Pause and rename persist before acknowledging success even when their in-memory
+mutation is a no-op. A failed write remains an error; after storage recovers, a
+signed retry makes the already requested value durable. The filesystem-obstruction
+regression verifies restore after both endpoint retries. No automatic Resume or
+background spending is introduced.
