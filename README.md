@@ -1,93 +1,89 @@
 # ClankerWorld
 
-**ClankerWorld** is a private, persistent
-simulation inhabited by autonomous people. The player observes the whole
-world, inspects its inhabitants, gives
-suggestive or mandatory instructions, and watches a deterministic simulation
-execute every accepted action.
+**ClankerWorld** is a private world simulation where AI agents live their own
+lives. They find food, keep warm, build, make friends, have children and grow old.
+You watch the whole world, click on anyone to see what they are doing and
+thinking, and can ask them to do things. Each agent can use its own AI model, and a
+strict rulebook decides what can actually happen, so every accepted action plays
+out the same way every time.
 
 The long-term goal is a small society that survives, builds, trades, forms
-relationships and institutions, and safely expands its own world. The current
-build is an early private alpha: the technical foundation is substantial, but
-the connected gameplay is still thin.
+relationships and institutions, and safely expands its own world.
 
-## Current state
+ClankerWorld is an **early private alpha**. The foundations are solid, but the
+game around them is still thin.
 
-The normal playable path is:
+## What works today
+
+You play with a Windows game client, connected securely to a world server that
+runs the simulation.
 
 ```text
-Windows Godot client
-        ↕ signed paired-owner HTTPS
-headless .NET world host on the private VPS
-        ↓
-authoritative simulation, saves, cognition and provider adapters
+Windows Godot client  ⇄  world server  →  simulation, saves and model calls
+     (what you see)      (secure link)       (what actually happens)
 ```
 
-Today the integrated private world has:
+- Create a world from a seed, choose where your Town goes, and add four founding
+  agents before time starts. After that, births and descendants are possible.
+- Agents move, get hungry and cold, gather and eat food, and build. Energy
+  and sleep are not part of the game.
+- The map has renewable resources, a calendar, seasons and weather.
+- Click an agent to see their needs, plans, belongings, relationships,
+  private thoughts and memories.
+- Pause and resume time, and give agents suggestions or firm instructions.
+- Agents can think with a built-in rulebook or with models from OpenAI or
+  Ollama Cloud. An optional helper called Jev can handle small everyday choices.
+- Worlds save and reload, and survive restarts.
 
-- a fresh paused base camp; the player adds four configured founders in-world
-  before starting time, after which births and descendants are possible;
-- movement, hunger, energy, harvesting, eating and sleep;
-- a seeded map, renewable resources, calendar, seasons and weather;
-- inspectable needs, intentions, inventories, relationships and events;
-- pause/resume, paired-device authority and owner instructions;
-- deterministic cognition plus optional Jev, OpenAI and Ollama Cloud roles;
-- save/reload, restart recovery and secret-safe operational telemetry;
-- governed data-only content, building and production machinery.
+Many deeper systems exist as building blocks but are not yet part of everyday
+play. Trade and social life are still narrow, and factions, law, currency and
+culture do not yet feel like a living civilization.
 
-The important limitation is that many deeper systems exist as contracts,
-fixtures or narrow runtime primitives rather than recurring player-visible
-loops. A starter and settlement content path now supplies materials and work,
-but trade and social life are still narrow. Factions, law, currency and culture
-do not yet feel like a living civilization.
+For details, see the [vision](docs/vision-interview.md) for the game we are
+aiming at, [current state](docs/current-state.md) for what works now, and
+[known bugs](docs/bugs.md) for what is broken.
 
-See the [vision interview](docs/vision-interview.md) for the intended game,
-the canonical [current-state report](docs/current-state.md) for what works,
-and [known bugs](docs/bugs.md) for confirmed defects and gaps.
+## How it works
 
-## Runtime rules
+- **The server decides.** The game client shows the world and sends requests. It
+  never changes the world directly.
+- **Time only runs while you are playing.** The world pauses about five seconds
+  after the last game client closes, and picks up exactly where it stopped when
+  you return. Nothing happens while you are away. A world you paused stays paused.
+- **Models choose, rules act.** A model picks from a short list of legal options.
+  Fixed rules check and carry out everything else: movement, costs, collisions,
+  work and results.
+- **Your keys stay private.** API keys stay on the server in a separate
+  restricted file. They are never sent back to the client, saved in a world or
+  written to logs.
 
-- The server is authoritative. Clients render observations and submit signed
-  requests; they never commit world state directly.
-- The host stays reachable, but simulation time and paid cognition advance only
-  while at least one authenticated game client has a current presence lease.
-- Closing the last client stops the world after a five-second grace period.
-  Reconnecting resumes from the same tick with no offline catch-up.
-- Manual pause remains paused after reconnecting.
-- Models choose only among legal high-level intentions. Deterministic code
-  validates and executes movement, costs, collisions, work and state changes.
-- Provider credentials remain on the host in a separate restricted file. They
-  are never returned to the client, stored in the world save or written to
-  telemetry.
+## Agents and their models
 
-## Cognition roles
-
-Each founder has a selected personal provider, model and saved API-key slot.
-Jev is an optional per-world support layer, not a replacement for that
-personal selection. Critical survival needs suppress strategic work. The
-current game has a starter content path, but richer autonomous planning and
-society remain future work in the [vision ledger](docs/vision-interview.md).
+You choose built-in rules or a personal model for each founding agent. Models
+can share a saved API key. Jev is an optional helper for the whole world. It
+does not replace an agent's own model. Urgent needs such as
+hunger and cold come before longer plans. See the [vision](docs/vision-interview.md)
+for where richer planning and society are headed.
 
 ## Repository layout
 
-| Path | Purpose |
+| Path | What it is |
 | --- | --- |
-| `src/ClankerWorld.Simulation` | Authoritative simulation, cognition, society, content and persistence |
-| `src/ClankerWorld.Viewer` | Headless HTTP host, pairing, signed owner API and live runtime |
-| `src/ClankerWorld.GodotClient` | Player-facing Godot client and Windows export |
-| `tests/ClankerWorld.Simulation.Tests` | Deterministic, protocol, persistence, security and client-contract tests |
-| `docs/vision-interview.md` | Canonical finished-game intent and open decisions |
-| `docs/current-state.md` | Canonical implemented/playable status |
-| `docs/bugs.md` | Canonical confirmed bugs and product gaps |
+| `src/ClankerWorld.Simulation` | The simulation: rules, agents, society, content and saving |
+| `src/ClankerWorld.Viewer` | The world server: pairing, the secure API and the live world |
+| `src/ClankerWorld.GodotClient` | The game you play, and its Windows build |
+| `tests/ClankerWorld.Simulation.Tests` | Automated tests for the rules, protocol, saving, security and client |
+| `docs/vision-interview.md` | What the finished game should be, and open questions |
+| `docs/current-state.md` | What works today |
+| `docs/bugs.md` | Confirmed bugs and gaps |
 
-The static web root retained by the host is legacy protocol-diagnostic
-infrastructure. It is not a supported game client and is deliberately not part
-of the normal player path.
+The web page the server also serves is a leftover diagnostic tool. It is not a
+supported way to play.
 
-## Build and verify
+## Build and test
 
-The authoritative projects use C# 14 on .NET 10. The client uses Godot 4.7.2
-with C# and exports an unsigned Windows 11 x64 portable bundle.
+The code uses C# 14 on .NET 10. The client uses Godot 4.7.2 with C# and builds
+an unsigned Windows 11 x64 bundle.
 
 ```bash
 dotnet restore --locked-mode
@@ -97,34 +93,32 @@ bash scripts/verify-godot-client.sh
 bash scripts/verify-godot-windows-export.sh
 ```
 
-The Windows bundle is uploaded by GitHub Actions. It is not yet a signed public
-release or installer.
+GitHub Actions uploads the Windows bundle. It is not yet a signed release or
+installer. See [building](docs/building.md) for more.
 
 ## Documentation
 
-Start at the [documentation map](docs/README.md). It keeps the intended game
-and current prototype separate.
+Start at the [documentation map](docs/README.md). It keeps the game we want and
+the prototype we have separate:
 
-The short version:
-
-1. [Vision interview and decision ledger](docs/vision-interview.md)
+1. [Vision](docs/vision-interview.md)
 2. [Current state](docs/current-state.md)
 3. [Architecture](docs/architecture.md)
 4. [Known bugs](docs/bugs.md)
 
 ## What ClankerWorld is not yet
 
-- a finished game or final-art UI;
-- a complete autonomous economy or society;
-- a signed installer or public desktop release;
-- a public server, MMO or multiplayer product;
-- a safe host for arbitrary generated code.
+- a finished game or final art;
+- a complete self-running economy or society;
+- a signed installer or public release;
+- a public server or multiplayer game;
+- a safe place to run arbitrary generated code.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Keep changes grounded in an observed
-gameplay need, an accepted decision, or reproducible evidence. Do not confuse a
-schema or fixture with a player-visible feature.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Base changes on something seen in play,
+an agreed decision, or evidence you can reproduce. A data type or test fixture
+is not a feature players can use.
 
 ## License
 
