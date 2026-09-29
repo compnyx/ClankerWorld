@@ -8,6 +8,8 @@ release yet.
 
 ### Added
 
+- The Event Log and unread badge now select explicitly supported player events; new internal event kinds no longer appear automatically as humanized diagnostics.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
