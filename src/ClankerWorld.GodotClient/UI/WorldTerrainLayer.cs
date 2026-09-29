@@ -27,6 +27,7 @@ public partial class WorldTerrainLayer : Control
     private readonly HashSet<Vector2I> townBorderTiles = [];
     private readonly HashSet<Vector2I> roadTiles = [];
     private readonly Dictionary<Vector2I, string> householdPropertyTiles = [];
+    private readonly List<(Rect2I Footprint, BuildingKind Kind)> buildings = [];
     private static readonly Color[] HouseholdPropertyColors =
     [
         new("4DC7B9"), new("9D89DF"), new("6AA6E8"), new("E69D70"),
@@ -114,6 +115,24 @@ public partial class WorldTerrainLayer : Control
         foreach (var entry in next) householdPropertyTiles.Add(entry.Key, entry.Value);
         QueueRedraw();
     }
+
+    /// <summary>Placed buildings and legacy camp objects that have a building look.</summary>
+    public void SetBuildings(IReadOnlyList<OwnerWorldPlacedBuilding> placed, IReadOnlyList<OwnerWorldObject> objects)
+    {
+        ArgumentNullException.ThrowIfNull(placed);
+        ArgumentNullException.ThrowIfNull(objects);
+        var next = placed.Select(building => (new Rect2I(building.Position.X, building.Position.Y,
+                Math.Max(1, building.Width), Math.Max(1, building.Height)), BuildingSprites.KindFor(building.Tags)))
+            .Concat(objects.Where(item => BuildingSprites.KindForObject(item.Kind) is not null)
+                .Select(item => (new Rect2I(item.Position.X, item.Position.Y, 1, 1), BuildingSprites.KindForObject(item.Kind)!.Value)))
+            .ToList();
+        if (next.SequenceEqual(buildings)) return;
+        buildings.Clear();
+        buildings.AddRange(next);
+        QueueRedraw();
+    }
+
+    public int BuildingSpriteCount => buildings.Count;
 
     public string WeatherAt(int x, int y)
     {
@@ -323,6 +342,7 @@ public partial class WorldTerrainLayer : Control
             }
         }
         DrawRoads(bounds, stride);
+        DrawBuildings(bounds, stride);
         // Trees are objects, not baked ground colors: keep them visible both
         // above full-size tiles and above the small-tile palette cache.
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
@@ -554,11 +574,43 @@ public partial class WorldTerrainLayer : Control
                 x >= 0 && x < world.Width && townBorderTiles.Contains(new Vector2I(x, y)));
     }
 
+    /// <summary>
+    /// Building roofs at their footprints (a flat roof color when zoomed out),
+    /// drawn again one world-width away when the map wraps so a building on
+    /// the seam stays whole.
+    /// </summary>
+    private void DrawBuildings((int Left, int Top, int Width, int Height) bounds, int stride)
+    {
+        if (world is null || buildings.Count == 0 || tileSize <= 0) return;
+        var visible = new Rect2I(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        var atlasSize = BuildingSprites.AtlasTileSize(tileSize);
+        foreach (var (footprint, kind) in buildings)
+        {
+            foreach (var shift in wrapsEastWest ? new[] { -world.Width, 0, world.Width } : [0])
+            {
+                var placed = footprint with { Position = footprint.Position + new Vector2I(shift, 0) };
+                if (!placed.Intersects(visible)) continue;
+                var rect = new Rect2(placed.Position.X * stride, placed.Position.Y * stride,
+                    placed.Size.X * stride - tileGap, placed.Size.Y * stride - tileGap);
+                if (tileSize < SpriteTileMinimum)
+                    DrawRect(rect, BuildingSprites.RoofColor(kind));
+                else
+                    DrawTextureRect(BuildingSprites.Texture(kind, footprint.Size.X, footprint.Size.Y, atlasSize), rect, false);
+            }
+        }
+    }
+
     private void DrawRoads((int Left, int Top, int Width, int Height) bounds, int stride)
     {
         if (world is null || roadTiles.Count == 0 || tileSize <= 0) return;
-        var color = new Color("BDA681");
-        var width = Math.Clamp(tileSize / 3f, 2f, 9f);
+        // A packed-dirt path: a darker worn edge under a lighter center.
+        DrawRoadLayer(bounds, stride, new Color("8F7B5B"), Math.Clamp(tileSize / 2.6f, 2f, 12f));
+        DrawRoadLayer(bounds, stride, new Color("C2AB84"), Math.Clamp(tileSize / 3.8f, 1f, 8f));
+    }
+
+    private void DrawRoadLayer((int Left, int Top, int Width, int Height) bounds, int stride, Color color, float width)
+    {
+        if (world is null) return;
         for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
             for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
             {

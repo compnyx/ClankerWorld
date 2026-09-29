@@ -889,6 +889,48 @@ public partial class Main : Control
             for (byte kind = 1; kind <= 11; kind++)
                 if (NatureSprites.ForNaturalObject(kind, 0) is null)
                     throw new InvalidOperationException($"Natural object {kind} has no sprite.");
+            var buildingData = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tilePixels in new[] { 16, 32 })
+                foreach (var kind in Enum.GetValues<BuildingKind>())
+                    foreach (var (footprintWidth, footprintHeight) in new[] { (1, 1), (2, 1), (1, 2), (2, 2) })
+                    {
+                        var roof = BuildingSprites.Render(kind, footprintWidth, footprintHeight, tilePixels);
+                        var covered = 0;
+                        for (var by = 0; by < roof.GetHeight(); by++)
+                            for (var bx = 0; bx < roof.GetWidth(); bx++)
+                                if (roof.GetPixel(bx, by).A > 0.05f) covered++;
+                        var area = roof.GetWidth() * roof.GetHeight();
+                        // A hearth is a fixed-size stone ring; roofs cover most of their footprint.
+                        var minimum = kind == BuildingKind.Hearth ? 0.05f : 0.2f;
+                        if (roof.GetWidth() != footprintWidth * tilePixels || roof.GetHeight() != footprintHeight * tilePixels ||
+                            roof.GetPixel(0, 0).A > 0 || covered < area * minimum || covered > area * 0.95f)
+                            throw new InvalidOperationException($"{kind} {footprintWidth}x{footprintHeight} {tilePixels}px building art must fill its footprint inside a clear margin: {covered} of {area} pixels.");
+                        if (tilePixels == 32 && footprintWidth == 2 && footprintHeight == 1 &&
+                            !buildingData.Add(Convert.ToBase64String(roof.GetData())))
+                            throw new InvalidOperationException($"{kind} buildings must look different from every other building family.");
+                    }
+            if (BuildingSprites.KindFor(["shelter"]) != BuildingKind.Shelter ||
+                BuildingSprites.KindFor(["house", "shelter"]) != BuildingKind.House ||
+                BuildingSprites.KindFor(["cooking", "warmth"]) != BuildingKind.Hearth ||
+                BuildingSprites.KindFor(null) != BuildingKind.Generic ||
+                BuildingSprites.KindForObject("campfire") != BuildingKind.Hearth ||
+                BuildingSprites.KindForObject("resource") is not null)
+                throw new InvalidOperationException("Buildings and camp objects must pick their art family from their recorded tags and kinds.");
+            var agentData = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var agentSize in new[] { 16, 32 })
+                for (var stage = 0; stage < 4; stage++)
+                    for (var variant = 0; variant < AgentSprites.VariantCount; variant++)
+                    {
+                        var figure = AgentSprites.Sprite(variant, stage, agentSize);
+                        if (figure.GetPixel(0, 0).A > 0 || figure.GetPixel(agentSize / 2, agentSize / 2).A < 0.9f)
+                            throw new InvalidOperationException($"Agent variant {variant} stage {stage} {agentSize}px must be a solid figure on a clear tile.");
+                        if (agentSize == 32 && !agentData.Add(Convert.ToBase64String(figure.GetData())))
+                            throw new InvalidOperationException($"Agent variant {variant} stage {stage} must look different from every other agent sprite.");
+                    }
+            if (AgentSprites.VariantFor("founder:1") != AgentSprites.VariantFor("founder:1") ||
+                Enumerable.Range(1, 12).Select(index => AgentSprites.VariantFor($"founder:{index}")).Distinct().Count() < 3 ||
+                AgentSprites.StageIndex("elder") != 3 || AgentSprites.StageIndex(null) != 2)
+                throw new InvalidOperationException("Agent appearance must be stable per agent, varied across agents, and follow their life stage.");
             testHydrology[3] = 1;
             testSurfaces[3] = 4;
             var seamLayers = testLayers with
@@ -995,6 +1037,12 @@ public partial class Main : Control
             RenderMap(occupied);
             var founderButton = inhabitantVisuals[founder.Id];
             var founderButtonIdentity = founderButton.GetInstanceId();
+            if (founderButton.Variant != AgentSprites.VariantFor(founder.Id) || !founderButton.ShowNameTag ||
+                founderButton.Caption.Length == 0)
+                throw new InvalidOperationException("A lone agent on the map must use their stable sprite and show a name tag.");
+            if (terrainLayer.BuildingSpriteCount != occupied.PlacedBuildings.Count ||
+                mapObjectVisuals.TryGetValue("building:test-hall", out var hallMarker) && hallMarker.Text.Contains('⌂'))
+                throw new InvalidOperationException("Placed buildings must be drawn as roof art rather than text glyphs.");
             selectedInhabitantId = founder.Id;
             RenderSelectedInhabitantCard(occupied);
             RenderMap(occupied with { WorldTick = 1 });
@@ -4377,6 +4425,7 @@ public partial class Main : Control
         terrainLayer.SetNaturalObjects(snapshot.Resources);
         terrainLayer.SetWeatherRegions(snapshot.WeatherRegionSize, snapshot.WeatherRegions);
         terrainLayer.SetRoads(snapshot.RoadTiles);
+        terrainLayer.SetBuildings(snapshot.PlacedBuildings, snapshot.Objects);
         worldOverview.SetRoads(snapshot.RoadTiles);
         ApplyMapFilters(snapshot);
         var mapWidth = terrainMap.Width;
@@ -4409,23 +4458,21 @@ public partial class Main : Control
             AddMapObjectVisual(
                 "object:" + mapObject.Id,
                 mapObject.Position,
-                ObjectGlyph(mapObject.Kind),
+                BuildingSprites.KindForObject(mapObject.Kind) is null ? ObjectGlyph(mapObject.Kind) : string.Empty,
                 ObjectMarker(mapObject.Kind),
                 Pretty(mapObject.Kind));
         }
 
         foreach (var building in snapshot.PlacedBuildings)
         {
-            var tags = building.Tags ?? [];
-            var kind = tags.Contains("shelter", StringComparer.Ordinal) ? "shelter" :
-                tags.Any(tag => tag is "warmth" or "cooking") ? "campfire" : "building";
             var name = building.DisplayName ?? "Building";
             var assignedTown = snapshot.Towns.FirstOrDefault(item => item.Id == building.TownId)?.Name;
             var household = snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == building.HouseholdId);
             var stored = building.StoredItems is { Count: > 0 }
                 ? string.Join(" · ", building.StoredItems.Select(item => $"{Pretty(item.Kind)} {item.Quantity}"))
                 : "none recorded";
-            AddMapObjectVisual("building:" + building.InstanceId, building.Position, ObjectGlyph(kind), name,
+            // The terrain layer draws the roof; the marker keeps the name and hover help.
+            AddMapObjectVisual("building:" + building.InstanceId, building.Position, string.Empty, name,
                 $"{name}\nBuilt · {building.Width} × {building.Height} tiles" +
                 (assignedTown is null ? "\nNo Town assignment" : $"\nTown · {assignedTown}") +
                 (household is null ? "" : $"\nHousehold · {household.Name}\nStored here · {stored}"),
@@ -4456,11 +4503,7 @@ public partial class Main : Control
                     inhabitant.Position.Y * stride + offsetY);
                 if (!inhabitantVisuals.TryGetValue(inhabitant.Id, out var actorMarker))
                 {
-                    actorMarker = new AgentMarker
-                    {
-                        Position = targetPosition,
-                        ZIndex = 10,
-                    };
+                    actorMarker = new AgentMarker { Position = targetPosition };
                     actorMarker.Activated += () =>
                     {
                         if (placingAddedAgent && founderSetupPanel.Visible)
@@ -4479,6 +4522,10 @@ public partial class Main : Control
                     inhabitantVisuals.Add(inhabitant.Id, actorMarker);
                 }
                 actorMarker.Caption = $"{ActivityGlyph(inhabitant.PublicIntention?.CandidateId)} {ActorLabel(inhabitant.DisplayName)}";
+                actorMarker.Variant = AgentSprites.VariantFor(inhabitant.Id);
+                actorMarker.Stage = AgentSprites.StageIndex(
+                    inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "age-band")?.Detail);
+                actorMarker.ShowNameTag = occupants.Length == 1;
                 var actorTooltip = $"{inhabitant.DisplayName} · {Pretty(inhabitant.Lifecycle)} · " +
                     (inhabitant.PublicIntention?.Summary ?? "taking in the world");
                 if (actorMarker.TooltipText != actorTooltip) actorMarker.TooltipText = actorTooltip;
