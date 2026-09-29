@@ -1,3 +1,10 @@
+---
+title: Issue-to-PR coverage
+type: review-index
+status: active
+updated: 2026-09-29
+---
+
 # Issue-to-PR coverage — 29 September 2026
 
 This index covers the 47 initial open issues and 18 issues recorded during the concurrent audit/documentation work. It records review coverage, **not a claim that all issues are solved**.
