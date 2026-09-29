@@ -95,7 +95,7 @@ public sealed record PrivateWorldStepResult(
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 24;
+    public const int StateSchemaVersion = 25;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -1794,6 +1794,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         var town = savedTowns[0];
         if (town.Id != TownBorderRules.FirstTownId || town.Name != TownBorderRules.FirstTownName ||
             town.FoundingState != (setup.Started ? "founded" : "founding") || town.FoundedTick != 0 ||
+            town.OriginSite is { } origin && !map.IsBuildable(origin) ||
             town.ResidentIds is null || town.AssignedBuildingIds is null || town.BorderTiles is null ||
             town.ResidentIds.Distinct(StringComparer.Ordinal).Count() != town.ResidentIds.Count ||
             town.AssignedBuildingIds.Distinct(StringComparer.Ordinal).Count() != town.AssignedBuildingIds.Count ||

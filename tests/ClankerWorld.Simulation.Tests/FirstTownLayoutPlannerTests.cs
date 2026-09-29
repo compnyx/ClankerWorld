@@ -6,6 +6,36 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class FirstTownLayoutPlannerTests
 {
+    [Fact]
+    public void AcceptedPausedLayoutPersistsAndCanBeRedoneBeforeFounders()
+    {
+        var geography = new GeographyOptions("starter-layout-accept", WorldSizePreset.Small);
+        using var world = new PrivateWorldRuntime(geography.Seed,
+            startPace: WorldStartPace.FounderSetup, geographyOptions: geography);
+        world.InitializeFirstTownContent();
+        var initialSite = world.ExportState().Map.GetObject("storage").Position;
+        var first = world.AcceptFirstTownLayout(initialSite);
+        Assert.Equal(5, first.Buildings.Count);
+        Assert.Equal(5, world.WorldSimulation.Buildings.Count);
+        Assert.Equal(initialSite, Assert.Single(world.Towns).OriginSite);
+        Assert.Equal(0, world.WorldTick);
+        Assert.True(world.Society.IsPaused);
+        world.Validate();
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Equal(first.RoadTiles, restored.RoadTiles);
+        var newSite = restored.ExportState().Map.FootNeighbors(initialSite)
+            .First(point => point != initialSite &&
+                FirstTownLayoutPlanner.Plan(restored.ExportState().Map, point) is not null);
+        var second = restored.AcceptFirstTownLayout(newSite);
+        Assert.Equal(5, second.Buildings.Count);
+        Assert.Equal(newSite, Assert.Single(restored.Towns).OriginSite);
+        Assert.Equal(5, restored.WorldSimulation.Buildings.Count);
+        Assert.Contains(restored.ExportState().Events, item => item.Kind == "first_town_layout_redone");
+        restored.Validate();
+    }
+
     [Theory]
     [InlineData("starter-layout-one")]
     [InlineData("starter-layout-two")]

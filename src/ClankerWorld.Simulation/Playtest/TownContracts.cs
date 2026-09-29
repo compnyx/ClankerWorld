@@ -14,7 +14,8 @@ public sealed record TownRuntimeState(
     long FoundedTick,
     IReadOnlyList<string> ResidentIds,
     IReadOnlyList<string> AssignedBuildingIds,
-    IReadOnlyList<GridPoint> BorderTiles);
+    IReadOnlyList<GridPoint> BorderTiles,
+    GridPoint? OriginSite = null);
 
 /// <summary>
 /// A conservative single-Town geometry prototype: start with the starter-camp
@@ -29,10 +30,13 @@ public static class TownBorderRules
     public const int SpareTileMargin = 1;
 
     public static TownRuntimeState CreateFirstTown(SeededMap map, IEnumerable<string>? residents = null,
-        bool founded = false)
+        bool founded = false, GridPoint? originSite = null)
     {
         ArgumentNullException.ThrowIfNull(map);
-        var anchors = map.CampObjects.Where(item => item.Kind is not ("founder" or "bedroll"))
+        if (originSite is { } selected && !map.IsBuildable(selected))
+            throw new ArgumentException("The first Town site must be buildable ground.", nameof(originSite));
+        GridPoint[] anchors = originSite is { } site ? [site] : map.CampObjects
+            .Where(item => item.Kind is not ("founder" or "bedroll"))
             .Select(item => item.Position).ToArray();
         if (anchors.Length == 0) anchors = [map.GetObject("storage").Position];
         var border = Rectangle(map,
@@ -47,7 +51,8 @@ public static class TownBorderRules
             0,
             (residents ?? []).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
             [],
-            border);
+            border,
+            originSite);
     }
 
     public static bool IsWithinOrAdjacent(TownRuntimeState town, GridPoint position, int width, int height)
@@ -84,7 +89,8 @@ public static class TownBorderRules
         IEnumerable<PlacedBuilding> buildings,
         IReadOnlyDictionary<string, BuildingDefinition> definitions)
     {
-        var expected = CreateFirstTown(map, town.ResidentIds, founded: town.FoundingState == "founded");
+        var expected = CreateFirstTown(map, town.ResidentIds,
+            founded: town.FoundingState == "founded", originSite: town.OriginSite);
         foreach (var building in buildings.Where(item => item.TownId == town.Id)
                      .OrderBy(item => item.InstanceId, StringComparer.Ordinal))
         {

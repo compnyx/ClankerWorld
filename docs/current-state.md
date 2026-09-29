@@ -71,7 +71,9 @@ the save. Schema 21 adds saved first-Town membership and borders, migrating
 compatible founder-setup saves without inventing post-start membership. Schema
 22 adds owner-specific memory-compaction indexes. Schema 23 adds agent-owned
 map facts and physical field-map/field-record artifacts; schema-21 and
-schema-22 saves migrate with empty personal knowledge.
+schema-22 saves migrate with empty personal knowledge. Schema 24 stores
+world-owned Roads; schema 25 optionally stores a selected first-Town origin,
+while older Town saves keep their camp-derived border.
 Legacy bedroll markers remain hidden
 compatibility map data in those worlds; they reserve their historical tile but
 have no rest effect. Their maps still undergo deterministic regeneration
@@ -158,6 +160,12 @@ or place buildings during paused New World setup. A newly created generated
 world now has its seven shipped starter/settlement/House/Warehouse/Farmhouse/
 Blacksmith/cooking packages active at tick zero; this makes their definitions
 available before Start World, but no initial buildings or supplies are placed.
+At the host simulation boundary, a paused world with no placed founders can
+accept or redo the generated five-building layout and persist its selected
+site, border and connected Roads. The two Houses are assigned to the existing
+starting households; productive-building claims remain unassigned. This is
+not yet a signed owner action or Godot New World control, and no starter stock
+is distributed by accepting a layout.
 
 ## Current cognition behavior
 

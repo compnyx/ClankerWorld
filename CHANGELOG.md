@@ -8,6 +8,13 @@ release yet.
 
 ### Added
 
+- The paused-world host can accept or redo a deterministic five-building first
+  Town layout before any founders are placed. Its two Houses belong to the two
+  starting households, while Farmhouse and Blacksmith claims stay unassigned;
+  the chosen site, Town border, buildings and connected Roads survive reload.
+  This is not yet exposed by the signed New World client, and starter food/tools
+  are still missing. Save schema 25 records the selected site while older Town
+  saves retain their camp-derived border.
 - Newly created worlds now load the built-in House, Warehouse, Farmhouse,
   Blacksmith and cooking definitions during paused founder setup, before the
   first simulation tick. The five starter buildings still await the player's
