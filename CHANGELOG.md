@@ -325,6 +325,10 @@ release yet.
 - Agent markers now stay under the cursor across world refreshes, so their
   hover tooltips are no longer cut off every tick. Warmth, illness, diet and
   equipment status stay in a fixed area of the selected agent card.
+- Settings, model, key and paid-call tooltips and messages now use short,
+  plain wording, and several developer-style messages read as ordinary
+  sentences. The agent list shows Fullness instead of Hunger, because 100%
+  means well fed and the old label read backwards.
 
 ### Added
 

@@ -399,8 +399,8 @@ public partial class Main : Control
                     throw new InvalidOperationException($"Save/load panel escaped its centered bounds at {size}.");
                 manualSaveOverlay.Hide();
                 worldMenuHeading.Text = "New World";
-                worldMenuStatus.Text = "Choose a seed and size. Then choose your Town site and add four founders before starting time.";
-                worldPreviewStatus.Text = "Map preview · choose your Town site after creating the world.";
+                worldMenuStatus.Text = "Pick a seed and size. After creating the world, choose where your Town goes and add four founders, then start time.";
+                worldPreviewStatus.Text = "Map preview · you will choose where your Town goes after creating the world.";
                 worldPreview.Show();
                 worldMenuOverlay.Show();
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -1689,7 +1689,7 @@ public partial class Main : Control
         if (!TryGetOwner(out var authority, out var deviceId, out var signer) ||
             observationSession.Current is not { } current)
         {
-            SetStatus("wait for a paired observation before sending an instruction", good: false);
+            SetStatus("Wait for the world to load before giving an instruction.", good: false);
             return;
         }
 
@@ -1697,19 +1697,19 @@ public partial class Main : Control
             .FirstOrDefault(inhabitant => string.Equals(inhabitant.Id, selectedInhabitantId, StringComparison.Ordinal));
         if (selected is null || selected.IsDraft)
         {
-            SetStatus("select an active inhabitant before sending an instruction", good: false);
+            SetStatus("Pick an agent first.", good: false);
             return;
         }
         if (selected.DecisionFactors.Any(factor => factor.Key == "age-band" && factor.Detail == "infant"))
         {
-            SetStatus("infants need care from an adult caregiver, not work instructions", good: false);
+            SetStatus("Infants need an adult to look after them. They can't take work instructions.", good: false);
             return;
         }
 
         var text = instructionText.Text.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
-            SetStatus("write an instruction before sending it", good: false);
+            SetStatus("Write something to say first.", good: false);
             return;
         }
 
@@ -1892,7 +1892,7 @@ public partial class Main : Control
         cognitionApiKeyInput.Text = string.Empty;
         if (!TryGetOwner(out var authority, out var deviceId, out var signer))
         {
-            cognitionConfigurationStatus.Text = "Pair this device before configuring inhabitant cognition.";
+            cognitionConfigurationStatus.Text = "Connect this device before setting up agent models.";
             RenderProviderConfiguration();
             return;
         }
@@ -1913,7 +1913,7 @@ public partial class Main : Control
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer))
         {
-            usageMeterStatus.Text = "Pair this device to see paid-call usage.";
+            usageMeterStatus.Text = "Connect this device to see model-call usage.";
             return;
         }
         await RunOwnerActionAsync(async () =>
@@ -1977,7 +1977,7 @@ public partial class Main : Control
             if (!long.TryParse(usageAttemptLimitInput.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) ||
                 parsed is < 1 or > 1_000_000)
             {
-                SetStatus("Enter 1–1,000,000 paid call attempts, or leave blank to turn the limit off.", good: false);
+                SetStatus("Enter a number of calls from 1 to 1,000,000, or leave it blank for no cap.", good: false);
                 return;
             }
             cap = parsed;
@@ -1999,7 +1999,7 @@ public partial class Main : Control
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer))
         {
-            SetStatus("pair this device before configuring cognition", good: false);
+            SetStatus("Connect this device before setting up agent models.", good: false);
             return;
         }
 
@@ -2012,7 +2012,7 @@ public partial class Main : Control
         if (creatingSlot && (string.IsNullOrWhiteSpace(cognitionCredentialLabelInput.Text) ||
             string.IsNullOrWhiteSpace(cognitionApiKeyInput.Text)))
         {
-            SetStatus("Give the new key a label and paste its API key", good: false);
+            SetStatus("Give the new key a name and paste the key.", good: false);
             return;
         }
         var action = new OwnerProviderConfigurationAction(
@@ -2047,7 +2047,7 @@ public partial class Main : Control
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer))
         {
-            SetStatus("pair this device before changing cognition credentials", good: false);
+            SetStatus("Connect this device before changing keys.", good: false);
             return;
         }
 
@@ -2079,7 +2079,7 @@ public partial class Main : Control
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer))
         {
-            SetStatus("pair this device before deleting a saved key", good: false);
+            SetStatus("Connect this device before deleting a saved key.", good: false);
             return;
         }
 
@@ -2087,12 +2087,12 @@ public partial class Main : Control
         var slot = providerConfiguration?.CredentialSlots?.FirstOrDefault(item => item.Id == slotId);
         if (slot is null)
         {
-            SetStatus("select a named key to delete", good: false);
+            SetStatus("Choose a saved key to delete.", good: false);
             return;
         }
         if (providerConfiguration?.Assignments?.Any(item => item.CredentialSlotId == slotId) == true)
         {
-            SetStatus("this key is assigned to an agent; choose another key for that agent first", good: false);
+            SetStatus("An agent is still using this key. Give that agent another key first.", good: false);
             return;
         }
 
@@ -2495,7 +2495,7 @@ public partial class Main : Control
         var name = renameAgentInput.Text.Trim();
         if (name.Length is < 1 or > 48 || name.Any(char.IsControl))
         {
-            SetStatus("Choose a name of at most 48 characters", good: false);
+            SetStatus("Pick a name of 48 characters or fewer.", good: false);
             return;
         }
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
@@ -2573,7 +2573,7 @@ public partial class Main : Control
 
         topBar.AddThemeConstantOverride("separation", 8);
         mapButton.Text = "Map";
-        mapButton.TooltipText = "Open the world overview; zoom with the mouse wheel and pan with WASD or middle-drag.";
+        mapButton.TooltipText = "World map. Scroll to zoom, and use WASD or middle-drag to move around.";
         StyleButton(mapButton);
         mapButton.Pressed += () =>
         {
@@ -2635,14 +2635,14 @@ public partial class Main : Control
         topBar.AddChild(townSiteButton);
 
         moveFounderButton.Text = "Move founder";
-        moveFounderButton.TooltipText = "Select a placed founder on the map or in Inhabitants, then choose a new tile before Start World.";
+        moveFounderButton.TooltipText = "Pick a founder you have placed, then click a new spot. Only works before time starts.";
         StyleButton(moveFounderButton);
         moveFounderButton.Pressed += ToggleMoveFounder;
         moveFounderButton.Hide();
         topBar.AddChild(moveFounderButton);
 
         undoFounderButton.Text = "Undo last founder";
-        undoFounderButton.TooltipText = "Remove the most recently placed founder before Start World. Its saved model assignment is cleared; shared keys remain available.";
+        undoFounderButton.TooltipText = "Take back the last founder you placed. Their model choice is cleared. Your saved keys stay.";
         StyleButton(undoFounderButton);
         undoFounderButton.Pressed += () => _ = UndoLastFounderAsync();
         undoFounderButton.Hide();
@@ -2689,7 +2689,7 @@ public partial class Main : Control
         connectButton.Pressed += () => _ = ConnectUsingCurrentUrlAsync();
         body.AddChild(connectButton);
         pairAgainButton.Text = "Pair again";
-        pairAgainButton.TooltipText = "Replace this device's saved world registration and pair its Windows key with the current world.";
+        pairAgainButton.TooltipText = "Forget this device's saved connection and connect again.";
         pairAgainButton.Visible = false;
         pairAgainButton.Pressed += () => _ = PairAgainAsync();
         body.AddChild(pairAgainButton);
@@ -2713,7 +2713,7 @@ public partial class Main : Control
 
         cognitionRoleChoice.AddItem("Routine survival");
         cognitionRoleChoice.AddItem("Planning and work");
-        cognitionRoleChoice.TooltipText = "Routine handles daily needs; planning chooses projects. Agent models may handle either role. Jev assistance is switched on or off for the whole world.";
+        cognitionRoleChoice.TooltipText = "Routine covers everyday choices. Planning covers bigger projects. Jev, the optional helper, is turned on or off for the whole world in Settings.";
         cognitionRoleChoice.ItemSelected += _ =>
         {
             cognitionApiKeyInput.Text = string.Empty;
@@ -2742,7 +2742,7 @@ public partial class Main : Control
         providerRow.AddChild(cognitionProviderChoice);
         body.AddChild(providerRow);
 
-        cognitionCredentialChoice.TooltipText = "Pick a saved key for this agent, or save another key for the same provider.";
+        cognitionCredentialChoice.TooltipText = "Pick a saved key for this agent, or add another key for the same provider.";
         cognitionCredentialChoice.ItemSelected += _ =>
         {
             cognitionApiKeyInput.Text = string.Empty;
@@ -2764,7 +2764,7 @@ public partial class Main : Control
         cognitionCredentialHint.Modulate = new Color("8FA5A7");
         body.AddChild(cognitionCredentialHint);
 
-        cognitionCredentialHint.TooltipText = "Keys travel over paired HTTPS and stay on the host. They are never returned, logged, or included in world saves.";
+        cognitionCredentialHint.TooltipText = "Keys are sent securely and stay on the game server. They are never shown again, logged, or saved in world files.";
 
         cognitionConfigurationStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(cognitionConfigurationStatus);
@@ -2780,7 +2780,7 @@ public partial class Main : Control
         forgetCognitionCredentialButton.Pressed += () => _ = ForgetProviderCredentialAsync();
         buttons.AddChild(forgetCognitionCredentialButton);
         deleteCognitionCredentialSlotButton.Text = "Delete named key";
-        deleteCognitionCredentialSlotButton.TooltipText = "Delete an unused named API key from this installation. First switch any agents assigned to it.";
+        deleteCognitionCredentialSlotButton.TooltipText = "Delete a saved key you no longer use. Move any agents using it to another key first.";
         StyleButton(deleteCognitionCredentialSlotButton);
         deleteCognitionCredentialSlotButton.Pressed += () => _ = DeleteCredentialSlotAsync();
         buttons.AddChild(deleteCognitionCredentialSlotButton);
@@ -2795,11 +2795,11 @@ public partial class Main : Control
         body.AddChild(usageMeterStatus);
         body.AddChild(new Label
         {
-            Text = "Optional limit for this installation. The world pauses when it runs out; leave blank for no limit.",
+            Text = "Optional cap on paid model calls. The game pauses when you reach it. Leave blank for no cap.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         });
         usageAttemptLimitInput.PlaceholderText = "Maximum model calls (blank = no limit)";
-        usageAttemptLimitInput.TooltipText = "Each model call counts when it starts, including calls that fail and retries. This is a call count, not a money or token budget.";
+        usageAttemptLimitInput.TooltipText = "Every call counts, even ones that fail or are retried. This counts calls, not money.";
         body.AddChild(usageAttemptLimitInput);
         var usageButtons = new HBoxContainer();
         applyUsageLimitButton.Text = "Apply limit";
@@ -2807,7 +2807,7 @@ public partial class Main : Control
         applyUsageLimitButton.Pressed += () => _ = ConfigureUsageAsync(grant: false);
         usageButtons.AddChild(applyUsageLimitButton);
         grantUsageCallsButton.Text = "Allow 100 more calls";
-        grantUsageCallsButton.TooltipText = "Explicitly consent to 100 more paid model attempts. Resume the paused world separately when ready.";
+        grantUsageCallsButton.TooltipText = "Allow 100 more paid model calls. The world stays paused until you resume it.";
         StyleButton(grantUsageCallsButton, primary: true);
         grantUsageCallsButton.Pressed += () => _ = ConfigureUsageAsync(grant: true);
         grantUsageCallsButton.Visible = false;
@@ -3034,7 +3034,7 @@ public partial class Main : Control
         memoriesHeading.AddChild(closeMemories);
         memoriesBody.AddChild(memoriesHeading);
         ConfigureTextPanel(memoryHistory, 300);
-        memoryHistory.TooltipText = "Shows only this agent's saved memories, beliefs, map facts, and held field records; this is not the world event log.";
+        memoryHistory.TooltipText = "What this agent remembers and believes, plus the maps they know. This is their view, not the full world log.";
         memoriesBody.AddChild(memoryHistory);
         AddPanelContents(memoriesPanel, memoriesBody);
         memoriesPanel.ZIndex = 85;
@@ -3142,7 +3142,7 @@ public partial class Main : Control
         menuActions.AddChild(menuQuitToMainButton);
 
         quitGameConfirmation.Title = "Quit ClankerWorld?";
-        quitGameConfirmation.DialogText = "Quit the game? Your committed world progress remains saved.";
+        quitGameConfirmation.DialogText = "Quit the game? Your progress is saved.";
         quitGameConfirmation.Confirmed += () => GetTree().Quit();
         AddChild(quitGameConfirmation);
         body.AddChild(menuActions);
@@ -3161,18 +3161,18 @@ public partial class Main : Control
         }
         windowSizeChoice.Selected = DisplaySizeIndex(GetWindow().Size);
         windowSizeChoice.Disabled = fullscreenToggle.ButtonPressed;
-        windowSizeChoice.TooltipText = "Physical window dimensions in windowed mode. Fullscreen uses your display's size.";
+        windowSizeChoice.TooltipText = "Size of the game window. Fullscreen uses your screen's size.";
         windowSizeChoice.ItemSelected += SetWindowSize;
         gameSettingsContent.AddChild(DisplaySettingRow("Window Size", windowSizeChoice));
         RefreshRenderResolutionOptions();
-        renderResolutionChoice.TooltipText = "Automatic renders at the current window or fullscreen display size. Fixed sizes are scaled to fit.";
+        renderResolutionChoice.TooltipText = "How sharp the picture is. Automatic matches your window or screen. Fixed sizes are scaled to fit.";
         renderResolutionChoice.ItemSelected += SetRenderResolution;
         gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
 
         foreach (var percentage in DisplayUiScalePolicy.SupportedPercentages)
             uiScaleChoice.AddItem($"{percentage}%");
         uiScaleChoice.Selected = DisplayUiScalePolicy.IndexOfPercent(displayPreferences.UiScalePercent);
-        uiScaleChoice.TooltipText = "Scales interface controls and text without changing the selected render resolution or terrain detail.";
+        uiScaleChoice.TooltipText = "Makes menus and text bigger or smaller.";
         uiScaleChoice.ItemSelected += SetUiScale;
         gameSettingsContent.AddChild(DisplaySettingRow("UI Scale", uiScaleChoice));
 
@@ -3223,8 +3223,8 @@ public partial class Main : Control
 
         BuildAutosaveSettings();
 
-        jevAssistanceToggle.Text = "Allow Jev assistance in this world";
-        jevAssistanceToggle.TooltipText = "Jev is used only if configured. When off, work Jev would have handled goes to that agent's personal planning model, the world planner, or the local safe fallback. Memories and provider keys remain intact.";
+        jevAssistanceToggle.Text = "Let Jev help in this world";
+        jevAssistanceToggle.TooltipText = "Jev is an optional helper for small everyday choices, so your agents' own models are called less. Turn it off and nothing is lost. Memories and keys stay.";
         jevAssistanceToggle.Toggled += enabled => _ = SaveJevAssistanceAsync(enabled);
         worldSettingsContent.AddChild(jevAssistanceToggle);
 
@@ -3408,23 +3408,23 @@ public partial class Main : Control
         selectedAgentOverview.AddChild(inhabitantSocialDetails);
 
         ConfigureTextPanel(privateThoughtHistory, 86);
-        privateThoughtHistory.TooltipText = "Only you can inspect these in-character thoughts. Other agents do not learn them automatically.";
+        privateThoughtHistory.TooltipText = "Only you can see these thoughts. Other agents don't know them unless they are told.";
         selectedAgentOverview.AddChild(privateThoughtHistory);
 
         memoriesButton.Text = "Memories + maps";
-        memoriesButton.TooltipText = "Inspect this agent's saved memories, including private memories and historical records after death.";
+        memoriesButton.TooltipText = "See what this agent remembers, including private memories.";
         StyleButton(memoriesButton);
         memoriesButton.Pressed += OpenMemories;
         var historyActions = new HBoxContainer();
         historyActions.AddChild(memoriesButton);
 
         familyTreeButton.Text = "Family Tree";
-        familyTreeButton.TooltipText = "Inspect ancestry and partnerships, including deceased relatives.";
+        familyTreeButton.TooltipText = "See their family, including those who have passed.";
         StyleButton(familyTreeButton);
         familyTreeButton.Pressed += OpenFamilyTree;
         historyActions.AddChild(familyTreeButton);
         modelSettingsButton.Text = "Model and key";
-        modelSettingsButton.TooltipText = "Choose this agent's personal model and saved or new API key.";
+        modelSettingsButton.TooltipText = "Choose this agent's model and API key.";
         StyleButton(modelSettingsButton);
         modelSettingsButton.Pressed += OpenAgentModelEditor;
         historyActions.AddChild(modelSettingsButton);
@@ -3471,7 +3471,7 @@ public partial class Main : Control
             _ = RefreshProviderConfigurationAsync();
             return;
         }
-        SetStatus("This agent is not available for model configuration", good: false);
+        SetStatus("You can't change this agent's model right now.", good: false);
     }
 
     private void CloseAgentModelEditor()
@@ -3880,7 +3880,7 @@ public partial class Main : Control
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            SetStatus("could not save the game display preferences", good: false);
+            SetStatus("Could not save your display settings.", good: false);
         }
     }
 
@@ -4208,7 +4208,7 @@ public partial class Main : Control
         var paused = snapshot.Authoring?.IsPaused == true;
         clockLabel.Text = DisplayWorldClock(snapshot.WorldTick);
         inhabitantsButton.Text = $"Agents {LivingPopulation(snapshot)}";
-        inhabitantsButton.TooltipText = "Living agents · open the inhabitant list";
+        inhabitantsButton.TooltipText = "Living agents · open the agent list";
         climateLabel.Text = snapshot.Authoring is { } authoring
             ? $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))}"
             : string.Empty;
@@ -4320,7 +4320,7 @@ public partial class Main : Control
             : string.Empty;
         inhabitantDetails.AppendText(
             $"{currentActivity}{destination}\n" +
-            $"Hunger {NeedPercent(inhabitant.HungerBasisPoints)}%\n" +
+            $"Fullness {NeedPercent(inhabitant.HungerBasisPoints)}%\n" +
             $"Carrying {inventory}");
     }
 
