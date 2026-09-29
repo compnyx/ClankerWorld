@@ -6,8 +6,67 @@ release yet.
 
 ## Unreleased
 
+- Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
+- A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
+
 ### Added
 
+- The Main Menu now opens on a pixel-art valley instead of a plain brown screen: snowy mountains, patchwork fields, a winding river and two small Towns with a Farmhouse, Warehouse, Blacksmith and Houses. Clouds drift, chimney smoke curls up, birds fly past and the river sparkles. With the Dark theme it becomes dusk, with twinkling stars, glowing windows and lanterns, a flickering forge, fireflies and the moon on the river. The scene stays behind Main Menu Settings, New World and Load World, and holds still once you are in a world.
+- World selection and named checkpoint loading verify required history segments before replacing the healthy active world. Missing or corrupted archive chains remain recoverable without becoming the active save.
+- Simultaneous lesson refusal and student cancellation safely preserve the terminal lesson instead of halting world advancement.
+- Create/Load World resets the observation timeline before sending the switch, so a lost response cannot trap reconnect on the old world’s event cursor.
+- Interrupted world selection restores routing and autosave settings during startup, before Resume or owner mutations can be acknowledged.
+- A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.
+- Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
+- Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
+- Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
+
+- Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+- Inherited physical maps and field records keep their lot identity, preserving the knowledge artifact link and saveability without broadcasting their contents.
+- Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
+
+- Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+- Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
+
+- Starting households are named First household and Second household instead of
+  Camp Alpha/Beta. Existing default camp names display the new wording without
+  changing saved membership, property or custom household names. Founder setup
+  instructions are shorter and describe the two-household grouping plainly.
+
+- Public pairing creation is limited to eight attempts per minute and pairing
+  request bodies to 16 KiB. Signed owner actions remain available. Host-local
+  recovery can replace one unapproved request in a full pairing queue without
+  discarding an approved pairing or revoking an active device.
+
+- Loading an older world removes only Road tiles embedded inside saved building footprints, preserving buildings, ownership, stock and all other Roads.
+- The Event Log and unread badge now select explicitly supported player events, including public partnership, care, trade and Town policy milestones; new internal event kinds no longer appear automatically as humanized diagnostics.
+- Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
+
+- A damaged model-call meter no longer prevents the host from starting. Paid
+  calls stay blocked, and World Settings explains how to restore accounting
+  without losing spent calls. Meter writes flush before replacing the file.
+- A stalled world refresh stops after four seconds instead of holding the
+  client for the default network timeout. Owner actions cancel an older refresh
+  so it cannot overwrite their result; Pause remains available during polling.
+- Map name tags use a whole given name or initial instead of cutting full names
+  after seven letters. Activity symbols distinguish exploration, warmth, trade,
+  social activity and care. Resource captions use ordinary case and disappear
+  at overview zoom; full names and resource facts stay in hover/inspection.
+- Held movement keys now pan smoothly with elapsed frame time, with equal
+  straight and diagonal speed. Error notices give a plain recovery hint instead
+  of showing raw exception text, private file paths or server responses.
+- On Windows, saved provider keys are protected for the current Windows user.
+  Valid old key files are migrated when loaded; an unreadable protected file is
+  preserved rather than reset. Forgetting a key still removes it from the
+  current installation, not from independent backups or the provider account.
+
+- A new look for every menu and panel: wooden frames around parchment
+  panels, ink text and chunky pixel buttons, with green for the main action.
+  Settings has a new Theme choice of Light, Dark (dark wood with cream text)
+  or Match system, which follows your computer's setting. Switching applies at
+  once and is remembered.
+- Settings can turn off the drifting cloud haze and the soft lightning flashes
+  in storms. Both are on to start with and your choice is remembered.
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel
@@ -21,11 +80,10 @@ release yet.
   shows the full controls list, and top-bar tooltips name each key. Clicking
   a top-bar button or the map no longer leaves the arrow keys and Space stuck
   on that button.
-- The world view shows a "Paused · press Space to resume" badge whenever time
-  is stopped after the world has started, and a small readout in the bottom
-  corner names the ground under the pointer: its surface, forest or water,
-  any building or resource there, Road, the Town it belongs to and its tile
-  position. Neither takes clicks away from the map.
+- A small readout in the bottom corner of the world view names the ground
+  under the pointer: its surface, forest or water, any building or resource
+  there, Road, the Town it belongs to and its tile position. It doesn't take
+  clicks away from the map.
 - Plainer in-game wording: the agent card names households and relatives
   ("Member of Camp Alpha", "Parent of Mira") instead of internal IDs, leaves
   out an unassigned role or unreported condition, and reads "Wants to take it
@@ -234,6 +292,23 @@ release yet.
 
 ### Changed
 
+- Agents no longer start Shelters, Storehouses, Cooking fires or Stone
+  hearths. A household's House now provides shelter, cooking, warmth from its
+  fire and food storage, and a Town's Warehouse holds shared supplies.
+  Experienced builders also stop suggesting shelter, storehouse and hearth
+  designs. Worlds that already have these buildings keep them working,
+  projects for them that are already under way still finish, and designs
+  suggested earlier stay in the Mod Library. An adult without a household
+  cannot build a House yet, so in a new world clothing and natural cover are
+  their only protection from cold.
+- Weather on the map now moves. Rain falls as short drops that land with
+  small splash rings, storms darken the sky with heavier slanted rain and a
+  soft flash of lightning every several seconds, and snow drifts down. Rain,
+  storms and snow no longer fill square blocks: their edges wander in
+  irregular shapes that creep slowly and fade out softly. A very light haze of
+  cloud drifts over the land now and then, more often under cloudy or rainy
+  skies, without covering the view. All of it holds still while time is
+  paused and carries on when you resume.
 - Neighboring land surfaces now blend at close zoom instead of meeting in a
   hard tile-grid line. Grass reaches softly into sand, forest into grass, snow
   into rock and tundra, and mountains shed a rocky edge. The edge wanders and
@@ -262,10 +337,29 @@ release yet.
   Agents, Town, Event Log, World Info, Filters and World Map panels now have
   a close button, and the panels are titled Agents and Event Log to match the
   top bar.
+- The top bar is now three small wooden panels floating over the map, with
+  pixel icons on every button: Map and Filters; the pause control with the
+  date, time, season and local weather; and the world actions. When time is
+  stopped the pause button turns orange and reads Paused. The Agents button
+  shows how many are alive and a small orange dot when someone is hungry, and
+  the Event Log button shows a red count of events since you last opened it,
+  with those rows dotted in the log.
+  During first-Town setup, its extra controls sit in a second row so Start
+  World and Menu stay on screen at 1280×720.
+- The Town button is gone, since a world can hold more than one Town. World
+  Info now opens on a Towns page listing every Town with its residents, when
+  it was founded and a Show button that moves the map there, followed by the
+  household stores, projects and council; the World page holds the rest. T
+  now opens Towns.
 - The Agents list now shows what each living agent is doing and flags anyone
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
   card's new Find button does the same.
+- The menus match the new look. Main Menu, Pause Menu and New World buttons
+  carry pixel icons, Quit to Menu sits apart at the bottom of the Pause Menu,
+  and Game Settings groups its choices under Interface, Display, and Date and
+  time, with Fullscreen as an on/off switch. New World now speaks of choosing
+  your first Town's site.
 - New World fits on one screen at 1280×720: the options sit in a captioned
   column beside a map preview about twice as large as before, with Back and
   Create World always in view. The preview keeps its place while it updates,
@@ -304,6 +398,9 @@ release yet.
   and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
+
+- A damaged named-save entry no longer hides other saves or stops autosave
+  rotation. Damaged files are preserved, with a safe diagnostic for recovery.
 
 - Hovering the Town panel no longer pops up a technical tooltip of world
   ticks, revisions, map digests and internal system counts.
