@@ -58,7 +58,8 @@ Guidelines for every issue:
 
 - Write a title that says what happens or what is wanted, in plain words.
 - Say who is affected: a player, an agent or an operator.
-- Keep it to one topic. Split combined reports.
+- Keep it to one topic. Split combined reports, except playtest reports that
+  collect observations from the same session.
 - Define "done" with checks someone else can run or see.
 - Confirmed defects and product gaps are also recorded in
   [docs/bugs.md](docs/bugs.md). A closed issue does not remove an entry there
@@ -132,7 +133,7 @@ environment, say which one and why. Do not report it as passing.
 ### Review and merge
 
 - CI must be green.
-- Get one approving review before merging.
+- Have someone other than the branch author review the exact diff before merging.
 - Squash-merge, with the pull request title as the commit subject. Follow the
   [release policy](docs/releasing.md) for versions and tags.
 - Delete the branch after merging.
@@ -160,7 +161,7 @@ messages, errors and event-log lines.
 | --- | --- |
 | `submitting one-use signed owner request…` | `Sending…` |
 | `disconnected · holding accepted tick 5040` | `Connection lost · showing the world as it was at 12:30` |
-| `Deterministic (fallback) · take it easy` | `Model unavailable · the built-in rules chose to take it easy` |
+| `Deterministic (fallback) · take it easy` | `The model did not provide a usable choice. Built-in rules chose to take it easy.` |
 | `Inspect ancestry and partnerships, including deceased relatives.` | `See their family, including those who have passed.` |
 
 Text meant only for developers belongs behind **Developer tools** and may stay

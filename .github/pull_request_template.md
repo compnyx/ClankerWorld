@@ -35,7 +35,7 @@ Explain the selected item:
 ## Player-facing text
 
 - [ ] No player-facing text changed.
-- [ ] Text changed and follows [Writing player-facing text](../CONTRIBUTING.md#writing-player-facing-text): short, plain words, no engine jargon.
+- [ ] Text changed and follows [Writing player-facing text](https://github.com/compoodment/ClankerWorld/blob/main/CONTRIBUTING.md#writing-player-facing-text): short, plain words, no engine jargon.
 
 ## Changelog and docs
 
