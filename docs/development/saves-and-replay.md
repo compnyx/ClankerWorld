@@ -27,6 +27,11 @@ the server starts hosted services or accepts requests.
 The paired authority identity belongs to the installation, not the selected
 simulation world.
 
+Manual load shares the world-mutation lock with world selection. Its pause/world
+checks, checkpoint restore, routing/autosave restore and rollback finish before
+selection can archive the active world. This serializes concurrent operations; it
+does not add a cross-file crash journal.
+
 Founder placement restores the prior in-memory world and provider configuration
 if its checkpoint commit fails. World selection and founder/add-agent setup
 share a transaction lock while restoring checkpoint and model routing. This
