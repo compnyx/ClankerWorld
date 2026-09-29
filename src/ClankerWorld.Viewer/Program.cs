@@ -211,7 +211,7 @@ app.Services.GetRequiredService<ProviderUsageStore>().LimitReached += () =>
         ProviderUsageTelemetry.LimitReached(app.Logger, 0);
     }
 };
-var founderSetupGate = new object();
+var founderSetupGate = app.Services.GetRequiredService<ProviderConfigurationStore>().WorldMutationGate;
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -524,10 +524,9 @@ app.MapPost("/api/v1/owner/control/pause", (
         var wasPaused = privateRuntime.Society.IsPaused;
         privateRuntime.Pause();
         var changed = !wasPaused && privateRuntime.Society.IsPaused;
-        if (changed)
-        {
-            privateStateFile.Save(privateRuntime);
-        }
+        // A prior failed write may already have changed memory. Even a no-op
+        // retry must durably acknowledge the requested pause.
+        privateStateFile.Save(privateRuntime);
 
         return Results.Ok(OwnerControlReceipt.From("pause", changed, privateRuntime.ExportState()));
     }
@@ -967,9 +966,21 @@ app.MapPost("/api/v1/owner/founders/place", (
             var runtime = services.GetRequiredService<PrivateWorldRuntime>();
             var position = new GridPoint(action.X, action.Y);
             runtime.ValidateFounderPlacement(action.FounderId, position);
-            providers.Configure(cognition);
-            var household = runtime.PlaceFounder(action.FounderId, position);
-            services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
+            var before = runtime.ExportState();
+            string household = "";
+            try
+            {
+                providers.ConfigureWithCommit(cognition, () =>
+                {
+                    household = runtime.PlaceFounder(action.FounderId, position);
+                    services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
+                });
+            }
+            catch
+            {
+                runtime.SwitchPausedWorld(before);
+                throw;
+            }
             var placed = runtime.FounderSetup!.FounderIds.Count;
             var town = runtime.Towns.Single(item => item.Id == TownBorderRules.FirstTownId);
             TownTelemetry.Transition(loggerFactory.CreateLogger("ClankerWorld.Town"), runtime.WorldTick,
@@ -1149,9 +1160,9 @@ app.MapPost("/api/v1/owner/agents/rename", (
     {
         var runtime = services.GetRequiredService<PrivateWorldRuntime>();
         var changed = runtime.RenameAgent(action.AgentId, action.Name);
+        services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
         if (changed)
         {
-            services.GetRequiredService<PrivateWorldStateFile>().Save(runtime);
             var logger = loggerFactory.CreateLogger("ClankerWorld.AgentIdentity");
             AgentPlacementLog.Renamed(logger, action.AgentId, runtime.WorldTick);
         }
