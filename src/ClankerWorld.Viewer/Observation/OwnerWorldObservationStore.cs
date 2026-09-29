@@ -293,6 +293,8 @@ public sealed class OwnerWorldObservationStore
                 {
                     CanChooseTownSite = state.Geography is not null && !setup.Started && setup.FounderIds.Count == 0,
                     HasAcceptedTownSite = (state.Towns ?? []).Any(town => town.OriginSite is not null),
+                    LastFounderId = !setup.Started && setup.FounderIds.Count > 0
+                        ? setup.FounderIds[^1] : null,
                 }
                 : null,
             Towns = (state.Towns ?? []).OrderBy(item => item.Id, StringComparer.Ordinal)

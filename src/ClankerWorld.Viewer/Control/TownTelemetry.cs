@@ -55,4 +55,11 @@ internal static partial class TownTelemetry
     [LoggerMessage(EventId = 2268, Level = LogLevel.Information,
         Message = "founder_setup outcome=moved world_tick={WorldTick} founder={FounderId} x={X} y={Y}")]
     private static partial void LogFounderMoved(ILogger logger, long worldTick, string founderId, int x, int y);
+
+    public static void FounderUndone(ILogger logger, long worldTick, string founderId, int placed) =>
+        LogFounderUndone(logger, worldTick, founderId, placed);
+
+    [LoggerMessage(EventId = 2269, Level = LogLevel.Information,
+        Message = "founder_setup outcome=undone world_tick={WorldTick} founder={FounderId} placed={Placed}")]
+    private static partial void LogFounderUndone(ILogger logger, long worldTick, string founderId, int placed);
 }

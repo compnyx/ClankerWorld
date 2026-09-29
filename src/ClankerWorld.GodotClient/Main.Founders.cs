@@ -8,6 +8,7 @@ public partial class Main
     private readonly Button founderSetupButton = new();
     private readonly Button townSiteButton = new();
     private readonly Button moveFounderButton = new();
+    private readonly Button undoFounderButton = new();
     private readonly Button addAgentButton = new();
     private readonly Button startWorldButton = new();
     private readonly PanelContainer founderSetupPanel = new();
@@ -64,6 +65,27 @@ public partial class Main
             movingFounderId = null;
             moveFounderButton.Text = "Move founder";
             return result.Changed ? $"Founder moved to {result.X}, {result.Y}" : "Founder already at that tile";
+        });
+    }
+
+    private async Task UndoLastFounderAsync()
+    {
+        if (isOwnerAction || observationSession.Current?.Baseline.Snapshot is not
+            { FounderSetup: { Started: false, Placed: > 0 } } snapshot ||
+            !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        var founderId = snapshot.FounderSetup.LastFounderId;
+        if (founderId is null) return;
+        await RunOwnerActionAsync(async () =>
+        {
+            var result = await ownerApi.UndoFounderAsync(ResolveWorldUri(), authority, deviceId,
+                new OwnerFounderUndoAction(founderId), signer, CancellationToken.None);
+            if (selectedInhabitantId == founderId) selectedInhabitantId = null;
+            movingFounderId = null;
+            founderApiKeyInput.Text = string.Empty;
+            providerConfiguration = await ownerApi.GetProviderStatusAsync(
+                ResolveWorldUri(), authority, deviceId, signer, CancellationToken.None);
+            PopulateFounderCredentials();
+            return $"Last founder undone · {result.Placed}/{result.Required} placed. Add a replacement when ready.";
         });
     }
 
@@ -351,6 +373,7 @@ public partial class Main
         townSiteButton.Visible = setup is { CanChooseTownSite: true };
         townSiteButton.Text = setup?.HasAcceptedTownSite == true ? "Redo Town site" : "Choose Town site";
         moveFounderButton.Visible = setup is { Started: false, Placed: > 0 };
+        undoFounderButton.Visible = setup is { Started: false, Placed: > 0 };
         moveFounderButton.Text = movingFounderId is null ? "Move founder" : "Cancel move";
         founderSetupButton.Visible = setup is { Started: false };
         startWorldButton.Visible = setup is { Started: false };
@@ -370,8 +393,8 @@ public partial class Main
         }
         founderSetupButton.Text = $"Add founders {setup.Placed}/{setup.Required}";
         founderSetupHint.Text = setup.Placed < setup.Required
-            ? $"Choose this founder’s provider, model, and API key. Then click an empty tile near the first Town. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed. Select a placed founder and use Move founder to adjust their tile."
-            : "All four founders are placed. Select one and use Move founder if needed, then choose Start World to let time run.";
+            ? $"Choose this founder’s provider, model, and API key. Then click an empty tile near the first Town. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed. Select a placed founder to move it, or undo the last placement."
+            : "All four founders are placed. Move a selected founder or undo the last placement if needed, then choose Start World to let time run.";
     }
 
     private void ResetAddAgentPlacementHint()

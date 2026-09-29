@@ -32,6 +32,7 @@ public static class OwnerPairingEndpoints
     public const string OwnerAutosaveConfigure = "/api/v1/owner/saves/autosave/configure";
     public const string OwnerFounderPlace = "/api/v1/owner/founders/place";
     public const string OwnerFounderMove = "/api/v1/owner/founders/move";
+    public const string OwnerFounderUndo = "/api/v1/owner/founders/undo";
     public const string OwnerFirstTownLayout = "/api/v1/owner/town/first-layout";
     public const string OwnerAgentPlace = "/api/v1/owner/agents/place";
     public const string OwnerAgentRename = "/api/v1/owner/agents/rename";

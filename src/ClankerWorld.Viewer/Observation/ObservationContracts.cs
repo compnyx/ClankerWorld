@@ -258,6 +258,7 @@ public sealed record ViewerFounderSetup(int Required, int Placed, bool Started)
 {
     public bool CanChooseTownSite { get; init; }
     public bool HasAcceptedTownSite { get; init; }
+    public string? LastFounderId { get; init; }
 }
 
 public sealed record ViewerTown(

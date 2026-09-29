@@ -1503,6 +1503,26 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         finally { gate.Release(); }
     }
 
+    public int UndoLastFounder(string founderId)
+    {
+        gate.Wait();
+        try
+        {
+            if (founderSetup is not { Started: false } setup || !society.Checkpoint.IsPaused ||
+                WorldTick != 0 || setup.FounderIds.Count == 0)
+                throw new InvalidOperationException("Founder placement can only be undone during initial paused setup.");
+            if (setup.FounderIds[^1] != founderId)
+                throw new ArgumentException("Only the most recently placed founder can be undone.", nameof(founderId));
+            society.Apply(checkpoint => SocietyFixture.UndoFounderPlacement(checkpoint, founderId));
+            inhabitants.Remove(founderId);
+            founderSetup = setup with { FounderIds = setup.FounderIds.Take(setup.FounderIds.Count - 1).ToArray() };
+            RemoveTownResident(founderId);
+            AppendEvent("founder_placement_undone", founderId);
+            return founderSetup.FounderIds.Count;
+        }
+        finally { gate.Release(); }
+    }
+
     public void ValidateFounderPlacement(string founderId, GridPoint position)
     {
         gate.Wait();

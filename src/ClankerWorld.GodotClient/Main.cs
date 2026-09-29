@@ -618,16 +618,25 @@ public partial class Main : Control
             }, []);
             if (!townSiteButton.Visible || townSiteButton.Text != "Redo Town site")
                 throw new InvalidOperationException("Accepted first Town must offer a redo before founders.");
-            Render(sample with { FounderSetup = new OwnerFounderSetup(4, 2, false) }, []);
+            Render(sample with
+            {
+                FounderSetup = new OwnerFounderSetup(4, 2, false)
+                {
+                    LastFounderId = "founder:00000000000000000000000000000002",
+                },
+            }, []);
             founderSetupPanel.Show();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!founderSetupButton.Visible || !founderSetupButton.Text.Contains("2/4", StringComparison.Ordinal) ||
                 !startWorldButton.Visible || !startWorldButton.Disabled ||
+                !undoFounderButton.Visible ||
+                !GetViewport().GetVisibleRect().Encloses(undoFounderButton.GetGlobalRect()) ||
                 !mapCanvas.GetGlobalRect().Encloses(founderSetupPanel.GetGlobalRect()))
                 throw new InvalidOperationException("Founder setup must show progress and keep Start World gated inside the world view.");
             founderSetupPanel.Hide();
             Render(sample with { FounderSetup = new OwnerFounderSetup(4, 4, true) }, []);
-            if (!addAgentButton.Visible || founderSetupButton.Visible || startWorldButton.Visible)
+            if (!addAgentButton.Visible || founderSetupButton.Visible || startWorldButton.Visible ||
+                undoFounderButton.Visible)
                 throw new InvalidOperationException("Started worlds must offer Add Agent instead of founder setup controls.");
             Render(sample, []);
             RenderModLibrary(sample);
@@ -2596,6 +2605,13 @@ public partial class Main : Control
         moveFounderButton.Pressed += ToggleMoveFounder;
         moveFounderButton.Hide();
         topBar.AddChild(moveFounderButton);
+
+        undoFounderButton.Text = "Undo last founder";
+        undoFounderButton.TooltipText = "Remove the most recently placed founder before Start World. Its saved model assignment is cleared; shared keys remain available.";
+        StyleButton(undoFounderButton);
+        undoFounderButton.Pressed += () => _ = UndoLastFounderAsync();
+        undoFounderButton.Hide();
+        topBar.AddChild(undoFounderButton);
 
         founderSetupButton.Text = "Add founders";
         StyleButton(founderSetupButton);
@@ -4618,6 +4634,8 @@ public partial class Main : Control
         moveFounderButton.Disabled = actionDisabled || movingFounderId is null &&
             (snapshot?.FounderSetup is not { Started: false, Placed: > 0 } ||
              selected is null || !selected.Id.StartsWith("founder:", StringComparison.Ordinal));
+        undoFounderButton.Disabled = actionDisabled || snapshot?.FounderSetup is not
+        { Started: false, Placed: > 0, LastFounderId: not null };
         if (snapshot?.FounderSetup is { CanChooseTownSite: true, HasAcceptedTownSite: false })
             founderSetupButton.Disabled = true;
         addAgentButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { Started: true };

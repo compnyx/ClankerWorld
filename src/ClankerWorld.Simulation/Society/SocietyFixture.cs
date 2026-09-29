@@ -161,6 +161,31 @@ public static partial class SocietyFixture
         return Commit(next, "founder_placed", $"{founder.Id}:{householdId}", founder.Id);
     }
 
+    public static SocietyOperationResult UndoFounderPlacement(SocietyCheckpoint checkpoint, string founderId)
+    {
+        Validate(checkpoint);
+        if (!checkpoint.IsPaused || checkpoint.WorldTick != 0)
+            throw new InvalidOperationException("Founder placement can only be undone during paused setup.");
+        var founder = checkpoint.Inhabitants.SingleOrDefault(item => item.Id == founderId);
+        if (founder is null || founder.Status != SocietyInhabitantStatus.Active ||
+            founder.HouseholdId is not { } householdId ||
+            checkpoint.Relationships.Any(item =>
+                (item.ProposerId == founderId || item.TargetId == founderId) &&
+                item.Type != SocietyRelationshipType.HouseholdMembership) ||
+            checkpoint.Inventory.Lots.Any(item => item.OwnerId == founderId))
+            throw new InvalidOperationException("This founder cannot be removed from setup.");
+        var next = checkpoint with
+        {
+            Inhabitants = checkpoint.Inhabitants.Where(item => item.Id != founderId).ToArray(),
+            Households = checkpoint.Households.Select(item => item.Id == householdId
+                ? item with { MemberIds = item.MemberIds.Where(id => id != founderId).ToArray() }
+                : item).ToArray(),
+            Relationships = checkpoint.Relationships.Where(item =>
+                item.ProposerId != founderId && item.TargetId != founderId).ToArray(),
+        };
+        return Commit(next, "founder_placement_undone", $"{founderId}:{householdId}");
+    }
+
     public static SocietyOperationResult AddAdult(
         SocietyCheckpoint checkpoint, string inhabitantId, string? householdId)
     {

@@ -977,6 +977,59 @@ app.MapPost("/api/v1/owner/founders/move", (
     }
 });
 
+app.MapPost("/api/v1/owner/founders/undo", (
+    OwnerSignedHttpRequest<OwnerFounderUndoAction> request,
+    OwnerRequestAuthorizer authorizer,
+    ProviderConfigurationStore providers,
+    IServiceProvider services,
+    ILoggerFactory loggerFactory) =>
+{
+    if (request?.Action is not { } action)
+        return Results.BadRequest(new { error = "Choose the last placed founder to undo." });
+    string payload;
+    try { payload = OwnerHttpBinding.FounderUndoPayload(action); }
+    catch (ArgumentException exception) { return Results.BadRequest(new { error = exception.Message }); }
+    var authorization = authorizer.Authorize(request, "POST", "/api/v1/owner/founders/undo", payload);
+    if (!authorization.IsSuccess) return OwnerFailures.ToHttpResult(authorization.Failure);
+    if (!isPrivateWorld) return Results.Conflict(new { error = "Founder setup requires a private world." });
+    lock (founderSetupGate)
+    {
+        var runtime = services.GetRequiredService<PrivateWorldRuntime>();
+        var stateFile = services.GetRequiredService<PrivateWorldStateFile>();
+        var before = runtime.ExportState();
+        var assignments = providers.CaptureRuntimeConfiguration().Assignments ?? [];
+        var worldMutated = false;
+        var worldSaved = false;
+        var providerChanged = false;
+        try
+        {
+            var placed = runtime.UndoLastFounder(action.FounderId);
+            worldMutated = true;
+            stateFile.Save(runtime);
+            worldSaved = true;
+            providers.Configure(new OwnerProviderConfigurationAction("personal", "inherit", null, null,
+                false, action.FounderId));
+            providerChanged = true;
+            TownTelemetry.FounderUndone(loggerFactory.CreateLogger("ClankerWorld.Town"),
+                runtime.WorldTick, action.FounderId, placed);
+            return Results.Ok(new OwnerFounderUndoReceipt(action.FounderId, placed,
+                PrivateWorldRuntime.RequiredFounders));
+        }
+        catch (Exception exception)
+        {
+            if (worldMutated)
+            {
+                runtime.SwitchPausedWorld(before);
+                if (worldSaved) stateFile.Save(runtime);
+            }
+            if (providerChanged) providers.RestoreWorldAssignments(assignments);
+            if (exception is ArgumentException) return Results.BadRequest(new { error = exception.Message });
+            if (exception is InvalidOperationException) return Results.Conflict(new { error = exception.Message });
+            throw;
+        }
+    }
+});
+
 app.MapPost("/api/v1/owner/agents/place", (
     OwnerSignedHttpRequest<OwnerAgentPlacementAction> request,
     OwnerRequestAuthorizer authorizer,

@@ -106,6 +106,7 @@ public sealed record OwnerFounderSetup(int Required, int Placed, bool Started)
 {
     public bool CanChooseTownSite { get; init; }
     public bool HasAcceptedTownSite { get; init; }
+    public string? LastFounderId { get; init; }
 }
 public sealed record OwnerWorldTown(
     string Id,
@@ -402,6 +403,8 @@ public sealed record OwnerFounderPlacementAction(
 public sealed record OwnerFounderPlacementReceipt(string FounderId, string HouseholdId, int Placed, int Required);
 public sealed record OwnerFounderMoveAction(string FounderId, int X, int Y);
 public sealed record OwnerFounderMoveReceipt(string FounderId, int X, int Y, bool Changed);
+public sealed record OwnerFounderUndoAction(string FounderId);
+public sealed record OwnerFounderUndoReceipt(string FounderId, int Placed, int Required);
 public sealed record OwnerFirstTownLayoutAction(int X, int Y);
 public sealed record OwnerFirstTownLayoutReceipt(int X, int Y, int Buildings, int RoadTiles);
 
@@ -812,6 +815,10 @@ public static class OwnerWorldActionPayload
         $"x={action.X.ToString(CultureInfo.InvariantCulture)}",
         $"y={action.Y.ToString(CultureInfo.InvariantCulture)}");
 
+    public static string FounderUndo(OwnerFounderUndoAction action) => string.Join('\n',
+        "clankerworld.owner-founder-undo.v1",
+        $"founder={EncodeRequired(action.FounderId, nameof(action.FounderId))}");
+
     public static string AgentPlacement(OwnerAgentPlacementAction action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -1216,6 +1223,15 @@ public sealed class OwnerWorldApi
         pairing.SendSignedActionAsync<OwnerFounderMoveAction, OwnerFounderMoveReceipt>(
             serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerFounderMove,
             OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.FounderMove(action),
+            action, deviceKey, cancellationToken);
+
+    public Task<OwnerFounderUndoReceipt> UndoFounderAsync(
+        Uri serverUri, OwnerAuthorityIdentity authority, string deviceId,
+        OwnerFounderUndoAction action, IOwnerDeviceSigner deviceKey,
+        CancellationToken cancellationToken) =>
+        pairing.SendSignedActionAsync<OwnerFounderUndoAction, OwnerFounderUndoReceipt>(
+            serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerFounderUndo,
+            OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.FounderUndo(action),
             action, deviceKey, cancellationToken);
 
     public Task<OwnerAgentPlacementReceipt> PlaceAgentAsync(

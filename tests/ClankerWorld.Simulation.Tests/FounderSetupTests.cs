@@ -39,6 +39,41 @@ public sealed class FounderSetupTests
     }
 
     [Fact]
+    public void LastFounderPlacementCanBeUndoneAndReplacedWithoutDisturbingHouseholds()
+    {
+        using var world = new PrivateWorldRuntime("founder-undo", startPace: WorldStartPace.FounderSetup);
+        var positions = new[] { new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2) };
+        var ids = positions.Select(_ => "founder:" + Guid.NewGuid().ToString("N")).ToArray();
+        for (var index = 0; index < ids.Length; index++) world.PlaceFounder(ids[index], positions[index]);
+
+        Assert.Throws<ArgumentException>(() => world.UndoLastFounder(ids[0]));
+        Assert.Equal(4, world.FounderSetup!.FounderIds.Count);
+        Assert.Equal(3, world.UndoLastFounder(ids[3]));
+        Assert.DoesNotContain(world.Inhabitants, person => person.InhabitantId == ids[3]);
+        Assert.DoesNotContain(world.Society.Inhabitants, person => person.Id == ids[3]);
+        Assert.DoesNotContain(ids[3], world.Towns.Single().ResidentIds);
+        Assert.Single(world.Society.GetHousehold("household:camp-beta").MemberIds);
+        Assert.Throws<ArgumentException>(() => world.UndoLastFounder(ids[3]));
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Equal(ids.Take(3), restored.FounderSetup!.FounderIds);
+        var replacement = "founder:" + Guid.NewGuid().ToString("N");
+        Assert.Equal("household:camp-beta", restored.PlaceFounder(replacement, positions[3]));
+        Assert.Equal(2, restored.Society.GetHousehold("household:camp-beta").MemberIds.Count);
+        restored.StartWorld();
+        Assert.Throws<InvalidOperationException>(() => restored.UndoLastFounder(replacement));
+
+        Assert.Equal(2, world.UndoLastFounder(ids[2]));
+        Assert.Equal(1, world.UndoLastFounder(ids[1]));
+        Assert.Equal(0, world.UndoLastFounder(ids[0]));
+        Assert.Empty(world.Inhabitants);
+        Assert.Empty(world.Towns.Single().ResidentIds);
+        Assert.Empty(world.Society.GetHousehold("household:camp-alpha").MemberIds);
+        Assert.Empty(world.Society.GetHousehold("household:camp-beta").MemberIds);
+    }
+
+    [Fact]
     public async Task TownAdultWithoutHouseholdCannotSpendFoundingStockAndOwnsPersonalProduction()
     {
         using var seed = new PrivateWorldRuntime("town-adult-personal-stock", startPace: WorldStartPace.FounderSetup);

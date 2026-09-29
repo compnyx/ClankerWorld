@@ -97,6 +97,38 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
 
             Assert.True(runtime.Society.IsPaused);
             Assert.Equal(2, runtime.Society.Households.Single(item => item.Id == "household:camp-beta").MemberIds.Count);
+            var lastFounder = runtime.FounderSetup!.FounderIds[^1];
+            var undo = new OwnerFounderUndoAction(lastFounder);
+            const string undoPath = "/api/v1/owner/founders/undo";
+            var signedUndo = await CreateSignedRequestAsync(host, client, key, device.DeviceId,
+                undoPath, undo, OwnerHttpBinding.FounderUndoPayload(undo));
+            using var tamperedUndo = await client.PostAsJsonAsync(undoPath, signedUndo with
+            {
+                Action = undo with { FounderId = runtime.FounderSetup.FounderIds[0] },
+            });
+            Assert.False(tamperedUndo.IsSuccessStatusCode);
+            Assert.Equal(4, runtime.FounderSetup.FounderIds.Count);
+            using var undone = await SendSignedAsync(host, client, key, device.DeviceId,
+                undoPath, undo, OwnerHttpBinding.FounderUndoPayload(undo));
+            Assert.Equal(HttpStatusCode.OK, undone.StatusCode);
+            Assert.Equal(3, (await undone.Content.ReadFromJsonAsync<OwnerFounderUndoReceipt>())!.Placed);
+            Assert.DoesNotContain(lastFounder, runtime.FounderSetup.FounderIds);
+            Assert.Equal(runtime.FounderSetup.FounderIds[^1], host.Services
+                .GetRequiredService<OwnerWorldObservationStore>().GetSnapshot().FounderSetup!.LastFounderId);
+            var providerStatus = host.Services.GetRequiredService<ProviderConfigurationStore>().CaptureStatus();
+            Assert.DoesNotContain(providerStatus.Assignments ?? [], item => item.InhabitantId == lastFounder);
+            Assert.Contains(providerStatus.CredentialSlots ?? [], item => item.Id == slotId);
+            Assert.Contains(placementLog.Messages, message => message.Contains(
+                "founder_setup outcome=undone world_tick=0", StringComparison.Ordinal));
+            var replacementId = "founder:" + Guid.NewGuid().ToString("N");
+            var replacement = new OwnerFounderPlacementAction(replacementId, positions[3].X, positions[3].Y,
+                new OwnerProviderConfigurationAction("personal", "openai", "gpt-5-mini", null,
+                    false, replacementId, slotId));
+            using var replaced = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/founders/place", replacement,
+                OwnerHttpBinding.FounderPlacementPayload(replacement));
+            Assert.Equal(HttpStatusCode.OK, replaced.StatusCode);
+            Assert.Equal(4, runtime.FounderSetup.FounderIds.Count);
             var start = new OwnerControlAction("start-world");
             using var started = await SendSignedAsync(host, client, key, device.DeviceId,
                 "/api/v1/owner/control/start-world", start, OwnerHttpBinding.EmptyPayload("start-world"));
@@ -107,6 +139,10 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                 "/api/v1/owner/founders/move", firstFounderMove!,
                 OwnerHttpBinding.FounderMovePayload(firstFounderMove!));
             Assert.Equal(HttpStatusCode.Conflict, lateMove.StatusCode);
+            using var lateUndo = await SendSignedAsync(host, client, key, device.DeviceId,
+                undoPath, new OwnerFounderUndoAction(replacementId),
+                OwnerHttpBinding.FounderUndoPayload(new OwnerFounderUndoAction(replacementId)));
+            Assert.Equal(HttpStatusCode.Conflict, lateUndo.StatusCode);
             var agentId = "agent:" + Guid.NewGuid().ToString("N");
             var adult = new OwnerAgentPlacementAction(agentId, 4, 2,
                 new OwnerProviderConfigurationAction("personal", "openai", "gpt-5-mini", null,

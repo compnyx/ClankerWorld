@@ -88,6 +88,8 @@ public sealed record OwnerFounderPlacementAction(
 public sealed record OwnerFounderPlacementReceipt(string FounderId, string HouseholdId, int Placed, int Required);
 public sealed record OwnerFounderMoveAction(string FounderId, int X, int Y);
 public sealed record OwnerFounderMoveReceipt(string FounderId, int X, int Y, bool Changed);
+public sealed record OwnerFounderUndoAction(string FounderId);
+public sealed record OwnerFounderUndoReceipt(string FounderId, int Placed, int Required);
 public sealed record OwnerFirstTownLayoutAction(int X, int Y);
 public sealed record OwnerFirstTownLayoutReceipt(int X, int Y, int Buildings, int RoadTiles);
 
@@ -302,6 +304,13 @@ public static class OwnerHttpBinding
             $"founder={EncodeRequired(action.FounderId, nameof(action.FounderId))}",
             $"x={action.X.ToString(CultureInfo.InvariantCulture)}",
             $"y={action.Y.ToString(CultureInfo.InvariantCulture)}");
+    }
+
+    public static string FounderUndoPayload(OwnerFounderUndoAction action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return string.Join('\n', "clankerworld.owner-founder-undo.v1",
+            $"founder={EncodeRequired(action.FounderId, nameof(action.FounderId))}");
     }
 
     public static string AgentPlacementPayload(OwnerAgentPlacementAction action)
