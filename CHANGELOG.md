@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
+
 ### Added
 
 - A new look for every menu and panel: wooden frames around parchment

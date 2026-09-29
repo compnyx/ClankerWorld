@@ -489,3 +489,19 @@ which is not interchangeable with this prototype capability matrix.
 
 Future changes must update this document when a capability moves between
 planned, verified primitive, integrated or playable status.
+
+### Tick failure containment (#259)
+
+The hosted tick boundary holds the current in-memory world and pauses on failure.
+An I/O/access failure specifically during the active checkpoint write retries
+only that save on subsequent loop ticks. Success leaves the world paused until
+an explicit later Resume. Repeated failure emits no per-second log flood.
+Invalid checkpoint/state or other tick failures latch a halt for operator
+inspection; Resume cannot bypass it. Logs contain category/type/tick, not raw
+exception messages, file paths or secrets. No rollback or automatic corrupt-save
+replacement is attempted. Startup decode failures remain startup errors, not
+transient write failures. The owner currently sees Pause; a detailed recovery
+status/control UI remains unfinished. Do not restart a held process until its
+in-memory state is saved or deliberately recovered: restarting can lose unsaved
+progress. Fault injection covers a filesystem write obstruction, not arbitrary
+mid-tick mutation rollback or crash durability.
