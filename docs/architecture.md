@@ -387,3 +387,85 @@ installation and state paths. Keep the previous private world and pairing
 authority only in a root-only rollback backup; copy provider credentials to the
 new protected state path without printing them. Ignored old export/build
 artifacts are historical binaries, not current source names.
+
+## Proposed bounded social/model-call contracts (#257, #171)
+
+**Draft for review, not an implemented conversation feature or an approved
+frequency/cost policy.** The existing legal-candidate choice and estate-heir
+selection contracts remain authoritative until a separately tested integration
+lands. A prose answer must never directly mutate world state.
+
+### Common envelope and authority
+
+Each call carries an immutable conversation/proposal ID, actor ID, expected
+world/run epoch and participant revision, purpose, legal effect IDs, bounded
+actor-owned knowledge, and cancellation/deadline identity. The host owns turn
+number, budget, admission, and scheduler reservation. Provider output contains a
+bounded public utterance (if appropriate), explicit structured proposed effects,
+and a finish/continue/withdraw disposition. Unknown effects, stale revisions,
+nonparticipants, overlong text and duplicate commits are rejected, not repaired
+by granting authority to prose. A model cannot add participants or increase its
+own budget. IDs and wire limits are compatibility contracts to finalize before
+implementation; they are not player settings.
+
+### Separate call purposes
+
+| Purpose | Permitted proposal | Not permitted |
+| --- | --- | --- |
+| Dialogue | Speak to the present participants; propose agreement or withdrawal | Assert another participant agreed; broadcast private thoughts |
+| Planning | Rank already legal goals and a bounded next step | Invent a reachable site, resources, ownership or new action handler |
+| Invention | Submit a declarative content proposal through existing registry validation | Execute code, install assets/dependencies, immediately unlock a capability |
+| Will | Select validated eligible heirs/allocations under the estate contract | Transfer nonexistent stock or override already committed settlement |
+
+Ordinary choice, child interaction, surname selection and estate decisions must
+not be silently routed into a more expensive general dialogue call. Existing
+will selection remains supported; this proposal does not remove it.
+
+### Joint conversation transition table
+
+| State | Input | Next state / invariant |
+| --- | --- | --- |
+| Proposed | Every required participant explicitly accepts | Ready; record each acceptance, no inferred consent |
+| Proposed | Any refusal / deadline | Closed without agreement |
+| Ready | Lease/presence, participant availability and budget valid | Awaiting one named speaker; reserve only that turn |
+| Awaiting | Valid response at matching revision | Append one public turn, validate proposed effects, then Ready or WrapUp |
+| Awaiting | Timeout, cancellation, stale response or provider failure | Suspended; no fabricated utterance or agreement |
+| Ready/Awaiting | Urgent survival, owner pause/disconnect, participant withdrawal | Suspend or close; cancel outstanding provider work |
+| Suspended | Explicit resume and all participants revalidate | Ready at a new revision; late old replies cannot append |
+| WrapUp | All required parties accept the same structured proposal | Commit once through normal authority validation, then Closed |
+| WrapUp | Disagreement or budget exhaustion | Closed with disagreement/unresolved outcome |
+
+Normal jobs cannot split an admitted sentence into fragments. They may resume
+between turns; urgent survival can interrupt an outstanding turn. Persist the
+last committed public turn, participants, revision and disposition, not an
+in-flight HTTP task. After restore, in-flight state becomes Suspended and cannot
+automatically spend. Removed/dead participants cannot be impersonated to finish
+an agreement. A history entry distinguishes speech, proposed agreement, actual
+accepted effects, interruption and closure.
+
+### Knowledge and memory
+
+A heard statement becomes a provenance-labelled claim for actual listeners,
+not global truth. Public history visibility for the player is not agent access.
+Private thoughts remain private. Memory extraction is a separate bounded
+proposal with source turn ID, listener/owner ID, speech-versus-firsthand label
+and confidence; host validation rejects invented source IDs and cross-owner
+memories. Contradiction retains the old claim as superseded history. Retrying
+extraction must deduplicate by source/owner, not append repeated experiences.
+
+### Prototype and release gates
+
+1. Build a deterministic fake-provider state-machine prototype before a live
+   provider experiment. Cover disagreement, refusal, turn timeout, owner pause,
+   disconnect, urgent food, death/removal, save/restore, duplicate/stale replies,
+   and resumption with no false agreement or duplicate effect.
+2. Render speech bubbles plus inspectable bounded history in normal Godot;
+   verify long text, interrupted turns, and unread/closed states at 200% scale.
+3. Record outcome, purpose, turn count, latency and charged usage only. Assert
+   logs omit sample keys, utterances, private thoughts and raw responses.
+4. Compare conversation frequency/cost against a no-dialogue baseline using
+   fixed seeds and identical provider configuration. No numeric recurring
+   budget is selected by this document; request owner approval before paid
+   experiments or changing spending policy.
+5. Only after the owner selects frequency/budget rules should automatic social
+   initiation ship. Until then, this is a contract proposal, not playable chat.
