@@ -101,12 +101,12 @@ public static class NatureSprites
         var image = Image.CreateEmpty(size * SpriteCount, size, false, Image.Format.Rgba8);
         image.Fill(Colors.Transparent);
         foreach (var sprite in Enum.GetValues<NatureSprite>())
-            Paint(new Canvas(image, (int)sprite * size, size), sprite);
+            Paint(new PixelCanvas(image, new Rect2I((int)sprite * size, 0, size, size), size / 32f), sprite);
         Images[size] = image;
         return image;
     }
 
-    private static void Paint(Canvas canvas, NatureSprite sprite)
+    private static void Paint(PixelCanvas canvas, NatureSprite sprite)
     {
         switch (sprite)
         {
@@ -255,138 +255,6 @@ public static class NatureSprites
                 canvas.Leaf(13, 14, 3, 1.8f, -0.6f, new Color("6E9A4B"), new Color("A6C77A"));
                 canvas.Leaf(19, 14, 3, 1.8f, 0.6f, new Color("6E9A4B"), new Color("A6C77A"));
                 break;
-        }
-    }
-
-    /// <summary>
-    /// Draws in 32-unit sprite coordinates, scaled to the atlas size, with
-    /// alpha blending and clipping to the sprite's own cell.
-    /// </summary>
-    private readonly struct Canvas(Image image, int left, int size)
-    {
-        private readonly float unit = size / 32f;
-
-        public void Dot(float x, float y, Color color) => Blend((int)(x * unit), (int)(y * unit), color);
-
-        public void Disc(float centerX, float centerY, float radius, Color color) =>
-            Ellipse(centerX, centerY, radius, radius, color);
-
-        public void Ellipse(float centerX, float centerY, float radiusX, float radiusY, Color color)
-        {
-            var cx = centerX * unit;
-            var cy = centerY * unit;
-            var rx = Math.Max(0.6f, radiusX * unit);
-            var ry = Math.Max(0.6f, radiusY * unit);
-            for (var y = (int)(cy - ry - 1); y <= (int)(cy + ry + 1); y++)
-                for (var x = (int)(cx - rx - 1); x <= (int)(cx + rx + 1); x++)
-                {
-                    var dx = (x + 0.5f - cx) / rx;
-                    var dy = (y + 0.5f - cy) / ry;
-                    if (dx * dx + dy * dy <= 1f) Blend(x, y, color);
-                }
-        }
-
-        public void Ring(float centerX, float centerY, float radius, Color color)
-        {
-            var cx = centerX * unit;
-            var cy = centerY * unit;
-            var r = radius * unit;
-            for (var y = (int)(cy - r - 1); y <= (int)(cy + r + 1); y++)
-                for (var x = (int)(cx - r - 1); x <= (int)(cx + r + 1); x++)
-                {
-                    var distance = new Vector2(x + 0.5f - cx, y + 0.5f - cy).Length();
-                    if (Math.Abs(distance - r) <= 0.5f) Blend(x, y, color);
-                }
-        }
-
-        /// <summary>A leafy canopy: a disc whose edge bulges in <paramref name="lobes"/> soft lumps.</summary>
-        public void Lumpy(float centerX, float centerY, float radius, Color color, int lobes, int phase)
-        {
-            var cx = centerX * unit;
-            var cy = centerY * unit;
-            var r = radius * unit;
-            for (var y = (int)(cy - r - 2); y <= (int)(cy + r + 2); y++)
-                for (var x = (int)(cx - r - 2); x <= (int)(cx + r + 2); x++)
-                {
-                    var offset = new Vector2(x + 0.5f - cx, y + 0.5f - cy);
-                    var edge = r * (0.9f + 0.1f * Mathf.Sin(offset.Angle() * lobes + phase));
-                    if (offset.Length() <= edge) Blend(x, y, color);
-                }
-        }
-
-        /// <summary>A top-down conifer layer: a star with <paramref name="points"/> soft points.</summary>
-        public void Star(float centerX, float centerY, float outer, float inner, Color color, int points)
-        {
-            var cx = centerX * unit;
-            var cy = centerY * unit;
-            var ro = outer * unit;
-            var ri = inner * unit;
-            for (var y = (int)(cy - ro - 1); y <= (int)(cy + ro + 1); y++)
-                for (var x = (int)(cx - ro - 1); x <= (int)(cx + ro + 1); x++)
-                {
-                    var offset = new Vector2(x + 0.5f - cx, y + 0.5f - cy);
-                    var wave = (Mathf.Cos(offset.Angle() * points) + 1) / 2;
-                    if (offset.Length() <= Mathf.Lerp(ri, ro, wave)) Blend(x, y, color);
-                }
-        }
-
-        public void Line(float fromX, float fromY, float toX, float toY, Color color)
-        {
-            var from = new Vector2(fromX, fromY) * unit;
-            var to = new Vector2(toX, toY) * unit;
-            var steps = Math.Max(1, (int)Math.Ceiling(from.DistanceTo(to) * 1.5f));
-            for (var step = 0; step <= steps; step++)
-            {
-                var point = from.Lerp(to, step / (float)steps);
-                Blend((int)point.X, (int)point.Y, color);
-            }
-        }
-
-        public void Leaf(float centerX, float centerY, float length, float width, float angle, Color color, Color vein)
-        {
-            var cx = centerX * unit;
-            var cy = centerY * unit;
-            var halfLength = length * unit;
-            var halfWidth = Math.Max(0.8f, width * unit);
-            var axis = Vector2.FromAngle(angle);
-            for (var y = (int)(cy - halfLength - 1); y <= (int)(cy + halfLength + 1); y++)
-                for (var x = (int)(cx - halfLength - 1); x <= (int)(cx + halfLength + 1); x++)
-                {
-                    var offset = new Vector2(x + 0.5f - cx, y + 0.5f - cy);
-                    var along = offset.Dot(axis) / halfLength;
-                    var across = offset.Dot(axis.Orthogonal()) / halfWidth;
-                    if (along * along + across * across <= 1f)
-                        Blend(x, y, Math.Abs(offset.Dot(axis.Orthogonal())) < 0.5f && size >= 32 ? vein : color);
-                }
-        }
-
-        public void Fruit(float x, float y, Color color, Color highlight)
-        {
-            Disc(x, y, 1.3f, color);
-            if (size >= 32) Dot(x - 0.6f, y - 0.6f, highlight);
-        }
-
-        public void Boulder(float centerX, float centerY, float radius, Color dark, Color mid, Color light)
-        {
-            Disc(centerX, centerY, radius, dark);
-            Disc(centerX - 0.5f, centerY - 0.5f, radius - 1, mid);
-            Disc(centerX - radius * 0.35f, centerY - radius * 0.35f, radius * 0.4f, light);
-        }
-
-        public void Crystal(float x, float y, Color color, Color highlight)
-        {
-            Line(x - 1.5f, y, x, y - 3, highlight);
-            Line(x, y - 3, x + 1.5f, y, color);
-            Line(x + 1.5f, y, x, y + 1.5f, color);
-            Line(x, y + 1.5f, x - 1.5f, y, highlight);
-            Dot(x, y - 1, highlight);
-        }
-
-        private void Blend(int x, int y, Color color)
-        {
-            if (x < 0 || y < 0 || x >= size || y >= size) return;
-            var target = new Vector2I(left + x, y);
-            image.SetPixelv(target, image.GetPixelv(target).Blend(color));
         }
     }
 }
