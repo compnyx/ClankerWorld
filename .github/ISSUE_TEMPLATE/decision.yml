@@ -1,0 +1,45 @@
+name: Design decision
+description: A design question needs an answer from the owner before work can start.
+labels: ["type:decision"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: One question, in plain words.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Why it matters
+      description: What is unclear today, and what does the vision ledger already say? Link it.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options
+      description: Two or more options, each with what it means for players and what it costs to build.
+      placeholder: |
+        **A. ...**
+        - Player experience:
+        - Cost:
+
+        **B. ...**
+        - Player experience:
+        - Cost:
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+      description: Which option you would pick, and why.
+    validations:
+      required: true
+  - type: textarea
+    id: blocks
+    attributes:
+      label: What this blocks
+      description: Issues or work waiting on the answer.
