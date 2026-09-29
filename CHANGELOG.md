@@ -6,9 +6,28 @@ release yet.
 
 ## Unreleased
 
+- Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
+- A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
+
 ### Added
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+
+- Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+
+- Starting households are named First household and Second household instead of
+  Camp Alpha/Beta. Existing default camp names display the new wording without
+  changing saved membership, property or custom household names. Founder setup
+  instructions are shorter and describe the two-household grouping plainly.
+
+- Public pairing creation is limited to eight attempts per minute and pairing
+  request bodies to 16 KiB. Signed owner actions remain available. Host-local
+  recovery can replace one unapproved request in a full pairing queue without
+  discarding an approved pairing or revoking an active device.
+
+- Loading an older world removes only Road tiles embedded inside saved building footprints, preserving buildings, ownership, stock and all other Roads.
+- The Event Log and unread badge now select explicitly supported player events, including public partnership, care, trade and Town policy milestones; new internal event kinds no longer appear automatically as humanized diagnostics.
+- Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
 
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
@@ -48,11 +67,10 @@ release yet.
   shows the full controls list, and top-bar tooltips name each key. Clicking
   a top-bar button or the map no longer leaves the arrow keys and Space stuck
   on that button.
-- The world view shows a "Paused · press Space to resume" badge whenever time
-  is stopped after the world has started, and a small readout in the bottom
-  corner names the ground under the pointer: its surface, forest or water,
-  any building or resource there, Road, the Town it belongs to and its tile
-  position. Neither takes clicks away from the map.
+- A small readout in the bottom corner of the world view names the ground
+  under the pointer: its surface, forest or water, any building or resource
+  there, Road, the Town it belongs to and its tile position. It doesn't take
+  clicks away from the map.
 - Plainer in-game wording: the agent card names households and relatives
   ("Member of Camp Alpha", "Parent of Mira") instead of internal IDs, leaves
   out an unassigned role or unreported condition, and reads "Wants to take it
@@ -261,13 +279,23 @@ release yet.
 
 ### Changed
 
+- Agents no longer start Shelters, Storehouses, Cooking fires or Stone
+  hearths. A household's House now provides shelter, cooking, warmth from its
+  fire and food storage, and a Town's Warehouse holds shared supplies.
+  Experienced builders also stop suggesting shelter, storehouse and hearth
+  designs. Worlds that already have these buildings keep them working,
+  projects for them that are already under way still finish, and designs
+  suggested earlier stay in the Mod Library. An adult without a household
+  cannot build a House yet, so in a new world clothing and natural cover are
+  their only protection from cold.
 - Weather on the map now moves. Rain falls as short drops that land with
   small splash rings, storms darken the sky with heavier slanted rain and a
   soft flash of lightning every several seconds, and snow drifts down. Rain,
   storms and snow no longer fill square blocks: their edges wander in
   irregular shapes that creep slowly and fade out softly. A very light haze of
   cloud drifts over the land now and then, more often under cloudy or rainy
-  skies, without covering the view.
+  skies, without covering the view. All of it holds still while time is
+  paused and carries on when you resume.
 - Neighboring land surfaces now blend at close zoom instead of meeting in a
   hard tile-grid line. Grass reaches softly into sand, forest into grass, snow
   into rock and tundra, and mountains shed a rocky edge. The edge wanders and
