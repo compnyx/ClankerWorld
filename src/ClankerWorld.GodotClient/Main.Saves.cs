@@ -188,7 +188,7 @@ public partial class Main
                 .Where(save => loadMode || !save.IsAutosave).ToArray();
             manualSaveList.Clear();
             foreach (var save in listedManualSaves)
-                manualSaveList.AddItem($"{(save.IsAutosave ? "Autosave" : save.Name)} · {DisplayWorldClock(save.WorldTick)} · {save.CreatedUtc.ToLocalTime():g}");
+                manualSaveList.AddItem($"{(save.IsAutosave ? "Autosave" : save.Name)} · world {DisplayWorldClock(save.WorldTick)} · saved {save.CreatedUtc.ToLocalTime():g}");
             if (listedManualSaves.Length == 0)
                 manualSaveStatus.Text = loadMode
                     ? "No saves yet. Continue the world and use Pause Menu → Save World."

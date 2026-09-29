@@ -267,10 +267,15 @@ public partial class Main
         var model = founderModelInput.Text.Trim();
         var choice = SelectedFounderCredential();
         var newKey = choice == "new";
-        if (model.Length == 0 || newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
+        if (model.Length == 0)
+        {
+            SetStatus("Pick a model first.", good: false);
+            return;
+        }
+        if (newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
             string.IsNullOrWhiteSpace(founderApiKeyInput.Text)))
         {
-            SetStatus("Pick a model, then give the new key a name and paste the key.", good: false);
+            SetStatus("Give the new key a name and paste the key.", good: false);
             return;
         }
         var agentId = "agent:" + Guid.NewGuid().ToString("N");
@@ -325,10 +330,15 @@ public partial class Main
         var model = founderModelInput.Text.Trim();
         var choice = SelectedFounderCredential();
         var newKey = choice == "new";
-        if (model.Length == 0 || newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
+        if (model.Length == 0)
+        {
+            SetStatus("Pick a model first.", good: false);
+            return;
+        }
+        if (newKey && (string.IsNullOrWhiteSpace(founderKeyLabelInput.Text) ||
             string.IsNullOrWhiteSpace(founderApiKeyInput.Text)))
         {
-            SetStatus("Pick a model, then give the new key a name and paste the key.", good: false);
+            SetStatus("Give the new key a name and paste the key.", good: false);
             return;
         }
         var founderId = "founder:" + Guid.NewGuid().ToString("N");
@@ -399,7 +409,7 @@ public partial class Main
 
     private void ResetAddAgentPlacementHint()
     {
-        founderSetupHint.Text = "Pick a provider, model and key for this adult, then point at a tile. On a household's property they join that household. On other Town land they join the Town only. Outside the Town they start their own household.";
+        founderSetupHint.Text = "Pick a provider, model and key for this adult, then point at a tile. On a household's property they join that household. On other Town land they join the Town only. Outside the Town they start their own household. House tiles can be shared.";
     }
 
     private void PreviewAddAgentPlacement(OwnerWorldSnapshot snapshot, Vector2I tile)
