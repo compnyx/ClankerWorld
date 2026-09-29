@@ -399,8 +399,8 @@ public partial class Main : Control
                     throw new InvalidOperationException($"Save/load panel escaped its centered bounds at {size}.");
                 manualSaveOverlay.Hide();
                 worldMenuHeading.Text = "New World";
-                worldMenuStatus.Text = "Choose a seed and size. The new world opens paused at its empty camp; add four founders before starting time.";
-                worldPreviewStatus.Text = "Map preview · camp at 100, 60. The world you create will use this terrain.";
+                worldMenuStatus.Text = "Choose a seed and size. Then choose your Town site and add four founders before starting time.";
+                worldPreviewStatus.Text = "Map preview · choose your Town site after creating the world.";
                 worldPreview.Show();
                 worldMenuOverlay.Show();
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);

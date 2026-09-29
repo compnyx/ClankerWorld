@@ -34,11 +34,12 @@ specific paired-client check; see the resolution evidence below.
   phantom pending reservations accumulated in memory while writes failed;
   preserve and correct that meter at deployment before counting those as paid
   calls. Model behavior and pacing after the repair still need playtesting.
-- **New World still shows an old camp alongside the chosen Town — confirmed:**
-  generated maps retain six legacy camp objects and a provisional camp-derived
-  Town border before the player chooses a site. Fresh New World setup should
-  show no established Town or obsolete starter camp until its layout is
-  accepted; preserve the active playtest save while changing generation.
+- **New World still shows an old camp alongside the chosen Town — confirmed in
+  playtest build:** generated maps retained six legacy camp objects and a
+  provisional camp-derived Town border before site selection. The source
+  change now begins without either and retains the previous generator for
+  old-save validation; the active playtest save remains unmodified. Confirm
+  the fresh-world behavior on the next Windows build before closing this gap.
 - **Starter Roads cross building footprints — confirmed in playtest build:**
   the deployed planner seeds and joins routes at building anchor tiles. New
   Roads need to stay outside each footprint and meet adjacent entrances; the

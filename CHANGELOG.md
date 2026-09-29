@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- Fresh generated worlds no longer show a second pre-placed camp or provisional
+  Town beside the player-chosen five-building site. The New World preview no
+  longer marks a supposed starting camp. Older saves keep their original map
+  identity and camp objects rather than being rewritten on load.
+
 - Starter Town and later Town-building Roads now connect beside building
   entrances, never through their footprints. New branches use connected
   orthogonal ground tiles instead of painting a building anchor as Road. Future
@@ -200,6 +205,9 @@ release yet.
   saves load with an empty knowledge ledger and migrate to schema 23.
 
 ### Fixed
+
+- A world where an agent ate orchard fruit now saves and reloads normally;
+  that meal source was previously rejected by save validation.
 
 - Adults in a household that already has a House no longer plan a redundant
   new House. An in-progress second-House project ends with a visible reason
