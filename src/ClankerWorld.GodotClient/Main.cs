@@ -1259,6 +1259,29 @@ public partial class Main : Control
                 !worldInfoText.Text.Contains("Soil moisture here: 78%", StringComparison.Ordinal) ||
                 terrainLayer.WeatherAt(150, 80) != "rain" || terrainLayer.WeatherAt(20, 20) != "snow")
                 throw new InvalidOperationException("The world HUD and info must show weather and moisture at the camera.");
+            var startedMap = largeMap with { FounderSetup = null };
+            RenderWorldHud(startedMap);
+            for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!pausedBadge.Visible || !mapCanvas.GetGlobalRect().Encloses(pausedBadge.GetGlobalRect()))
+                throw new InvalidOperationException($"A paused, started world must show a paused badge inside the world view: visible={pausedBadge.Visible} badge={pausedBadge.GetGlobalRect()}.");
+            RenderWorldHud(startedMap with { Authoring = startedMap.Authoring! with { IsPaused = false } });
+            if (pausedBadge.Visible)
+                throw new InvalidOperationException("The paused badge must disappear while time runs.");
+            RenderWorldHud(largeMap);
+            UpdateTileHover(mapCanvas.Size / 2);
+            var hoveredCenter = TileAtCanvas(mapCanvas.Size / 2, largeMap);
+            if (!hoverReadout.Visible || !hoverReadoutLabel.Text.EndsWith($"{hoveredCenter.X}, {hoveredCenter.Y}", StringComparison.Ordinal) ||
+                hoverReadout.MouseFilter != Control.MouseFilterEnum.Ignore || pausedBadge.MouseFilter != Control.MouseFilterEnum.Ignore)
+                throw new InvalidOperationException($"Hovering ground must show a click-through readout ending in the tile position: {hoverReadoutLabel.Text}");
+            var beforeRoad = largeMap with { RoadTiles = [] };
+            UpdateHoverReadout(beforeRoad, hoveredCenter);
+            var afterRoad = beforeRoad with { RoadTiles = [new OwnerWorldPosition(hoveredCenter.X, hoveredCenter.Y)] };
+            UpdateHoverReadout(afterRoad, hoveredCenter);
+            if (!hoverReadoutLabel.Text.Contains(" · Road", StringComparison.Ordinal))
+                throw new InvalidOperationException("The hovered tile must reflect a newly observed road without moving the pointer.");
+            UpdateTileHover(new Vector2(-5, -5));
+            if (hoverReadout.Visible)
+                throw new InvalidOperationException("Leaving the map must hide the hover readout.");
             var beforeLargePan = worldOverview.VisibleTiles.Position;
             CenterCameraAt(new Vector2(20, 20));
             if (worldOverview.VisibleTiles.Position.DistanceTo(beforeLargePan) < 1 ||
@@ -3377,6 +3400,7 @@ public partial class Main : Control
         mapCanvas.MouseExited += () =>
         {
             terrainLayer.SetHoveredTile(null);
+            UpdateHoverReadout(null, null);
             if (placingAddedAgent) ResetAddAgentPlacementHint();
         };
         content.AddChild(mapCanvas);
@@ -3486,6 +3510,7 @@ public partial class Main : Control
         selectedTilePanel.ZIndex = 80;
         selectedTilePanel.Hide();
         content.AddChild(selectedTilePanel);
+        BuildMapHud(content);
     }
 
     private void BuildOwnerColumn(Control content)
@@ -4718,6 +4743,7 @@ public partial class Main : Control
             : string.Empty;
         pauseButton.Text = paused ? "Play" : "Pause";
         pauseButton.TooltipText = paused ? "Resume the world (Space)" : "Pause the world (Space)";
+        UpdatePausedBadge(snapshot);
         menuResumeButton.Text = menuPausedWorld ? "Resume" : "Close menu";
     }
 
@@ -5401,6 +5427,7 @@ public partial class Main : Control
         }
 
         if (controlsPanel.Visible) PositionControlsPanel();
+        PositionMapHud();
         rosterPanel.Position = new Vector2(14, 14);
         settlementPanel.Position = new Vector2(14, 14);
         worldInfoPanel.Position = new Vector2(14, 14);
@@ -5727,11 +5754,13 @@ public partial class Main : Control
             canvasPosition.X >= mapCanvas.Size.X || canvasPosition.Y >= mapCanvas.Size.Y)
         {
             terrainLayer.SetHoveredTile(null);
+            UpdateHoverReadout(null, null);
             return;
         }
 
         var stagePosition = canvasPosition - mapStage.Position;
         var tile = TileAtCanvas(canvasPosition, snapshot);
+        UpdateHoverReadout(snapshot, tile);
         PreviewAddAgentPlacement(snapshot, tile);
         if (!MapContains(snapshot, tile.X, tile.Y) ||
             inhabitantVisuals.Values.Any(marker => marker.Visible &&

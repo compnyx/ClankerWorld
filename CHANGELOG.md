@@ -21,6 +21,11 @@ release yet.
   shows the full controls list, and top-bar tooltips name each key. Clicking
   a top-bar button or the map no longer leaves the arrow keys and Space stuck
   on that button.
+- The world view shows a "Paused · press Space to resume" badge whenever time
+  is stopped after the world has started, and a small readout in the bottom
+  corner names the ground under the pointer: its surface, forest or water,
+  any building or resource there, Road, the Town it belongs to and its tile
+  position. Neither takes clicks away from the map.
 - Plainer in-game wording: the agent card names households and relatives
   ("Member of Camp Alpha", "Parent of Mira") instead of internal IDs, leaves
   out an unassigned role or unreported condition, and reads "Wants to take it
