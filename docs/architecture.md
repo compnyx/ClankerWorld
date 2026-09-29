@@ -387,3 +387,66 @@ installation and state paths. Keep the previous private world and pairing
 authority only in a root-only rollback backup; copy provider credentials to the
 new protected state path without printing them. Ignored old export/build
 artifacts are historical binaries, not current source names.
+
+## Proposed House, Warehouse and newcomer completion slice (#161–#163)
+
+**Draft completion design, not a replacement for the playable implementation.**
+The current 1×1 household House already has located private stock, cooking and
+refuge with no occupancy cap; the 2×2 Town Warehouse already has inspected
+non-food stock and residency-checked pickup. Neither should be reimplemented as
+a marker or declared absent. Expansion, comprehensive logistics, guest/ordinary
+joining rights and border-change policy remain unfinished.
+
+### Expansion transaction
+
+Represent an expansion as a validated footprint revision of the same building
+instance, not a new stock owner. House targets are 1×2 or 2×2; Warehouse target is
+2×3. Before commitment, validate the entire proposed footprint against terrain,
+resources, other buildings, Roads and legal placement boundaries, and reserve
+accepted materials. A failed/stale proposal keeps the old footprint and stock.
+On completion, update footprint revision and inspection geometry atomically;
+located lots, reservations and active jobs keep stable building/owner IDs.
+Do not invent a new occupant cap, sleep mechanic or accepted storage capacity.
+Exact cost, storage growth and orientation rules need review before shipping.
+
+### Access and lifecycle invariants
+
+House invitation does not grant inventory access. Guest cooking/refuge rights
+must remain disabled or explicitly unresolved until selected, not inherited from
+household membership by convenience. A Warehouse checks current Town residency
+at pickup/commit, including after movement and save/reload; carrying stock already
+legitimately transferred is distinct from continued access to communal stock.
+Food is still household-private and cannot enter communal Warehouse lots.
+
+For removal/reassignment, never orphan or silently erase located lots or active
+reservations. Proposed conservative behavior is to reject the operation with a
+clear blocked reason while stock/jobs need an explicit relocation plan. This is
+a recommendation, not accepted ownership law. Border shrink or Town removal
+must not delete the stock; formal reassignment and outside-border policy remain
+owner choices. Save migration must preserve old Shelters/Storehouses and stable
+IDs until an explicit compatible conversion exists.
+
+### New adult housing sequence
+
+Player Add Agent on household property already establishes starting membership
+without consent. Preserve that decided rule. For ordinary later housing, inspect
+an existing member-accessible House first and do not propose a duplicate. If no
+such House exists, report the actual blocker: no household, no authorized home,
+no legal site or missing materials. An unaffiliated adult must not acquire a
+stranger's home through a proximity shortcut. Voluntary joining/permission is an
+open design dependency; keep that branch pending instead of choosing consent on
+behalf of either household. Only after the accepted suitability/permission path
+finds no usable existing home may the construction candidate be considered.
+
+### Required integration evidence
+
+Use two households and two Towns with separately located food/non-food lots.
+Exercise expansion success and failed overlap, pending cooking/crafting,
+reassignment/removal refusal, border/residency change, outsider pickup, guest
+entry without stock rights, newborn care/refuge and newly added adult priorities.
+Roundtrip every intermediate state and verify conservation of each lot and
+reservation. Normal Godot must show footprint, owner, contents and a readable
+blocker immediately after each transition. Record bounded lifecycle outcomes,
+never inventory descriptions supplied by model prose or private credentials.
+Existing House/Warehouse tests establish the current slice, not completion of
+these expansion and permission gates. No runtime behavior changes here.
