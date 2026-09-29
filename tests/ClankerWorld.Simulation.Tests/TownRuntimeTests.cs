@@ -20,7 +20,7 @@ public sealed class TownRuntimeTests
         PlaceFourFounders(world);
         world.StartWorld();
         var position = new GridPoint(22, 13);
-        world.AddAgent("island-adult", position);
+        world.AddAgent("agent:00000000000000000000000000000099", position);
         var before = world.ExportState();
         var food = before.Map.Resources.Single(item => item.Id == "wild-16-0");
         Assert.False(before.Map.IsReachableFromCampOnFoot(food.Position));
@@ -28,9 +28,9 @@ public sealed class TownRuntimeTests
         Assert.False(before.Map.IsReachableOnFoot(position, before.Map.Resources.Single(item => item.Id == "berry-patch").Position));
         for (var tick = 0; tick < 10; tick++) _ = await world.AdvanceOneTickAsync();
         Assert.Contains(world.ExportState().Events, item => item.Kind == "food_harvested" &&
-            item.Detail.StartsWith("island-adult:", StringComparison.Ordinal));
+            item.Detail.StartsWith("agent:00000000000000000000000000000099:", StringComparison.Ordinal));
         Assert.DoesNotContain(world.ExportState().Events, item => item.Kind == "movement_blocked" &&
-            item.Detail.StartsWith("island-adult:no_route", StringComparison.Ordinal));
+            item.Detail.StartsWith("agent:00000000000000000000000000000099:no_route", StringComparison.Ordinal));
         using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
         Assert.True(restored.ExportState().Map.IsReachableOnFoot(position, food.Position));
     }
