@@ -94,6 +94,7 @@ public partial class Main : Control
     private readonly Button menuButton = new();
     private readonly ColorRect topBarShade = new();
     private readonly WorldTerrainLayer terrainLayer = new();
+    private readonly WeatherLayer weatherLayer = new();
     private WorldTerrainMap? terrainMap;
     private string? terrainWorldId;
     private string? terrainManifestDigest;
@@ -208,6 +209,7 @@ public partial class Main : Control
     private string? selectedInhabitantId;
     private string? renamingAgentId;
     private bool isRefreshing;
+    private CancellationTokenSource? refreshCancellation;
     private int successfulRefreshCount;
     private bool isPairingOperation;
     private bool isOwnerAction;
@@ -712,6 +714,12 @@ public partial class Main : Control
                 !usageMeterStatus.Text.Contains("openai / test-model", StringComparison.Ordinal) ||
                 !grantUsageCallsButton.Visible || usageAttemptLimitInput.Text != "2")
                 throw new InvalidOperationException("World Settings must present paid attempts, scope, provider/model and explicit consent at the cap.");
+            usageStatus = usageStatus with { AccountingError = "Accounting unavailable. Restore a trusted backup and restart." };
+            RenderUsageStatus();
+            if (!usageMeterStatus.Text.Contains("Restore a trusted backup", StringComparison.Ordinal) ||
+                usageMeterStatus.Text.Contains("calls used", StringComparison.Ordinal) ||
+                grantUsageCallsButton.Visible || !applyUsageLimitButton.Disabled || usageAttemptLimitInput.Editable)
+                throw new InvalidOperationException("Unavailable accounting must not display zero usage or offer a cap bypass.");
             usageStatus = null;
             RenderUsageStatus();
             Render(sample, []);
@@ -804,10 +812,11 @@ public partial class Main : Control
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!founderSetupButton.Visible || !founderSetupButton.Text.Contains("2/4", StringComparison.Ordinal) ||
                 !startWorldButton.Visible || !startWorldButton.Disabled ||
-                !undoFounderButton.Visible ||
-                !GetViewport().GetVisibleRect().Encloses(undoFounderButton.GetGlobalRect()) ||
+                !undoFounderButton.Visible || !founderHudRow.Visible ||
+                HudButtons().Where(button => button.IsVisibleInTree())
+                    .Any(button => !mapCanvas.GetGlobalRect().Encloses(button.GetGlobalRect())) ||
                 !mapCanvas.GetGlobalRect().Encloses(founderSetupPanel.GetGlobalRect()))
-                throw new InvalidOperationException("Founder setup must show progress and keep Start World gated inside the world view.");
+                throw new InvalidOperationException("Founder setup must keep every HUD action inside the world view and Start World gated.");
             founderSetupPanel.Hide();
             Render(sample with { FounderSetup = new OwnerFounderSetup(4, 4, true) }, []);
             if (!addAgentButton.Visible || founderSetupButton.Visible || startWorldButton.Visible ||
@@ -966,6 +975,37 @@ public partial class Main : Control
                     }
                     if (style != TerrainStyle.Unknown && first.GetData().SequenceEqual(second.GetData()))
                         throw new InvalidOperationException($"{style} needs two distinct texture variants.");
+                }
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var style in new[] { TerrainStyle.Ocean, TerrainStyle.Lake, TerrainStyle.River, TerrainStyle.ShallowWater })
+                {
+                    // Water repeats as one larger block: it must average near
+                    // the flat color that the overview and shore bands use, and
+                    // its tiles must differ so no tile grid shows.
+                    var waterBlock = WaterTextures.Block(style, atlasSize);
+                    var waterBase = TerrainTextures.BaseColor(style);
+                    var pixels = waterBlock.GetWidth() * waterBlock.GetHeight();
+                    var (red, green, blue) = (0f, 0f, 0f);
+                    for (var py = 0; py < waterBlock.GetHeight(); py++)
+                        for (var px = 0; px < waterBlock.GetWidth(); px++)
+                        {
+                            var pixel = waterBlock.GetPixel(px, py);
+                            red += pixel.R;
+                            green += pixel.G;
+                            blue += pixel.B;
+                        }
+                    if (Math.Abs(red / pixels - waterBase.R) > 0.03f || Math.Abs(green / pixels - waterBase.G) > 0.03f ||
+                        Math.Abs(blue / pixels - waterBase.B) > 0.03f)
+                        throw new InvalidOperationException($"{style} {atlasSize}px water must average close to its base color.");
+                    var distinctTiles = new HashSet<string>();
+                    for (var ty = 0; ty < WaterTextures.BlockTiles; ty++)
+                        for (var tx = 0; tx < WaterTextures.BlockTiles; tx++)
+                            distinctTiles.Add(Convert.ToBase64String(waterBlock.GetRegion(
+                                new Rect2I(tx * atlasSize, ty * atlasSize, atlasSize, atlasSize)).GetData()));
+                    if (distinctTiles.Count < WaterTextures.BlockTiles ||
+                        WaterTextures.Region(style, WaterTextures.BlockTiles, -WaterTextures.BlockTiles, atlasSize) !=
+                        WaterTextures.Region(style, 0, 0, atlasSize))
+                        throw new InvalidOperationException($"{style} water must vary between tiles and repeat only as a whole block.");
                 }
             if (!TerrainTransitions.Overlaps(TerrainStyle.Grass, TerrainStyle.Sand) ||
                 TerrainTransitions.Overlaps(TerrainStyle.Sand, TerrainStyle.Grass) ||
@@ -1446,6 +1486,32 @@ public partial class Main : Control
                 !worldInfoText.Text.Contains("Soil moisture here: 78%", StringComparison.Ordinal) ||
                 terrainLayer.WeatherAt(150, 80) != "rain" || terrainLayer.WeatherAt(20, 20) != "snow")
                 throw new InvalidOperationException("The world HUD and info must show weather and moisture at the camera.");
+            // Regions are squares on the host; on the map their weather must
+            // reach the middle fully but end in a wandering, soft edge.
+            var edgeColumns = new List<int>();
+            for (var edgeRow = 68; edgeRow <= 92; edgeRow += 2)
+                for (var column = 100; column < 160; column++)
+                    if (weatherLayer.CoverageAt(column, edgeRow, "rain") > 0.5f)
+                    {
+                        edgeColumns.Add(column);
+                        break;
+                    }
+            if (weatherLayer.GetChildCount() != 0 || weatherLayer.CoverageAt(144, 80, "rain") < 0.9f ||
+                weatherLayer.CoverageAt(144, 80, "snow") > 0.1f || edgeColumns.Count < 10 ||
+                edgeColumns.Max() - edgeColumns.Min() < 3)
+                throw new InvalidOperationException($"Rain must fill its region and end in a wandering edge, not a square: edge={string.Join(',', edgeColumns)}.");
+            // Lightning brightens softly and rarely: never a strobe.
+            var (brightest, lit, flashes, wasLit) = (0f, 0, 0, false);
+            for (var step = 0; step < 9000; step++)
+            {
+                var flash = WeatherLayer.LightningFlash(step * 0.01);
+                brightest = Math.Max(brightest, flash);
+                if (flash > 0.02f) lit++;
+                if (flash > 0.02f && !wasLit) flashes++;
+                wasLit = flash > 0.02f;
+            }
+            if (brightest > 0.31f || lit > 900 || flashes > 25)
+                throw new InvalidOperationException($"Lightning must stay soft and rare: peak={brightest}, lit samples={lit}, flashes={flashes}.");
             var startedMap = largeMap with { FounderSetup = null };
             RenderWorldHud(startedMap);
             for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -1954,6 +2020,8 @@ public partial class Main : Control
 
     public override void _ExitTree()
     {
+        refreshCancellation?.Cancel();
+        UiTheme.Changed -= ApplyThemeColors;
         deviceKey?.Dispose();
         httpClient.Dispose();
         base._ExitTree();
@@ -2189,6 +2257,7 @@ public partial class Main : Control
 
     private void ForgetLocalRegistration()
     {
+        refreshCancellation?.Cancel();
         registrationStore.Forget();
         registration = null;
         registeredEndpointInvalid = false;
@@ -2220,6 +2289,8 @@ public partial class Main : Control
         }
 
         isRefreshing = true;
+        using var refresh = new CancellationTokenSource();
+        refreshCancellation = refresh;
         try
         {
             var requestedCursor = observationSession.EventCursor;
@@ -2242,7 +2313,9 @@ public partial class Main : Control
                 cachedTerrain?.MapManifestDigest,
                 cachedMapLayersDigest,
                 deviceKey,
-                CancellationToken.None);
+                refresh.Token);
+            // An owner action or shutdown superseded this snapshot.
+            if (refresh.IsCancellationRequested) return;
             if (!observationSession.TryAccept(reconnect, requestedCursor, out var failure))
             {
                 ShowHeldState(failure);
@@ -2268,12 +2341,17 @@ public partial class Main : Control
                 }
             }
         }
+        catch (OperationCanceledException) when (refresh.IsCancellationRequested)
+        {
+            // Superseded refresh is not a connection failure.
+        }
         catch (Exception exception)
         {
             ShowHeldState(FriendlyFailure(exception));
         }
         finally
         {
+            refreshCancellation = null;
             isRefreshing = false;
             RefreshControlAvailability();
         }
@@ -2562,6 +2640,14 @@ public partial class Main : Control
         if (usageStatus is null)
         {
             usageMeterStatus.Text = "Loading model calls…";
+            return;
+        }
+        if (usageStatus.AccountingError is not null)
+        {
+            usageMeterStatus.Text = usageStatus.AccountingError;
+            usageMeterStatus.TooltipText = "Call totals are unavailable until accounting is restored.";
+            grantUsageCallsButton.Visible = false;
+            RefreshControlAvailability();
             return;
         }
         if (!usageAttemptLimitInput.HasFocus())
@@ -3083,6 +3169,7 @@ public partial class Main : Control
         }
 
         isOwnerAction = true;
+        refreshCancellation?.Cancel();
         RefreshControlAvailability();
         try
         {
@@ -3451,6 +3538,11 @@ public partial class Main : Control
         entityLayer.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         entityLayer.MouseFilter = Control.MouseFilterEnum.Ignore;
         mapStage.AddChild(entityLayer);
+
+        // Weather falls over buildings and agents alike.
+        weatherLayer.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        weatherLayer.Follow(terrainLayer);
+        mapStage.AddChild(weatherLayer);
 
         BuildSelectedInhabitantCard();
         mapCanvas.AddChild(selectedInhabitantCard);
@@ -5408,10 +5500,10 @@ public partial class Main : Control
         cognitionApiKeyInput.Editable = !actionDisabled && SelectedProviderId() != "deterministic";
         cognitionCredentialLabelInput.Editable = !actionDisabled;
         refreshCognitionProviderButton.Disabled = actionDisabled;
-        applyUsageLimitButton.Disabled = actionDisabled;
+        applyUsageLimitButton.Disabled = actionDisabled || usageStatus?.AccountingError is not null;
         grantUsageCallsButton.Disabled = actionDisabled || usageStatus?.LimitReached != true;
         refreshUsageButton.Disabled = actionDisabled;
-        usageAttemptLimitInput.Editable = !actionDisabled;
+        usageAttemptLimitInput.Editable = !actionDisabled && usageStatus?.AccountingError is null;
         var selectedProvider = SelectedProviderId();
         var selectedProviderStatus = providerConfiguration?.Providers.FirstOrDefault(item =>
             string.Equals(item.Provider, selectedProvider, StringComparison.Ordinal));

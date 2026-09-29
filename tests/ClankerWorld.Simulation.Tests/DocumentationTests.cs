@@ -30,14 +30,17 @@ public sealed partial class DocumentationTests
         }
     }
 
-    [Fact]
-    public void DocumentationFilesDeclareTheirAuthorityMetadata()
+    [Theory]
+    [InlineData("\n")]
+    [InlineData("\r\n")]
+    public void DocumentationFilesDeclareTheirAuthorityMetadata(string checkoutNewline)
     {
         var root = FindRepositoryRoot();
         var documentationRoot = Path.Combine(root, "docs");
         foreach (var path in Directory.EnumerateFiles(documentationRoot, "*.md", SearchOption.AllDirectories))
         {
-            var text = File.ReadAllText(path);
+            // Exercise checkout conversion, then compare metadata independent of newline style.
+            var text = File.ReadAllText(path).ReplaceLineEndings(checkoutNewline).ReplaceLineEndings("\n");
             Assert.StartsWith("---\n", text, StringComparison.Ordinal);
             var closingDelimiter = text.IndexOf("\n---\n", 4, StringComparison.Ordinal);
             Assert.True(closingDelimiter > 0, $"Front matter is not closed: {Relative(root, path)}");

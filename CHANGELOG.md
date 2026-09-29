@@ -8,6 +8,13 @@ release yet.
 
 ### Added
 
+- A damaged model-call meter no longer prevents the host from starting. Paid
+  calls stay blocked, and World Settings explains how to restore accounting
+  without losing spent calls. Meter writes flush before replacing the file.
+- A stalled world refresh stops after four seconds instead of holding the
+  client for the default network timeout. Owner actions cancel an older refresh
+  so it cannot overwrite their result; Pause remains available during polling.
+
 - A new look for every menu and panel: wooden frames around parchment
   panels, ink text and chunky pixel buttons, with green for the main action.
   Settings has a new Theme choice of Light, Dark (dark wood with cream text)
@@ -239,6 +246,13 @@ release yet.
 
 ### Changed
 
+- Weather on the map now moves. Rain falls as short drops that land with
+  small splash rings, storms darken the sky with heavier slanted rain and a
+  soft flash of lightning every several seconds, and snow drifts down. Rain,
+  storms and snow no longer fill square blocks: their edges wander in
+  irregular shapes that creep slowly and fade out softly. A very light haze of
+  cloud drifts over the land now and then, more often under cloudy or rainy
+  skies, without covering the view.
 - Neighboring land surfaces now blend at close zoom instead of meeting in a
   hard tile-grid line. Grass reaches softly into sand, forest into grass, snow
   into rock and tundra, and mountains shed a rocky edge. The edge wanders and
@@ -254,6 +268,11 @@ release yet.
 - Where a river runs into the sea or a lake spills into a river, the lighter
   water now fans softly into the darker instead of changing color in a
   straight line.
+- Open water no longer repeats the same small square: seas, lakes and rivers
+  carry wave crests and the odd sparkle that run across tile edges and gather
+  in some stretches, and shallow water shows faint light ripples across its
+  bottom. Seas have the most swell, lakes are calmer and rivers ripple in
+  short marks, all in their usual colors.
 - The Town panel and Event Log are easier to scan. The Town panel puts
   shared stores, projects, the household council and social activity under
   headings, and says "No one is working on a project right now" instead of
@@ -269,6 +288,8 @@ release yet.
   shows how many are alive and a small orange dot when someone is hungry, and
   the Event Log button shows a red count of events since you last opened it,
   with those rows dotted in the log.
+  During first-Town setup, its extra controls sit in a second row so Start
+  World and Menu stay on screen at 1280×720.
 - The Town button is gone, since a world can hold more than one Town. World
   Info now opens on a Towns page listing every Town with its residents, when
   it was founded and a Show button that moves the map there, followed by the
@@ -321,6 +342,9 @@ release yet.
   and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
+
+- A damaged named-save entry no longer hides other saves or stops autosave
+  rotation. Damaged files are preserved, with a safe diagnostic for recovery.
 
 - Hovering the Town panel no longer pops up a technical tooltip of world
   ticks, revisions, map digests and internal system counts.
