@@ -143,10 +143,10 @@ public partial class Main
         body.AddChild(close);
         AddPanelContents(manualSaveCard, body);
         manualSaveCard.CustomMinimumSize = new Vector2(470, 0);
-        manualSaveLoadConfirmation.Title = "Load this save?";
+        StyleConfirmation(manualSaveLoadConfirmation, "Load this save?", "Load Save");
         manualSaveLoadConfirmation.Confirmed += () => _ = LoadSelectedManualSaveAsync();
         AddChild(manualSaveLoadConfirmation);
-        manualSaveOverwriteConfirmation.Title = "Overwrite this save?";
+        StyleConfirmation(manualSaveOverwriteConfirmation, "Overwrite this save?", "Overwrite");
         manualSaveOverwriteConfirmation.Confirmed += () => _ = OverwriteSelectedManualSaveAsync();
         AddChild(manualSaveOverwriteConfirmation);
         manualSaveOverlay.Hide();

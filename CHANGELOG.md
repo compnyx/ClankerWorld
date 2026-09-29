@@ -257,6 +257,10 @@ release yet.
   soil, snow and water, small top-down mountains with snowy peaks, and
   shoreline foam or river banks where water meets land. The zoomed-out overview
   keeps its flat colors, and the old ≈ and ▲ map symbols are gone.
+- Confirmation dialogs (Quit to Menu, Quit Game, Load Save and Overwrite) now
+  match the game's dark panels instead of the default grey window, and their
+  confirm button names the action, such as "Quit to Menu" or "Overwrite",
+  instead of OK.
 - Trees and natural sites are now pixel-art sprites instead of plain circles:
   leafy broadleaf and star-shaped conifer canopies, stumps with growth rings,
   saplings, fruiting and picked orchard trees, berry bushes, wild greens, fiber
