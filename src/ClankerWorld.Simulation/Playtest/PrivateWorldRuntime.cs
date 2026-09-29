@@ -767,6 +767,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 }
             }
             worldContent = activatedWorldContent;
+            if (targetTick == 1 && contentRegistry.ExportState().Packages.Any(package =>
+                    package.Manifest.PackageId == SettlementContent.PackageId &&
+                    package.Lifecycle == ContentPackageLifecycle.Active && package.ActivationTick == 0))
+                AddSettlementResources();
             CancelUnavailableWorkers();
             ProcessProduction(targetTick);
             ProcessCropBuilds(targetTick);
@@ -980,6 +984,44 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         {
             gate.Release();
         }
+    }
+
+    /// <summary>Install trusted shipped content before the first paused Town layout is accepted.</summary>
+    public void InitializeFirstTownContent()
+    {
+        gate.Wait();
+        try
+        {
+            if (geographyOptions is null || founderSetup is not { Started: false } ||
+                !society.Checkpoint.IsPaused || WorldTick != 0 ||
+                contentRegistry.ExportState().Packages.Count != 0)
+                throw new InvalidOperationException("Initial content is available only to a fresh paused generated world.");
+            ContentPackageManifest[] manifests =
+            [
+                StarterContent.Create(), SettlementContent.Create(), HouseContent.Create(),
+                WarehouseContent.Create(), FarmContent.Create(), BlacksmithContent.Create(),
+                HouseCookingContent.Create(),
+            ];
+            foreach (var manifest in manifests)
+            {
+                var packages = contentRegistry.ExportState().Packages;
+                var resolution = ContentPackageResolver.Resolve(
+                    packages.Select(package => package.Manifest).Append(manifest), [manifest.PackageId]);
+                var definitions = ContentDefinitionPayloadCodec.ApplyPackage(worldContent, manifest);
+                contentRegistry.Propose(manifest, 0);
+                contentRegistry.Validate(manifest.PackageId, resolution, 0);
+                contentRegistry.Approve(manifest.PackageId, 0);
+                contentRegistry.Stage(manifest.PackageId, 0);
+                var reservation = assetReservations.TryReservePackage(manifest.PackageId,
+                    manifest.AssetReservations ?? [], 0);
+                if (!reservation.IsSuccess)
+                    throw new InvalidOperationException($"Initial content assets were rejected: {reservation.FailureCode}");
+                contentRegistry.ActivateAtCreation(manifest.PackageId);
+                worldContent = definitions;
+                AppendEvent("initial_content_activated", manifest.PackageId);
+            }
+        }
+        finally { gate.Release(); }
     }
 
     public ContentPackageRecord ValidateContent(

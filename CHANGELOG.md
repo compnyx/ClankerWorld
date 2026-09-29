@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- Newly created worlds now load the built-in House, Warehouse, Farmhouse,
+  Blacksmith and cooking definitions during paused founder setup, before the
+  first simulation tick. The five starter buildings still await the player's
+  site/layout acceptance and are not placed automatically yet.
 - Adults in a household with both a Farmhouse and a House can carry milled
   flour from its Farmhouse to its House. Flour remains with the carrier until
   arrival, then becomes inspectable private House stock, including after a

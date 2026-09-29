@@ -99,6 +99,7 @@ public sealed class WorldSelectionCoordinator(
             RequirePaused();
             using var created = new PrivateWorldRuntime(geography.Seed, providerFactory,
                 startPace: WorldStartPace.FounderSetup, geographyOptions: geography);
+            created.InitializeFirstTownContent();
             var entry = catalog.Add(name, created.ExportState());
             SelectCore(entry, created.ExportState());
             if (logger.IsEnabled(LogLevel.Information))

@@ -624,6 +624,20 @@ public sealed class ContentPackageRegistry
         return record;
     }
 
+    internal ContentPackageRecord ActivateAtCreation(string packageId)
+    {
+        var record = Get(packageId);
+        RequireState(record, ContentPackageLifecycle.Staged);
+        if (record.StagedTick != 0 ||
+            RequireValidLock(record).Any(entry => entry.PackageId != packageId &&
+                Get(entry.PackageId).Lifecycle != ContentPackageLifecycle.Active))
+            throw new InvalidOperationException("Only genesis-staged content with active dependencies can join a new world.");
+        record = record with { Lifecycle = ContentPackageLifecycle.Active, ActivationTick = 0 };
+        packages[packageId] = record;
+        AppendEvent(0, packageId, "package_activated_at_creation", record.LockDigest ?? string.Empty);
+        return record;
+    }
+
     public IReadOnlyList<ContentPackageRecord> ActivateReady(long worldTick)
         => GetActivationCandidates(worldTick).Select(item => Activate(item.Manifest.PackageId, worldTick)).ToArray();
 

@@ -154,7 +154,10 @@ a buildable rough tile it can seek the five accepted building footprints and
 connect their anchors with dry-land Roads without occupying camp objects or
 resource sites. Its search radius, order and route rules are provisional; it
 does not yet rank site suitability, persist or display a plan, assign claims,
-or place buildings during paused New World setup.
+or place buildings during paused New World setup. A newly created generated
+world now has its seven shipped starter/settlement/House/Warehouse/Farmhouse/
+Blacksmith/cooking packages active at tick zero; this makes their definitions
+available before Start World, but no initial buildings or supplies are placed.
 
 ## Current cognition behavior
 

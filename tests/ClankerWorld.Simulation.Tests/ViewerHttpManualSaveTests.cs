@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using ClankerWorld.Simulation.Content;
 using ClankerWorld.Simulation.Harness;
 using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Simulation.World;
@@ -124,6 +125,14 @@ public sealed partial class ViewerHttpTests
                 var runtime = host.Services.GetRequiredService<PrivateWorldRuntime>();
                 Assert.True(runtime.Society.IsPaused);
                 Assert.Empty(runtime.Inhabitants);
+                Assert.Equal(0, runtime.WorldTick);
+                Assert.Equal(7, runtime.Content.Packages.Count);
+                Assert.All(runtime.Content.Packages, package =>
+                    Assert.Equal(ContentPackageLifecycle.Active, package.Lifecycle));
+                Assert.Contains(runtime.WorldContent.Buildings, building => building.LocalId == "house-1x1");
+                Assert.Contains(runtime.WorldContent.Buildings, building => building.LocalId == "warehouse-2x2");
+                Assert.Contains(runtime.WorldContent.Buildings, building => building.LocalId == "farmhouse-1x1");
+                Assert.Contains(runtime.WorldContent.Buildings, building => building.LocalId == "blacksmith-1x2");
                 Assert.Equal(WorldSizePreset.Small, runtime.ExportState().Geography?.Size);
                 Assert.Equal(256, runtime.ExportState().Map.Width);
                 Assert.Equal(preview.ManifestDigest, runtime.ExportState().Map.ManifestDigest);
@@ -229,6 +238,7 @@ public sealed partial class ViewerHttpTests
             Assert.Contains(restoredCatalog.Worlds, world => world.Id == generatedId);
             var restoredRuntime = restarted.Services.GetRequiredService<PrivateWorldRuntime>();
             Assert.Equal(WorldSizePreset.Small, restoredRuntime.ExportState().Geography?.Size);
+            Assert.Equal(7, restoredRuntime.Content.Packages.Count);
             var selectedOld = restarted.Services.GetRequiredService<WorldSelectionCoordinator>()
                 .Select(firstId);
             Assert.Equal(firstId, selectedOld.Id);
