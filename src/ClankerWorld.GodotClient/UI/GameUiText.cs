@@ -52,6 +52,28 @@ public static class GameUiText
         return quantity.Length == 0 ? title : title + " " + quantity;
     }
 
+    public static string FriendlyFailure(Exception exception) => exception switch
+    {
+        System.Net.Http.HttpRequestException { StatusCode: { } code } => code switch
+        {
+            System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden =>
+                "this device is not allowed in. Try connecting it again",
+            System.Net.HttpStatusCode.NotFound => "the server does not know about that",
+            System.Net.HttpStatusCode.Conflict => "the server's state changed. Try again",
+            System.Net.HttpStatusCode.TooManyRequests => "the server is busy. Try again later",
+            >= System.Net.HttpStatusCode.InternalServerError => "the server had a problem. Try again",
+            _ => "the server could not accept that request",
+        },
+        System.Net.Http.HttpRequestException => "cannot reach the world server",
+        OperationCanceledException => "the server took too long to answer",
+        System.Text.Json.JsonException or InvalidDataException => "the server sent something unexpected",
+        UnauthorizedAccessException => "the game could not access a needed file. Check its access permissions",
+        System.Security.Cryptography.CryptographicException => "the device key could not be used. Try connecting this device again",
+        IOException => "the game could not read or save a needed file. Check storage and try again",
+        ArgumentException => "a setting could not be used. Check the entered values",
+        _ => "the action could not be completed. Try again",
+    };
+
     public static string ResourceQuantity(string kind, int? quantity, int? capacity) => quantity is null ? "" :
         (kind == "fertile_land" ? "Soil " : "") + quantity + (capacity is null ? "" : "/" + capacity);
 

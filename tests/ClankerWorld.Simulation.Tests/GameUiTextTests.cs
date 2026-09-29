@@ -31,6 +31,26 @@ public sealed class GameUiTextTests
     }
 
     [Fact]
+    public void PlayerFailuresDescribeRecoveryWithoutExposingRawExceptionText()
+    {
+        const string secret = "sk-private /home/private/save provider-response";
+        Exception[] failures = [new InvalidOperationException(secret), new IOException(secret),
+            new UnauthorizedAccessException(secret), new ArgumentException(secret),
+            new System.Text.Json.JsonException(secret), new System.Security.Cryptography.CryptographicException(secret),
+            new HttpRequestException(secret, null, System.Net.HttpStatusCode.Forbidden),
+            new TaskCanceledException(secret)];
+        foreach (var failure in failures)
+        {
+            var message = GameUiText.FriendlyFailure(failure);
+            Assert.DoesNotContain(secret, message, StringComparison.Ordinal);
+            Assert.DoesNotContain(failure.GetType().Name, message, StringComparison.Ordinal);
+            Assert.NotEmpty(message);
+        }
+        Assert.Contains("connecting", GameUiText.FriendlyFailure(failures[6]), StringComparison.Ordinal);
+        Assert.Contains("storage", GameUiText.FriendlyFailure(failures[1]), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OwnerSnapshotReportsTheSavedWorldCalendarPace()
     {
         using var world = new PrivateWorldRuntime("calendar-projection");
