@@ -8,6 +8,9 @@ public partial class WorldTerrainLayer : Control
     /// <summary>Below this tile size the one-pixel-per-tile overview cache is drawn instead of textures.</summary>
     public const int TexturedTileMinimum = 16;
 
+    /// <summary>Below this tile size trees and natural sites stay simple dots readable at overview zoom.</summary>
+    public const int SpriteTileMinimum = 12;
+
     private WorldTerrainMap? world;
     private Texture2D? paletteTexture;
     private Rect2 visibleTiles;
@@ -397,6 +400,11 @@ public partial class WorldTerrainLayer : Control
 
     private void DrawNaturalObject(Vector2 position, byte kind, byte stage)
     {
+        if (tileSize >= SpriteTileMinimum && NatureSprites.ForNaturalObject(kind, stage) is { } sprite)
+        {
+            DrawNatureSprite(position, sprite);
+            return;
+        }
         var center = position + new Vector2(tileSize * 0.5f, tileSize * 0.56f);
         var scale = Math.Max(1f, tileSize / 24f);
         if (stage == 1)
@@ -605,8 +613,21 @@ public partial class WorldTerrainLayer : Control
             }
     }
 
+    /// <summary>A generated tree or natural-site sprite filling its tile.</summary>
+    private void DrawNatureSprite(Vector2 position, NatureSprite sprite)
+    {
+        var size = NatureSprites.AtlasTileSize(tileSize);
+        DrawTextureRectRegion(NatureSprites.Atlas(size), new Rect2(position, new Vector2(tileSize, tileSize)),
+            NatureSprites.Region(sprite, size));
+    }
+
     private void DrawTree(Vector2 position, byte tree)
     {
+        if (tileSize >= SpriteTileMinimum && NatureSprites.ForTree(tree) is { } sprite)
+        {
+            DrawNatureSprite(position, sprite);
+            return;
+        }
         var center = position + new Vector2(tileSize * 0.5f, tileSize * 0.5f);
         if (tree == 9)
         {

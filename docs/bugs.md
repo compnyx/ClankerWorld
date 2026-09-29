@@ -205,7 +205,8 @@ test; computment's Windows playtest remains pending.
   gap:** generated broadleaf/conifer and generic orchard-fruit tree objects now
   occupy at most one tree per tile. Wood trees visibly become stumps or
   replanted saplings; orchard trees show fruiting, picked and growing stages.
-  The Godot client draws simple top-down shapes, not approved final textures.
+  The Godot client now draws provisional code-generated top-down pixel sprites
+  for every tree stage and natural site, not approved final textures.
   Orchard species, yield, seasonality and cultivation are not finalized;
   replanting spends the prototype generic seed on an existing depleted wood
   tree site, while planting on new tiles and species-specific seed/art remain

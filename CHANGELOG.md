@@ -231,6 +231,13 @@ release yet.
   soil, snow and water, small top-down mountains with snowy peaks, and
   shoreline foam or river banks where water meets land. The zoomed-out overview
   keeps its flat colors, and the old ≈ and ▲ map symbols are gone.
+- Trees and natural sites are now pixel-art sprites instead of plain circles:
+  leafy broadleaf and star-shaped conifer canopies, stumps with growth rings,
+  saplings, fruiting and picked orchard trees, berry bushes, wild greens, fiber
+  plants, reeds, stone boulders, rust-streaked iron, gold-flecked and
+  crystal-studded outcrops, clay banks, seed heads, tilled soil, and distinct
+  depleted and regrowing sites. Their map markers no longer draw a second
+  symbol on top.
 
 ### Fixed
 
