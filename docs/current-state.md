@@ -2,7 +2,7 @@
 title: Current Product State
 type: product-status
 status: active
-updated: 2026-09-28
+updated: 2026-09-29
 ---
 
 # Current product state
@@ -148,6 +148,13 @@ not a claim that all interview proposals should be implemented at once.
 | 5 | One continuous zoomable pixel-art world view with an always-available draggable overview and inspection controls | The Godot Main Menu offers Continue, New World and Load World when paired. The view has single-view zoom, camera-bounded terrain drawing, overview navigation, located Event Log entries, private thoughts and a family tree. Large playable maps, land-claim overlays and automatic belief/memory formation remain unbuilt. Town-border and household-owned-building filters are available, but there are no saved land claims to display. Art is prototype-quality. |
 | 6 | Local Windows install runs the authoritative simulation and keeps saves/keys on that PC | The Godot client currently requires the private VPS host. Preserve it for development, then package the same simulation locally and prove a fresh install without the VPS. |
 | 7 | Regional weather, bounded inventions and mods, cross-generation social life | Generated worlds now use local weather regions for survival, work and display, with a short rain-derived soil-moisture effect on crops; seasonal effects and data-only building proposals remain thin. The Pause Menu now lists recorded packages read-only, but the full Mod Library, import/export, review flow, restricted scripted content, deep conversation/memory and full inheritance are not yet connected. |
+
+A deterministic first-Town layout planner is a **verified primitive** only. For
+a buildable rough tile it can seek the five accepted building footprints and
+connect their anchors with dry-land Roads without occupying camp objects or
+resource sites. Its search radius, order and route rules are provisional; it
+does not yet rank site suitability, persist or display a plan, assign claims,
+or place buildings during paused New World setup.
 
 ## Current cognition behavior
 
