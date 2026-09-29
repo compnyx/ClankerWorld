@@ -563,6 +563,9 @@ public partial class Main : Control
             menuQuitToMainButton.EmitSignal(BaseButton.SignalName.Pressed);
             if (!quitToMenuConfirmation.Visible)
                 throw new InvalidOperationException("Quit to Menu must request confirmation.");
+            if (quitToMenuConfirmation.OkButtonText != "Quit to Menu" || quitGameConfirmation.OkButtonText != "Quit Game" ||
+                manualSaveOverwriteConfirmation.OkButtonText != "Overwrite" || quitToMenuConfirmation.Theme is null)
+                throw new InvalidOperationException("Confirmations must use the game's panel style and name their action instead of OK.");
             quitToMenuConfirmation.Hide();
             // The pause receipt can succeed even when the following reconnect
             // fails. Leaving must not require a newer snapshot in that case.
@@ -3584,7 +3587,7 @@ public partial class Main : Control
         menuQuitToMainButton.Pressed += () => quitToMenuConfirmation.PopupCentered(new Vector2I(470, 180));
         menuActions.AddChild(menuQuitToMainButton);
 
-        quitGameConfirmation.Title = "Quit ClankerWorld?";
+        StyleConfirmation(quitGameConfirmation, "Quit ClankerWorld?", "Quit Game");
         quitGameConfirmation.DialogText = "Quit the game? Your progress is saved.";
         quitGameConfirmation.Confirmed += () => GetTree().Quit();
         AddChild(quitGameConfirmation);

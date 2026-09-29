@@ -117,7 +117,7 @@ public partial class Main
         AddPanelContents(mainMenuCard, body);
         mainMenuCard.CustomMinimumSize = new Vector2(440, 0);
 
-        quitToMenuConfirmation.Title = "Quit to Main Menu?";
+        StyleConfirmation(quitToMenuConfirmation, "Quit to Main Menu?", "Quit to Menu");
         quitToMenuConfirmation.DialogText = "Leave this world and return to the Main Menu? Time stays paused until you continue.";
         quitToMenuConfirmation.Confirmed += QuitToMainMenu;
         AddChild(quitToMenuConfirmation);
