@@ -137,6 +137,30 @@ public static class GameUiText
             ?? (id.StartsWith("household:", StringComparison.Ordinal) ? "a household" : HumanizeIdentifier(id));
     }
 
+    /// <summary>
+    /// Names how fed an agent is. The host reports fullness, so a low value
+    /// means hungry; the bands follow the host's food-seeking thresholds.
+    /// </summary>
+    public static string FullnessState(int fullnessBasisPoints) => fullnessBasisPoints switch
+    {
+        >= 7_000 => "well fed",
+        >= 3_500 => "fed",
+        >= 2_500 => "hungry",
+        _ => "very hungry",
+    };
+
+    /// <summary>
+    /// Short present-tense activity for the roster. The host summary already
+    /// reads naturally ("looking for food"); structured candidates such as
+    /// building projects fall back to the readable candidate phrase.
+    /// </summary>
+    public static string ActivityPhrase(string? candidateId, string? summary)
+    {
+        if (!string.IsNullOrWhiteSpace(summary) && !summary.Contains(':', StringComparison.Ordinal))
+            return summary.Trim();
+        return string.IsNullOrWhiteSpace(candidateId) ? "taking in the surroundings" : HumanizeIdentifier(candidateId);
+    }
+
     /// <summary>Describes one relationship in plain words for the agent card.</summary>
     public static string RelationshipSummary(string type, string state, string otherName, string? direction = null)
     {
