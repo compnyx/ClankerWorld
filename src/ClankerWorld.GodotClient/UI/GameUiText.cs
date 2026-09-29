@@ -154,7 +154,7 @@ public static class GameUiText
         if (normalized.StartsWith("lesson_", StringComparison.Ordinal))
         {
             return normalized.StartsWith("lesson_decline:", StringComparison.Ordinal) || normalized == "lesson_cancel"
-                ? "stop a lesson" : "take a lesson";
+                ? "turn down or stop a lesson" : "take a lesson";
         }
         if (normalized.StartsWith("council_", StringComparison.Ordinal))
         {

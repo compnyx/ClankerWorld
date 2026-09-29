@@ -4252,7 +4252,7 @@ public partial class Main : Control
             $"Buildings: {snapshot.PlacedBuildings.Count}\n" +
             $"Roads: {snapshot.RoadTiles.Count} tiles\n" +
             townInfo + "\n" +
-            $"Places to gather: {snapshot.Resources.Count}\n" +
+            $"Resource locations: {snapshot.Resources.Count}\n" +
             $"Season and weather here: {localWeather}" +
             (WeatherRegionAtCamera(snapshot)?.SoilMoisture is { } moisture
                 ? $"\nSoil moisture here: {moisture}%"
@@ -4430,7 +4430,7 @@ public partial class Main : Control
                 : null;
             var context = $"Belief · {evidence} · {belief.ConfidenceBasisPoints / 100}% sure" +
                 (subject is null ? "" : $" · about {subject}") +
-                                (belief.IsCorrected
+                (belief.IsCorrected
                     ? $" · corrected{(belief.CorrectedTick is { } correctedTick ? $" at {DisplayWorldClock(correctedTick)}" : "")}" : "");
             return (belief.WorldTick, 0,
                 $"{DisplayWorldClock(belief.WorldTick)} · {context}\n{belief.Statement}");
