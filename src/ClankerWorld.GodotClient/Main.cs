@@ -1633,12 +1633,53 @@ public partial class Main : Control
             _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
             if (choosingFirstTownSite || townSiteButton.Text == "Cancel Town site")
                 throw new InvalidOperationException("Escape must cancel an active Town-site selection.");
+            if (topBar.GetChildren().OfType<Button>().Any(button => button.FocusMode == Control.FocusModeEnum.None))
+                throw new InvalidOperationException("Top-bar actions must remain reachable by keyboard focus.");
+            eventsButton.GrabFocus();
+            eventsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (eventsButton.HasFocus())
+                throw new InvalidOperationException("A pressed top-bar button must return keyboard focus to map controls.");
+            eventsButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (!pauseButton.TooltipText.Contains("(Space)", StringComparison.Ordinal) ||
+                !inhabitantsButton.TooltipText.Contains("(R)", StringComparison.Ordinal) ||
+                !eventsButton.TooltipText.Contains("(E)", StringComparison.Ordinal))
+                throw new InvalidOperationException("Top-bar tooltips must keep naming their keyboard shortcuts after refreshes.");
+            RenderMap(occupied);
+            ClearInhabitantSelection();
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.I, Pressed = true });
+            if (!worldInfoPanel.Visible || !worldInfoText.Text.Contains("F1", StringComparison.Ordinal))
+                throw new InvalidOperationException("I must open World Info, which points to the F1 controls list.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.I, Pressed = true });
+            if (worldInfoPanel.Visible)
+                throw new InvalidOperationException("Pressing a panel shortcut again must close that panel.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.F1, Pressed = true });
+            for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!controlsPanel.Visible || !mapCanvas.GetGlobalRect().Encloses(controlsPanel.GetGlobalRect()))
+                throw new InvalidOperationException($"F1 must open the controls list inside the world view: map={mapCanvas.GetGlobalRect()} controls={controlsPanel.GetGlobalRect()}.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
+            if (controlsPanel.Visible)
+                throw new InvalidOperationException("Escape must close the controls list.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Minus, Pressed = true });
+            var zoomedOutTile = currentTileSize;
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.Equal, Pressed = true });
+            if (currentTileSize <= zoomedOutTile)
+                throw new InvalidOperationException("The + key must zoom in after - zoomed out.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.N, Pressed = true });
+            if (selectedInhabitantId != founder.Id ||
+                !mapCanvas.GetGlobalRect().Encloses(inhabitantVisuals[founder.Id].GetGlobalRect()))
+                throw new InvalidOperationException($"N must select the next living agent and bring them into view: selected={selectedInhabitantId} marker={inhabitantVisuals[founder.Id].GetGlobalRect()}.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.N, Pressed = true });
+            if (selectedInhabitantId != founder.Id)
+                throw new InvalidOperationException("N with a single living agent must keep them selected.");
             selectedInhabitantCard.Hide();
             selectedInhabitantId = null;
             ClearTileSelection();
             _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
             if (!gameMenuPanel.Visible || !topBarShade.Visible)
                 throw new InvalidOperationException("Escape with nothing open must open the Pause Menu.");
+            _UnhandledKeyInput(new InputEventKey { Keycode = Key.I, Pressed = true });
+            if (worldInfoPanel.Visible)
+                throw new InvalidOperationException("Map shortcuts must not act behind the Pause Menu.");
             _UnhandledKeyInput(new InputEventKey { Keycode = Key.Escape, Pressed = true });
             if (gameMenuPanel.Visible)
                 throw new InvalidOperationException("Escape must close the Pause Menu.");
@@ -1646,7 +1687,7 @@ public partial class Main : Control
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
             quitGameConfirmation.Hide();
-            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain and regional weather, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, private thoughts, memories, deceased inspection and family tree.");
+            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain and regional weather, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, keyboard shortcuts and the F1 controls list, private thoughts, memories, deceased inspection and family tree.");
             GetTree().Quit();
         }
         catch (Exception exception)
@@ -2906,7 +2947,7 @@ public partial class Main : Control
 
         topBar.AddThemeConstantOverride("separation", 8);
         mapButton.Text = "Map";
-        mapButton.TooltipText = "World map. Scroll to zoom, and use WASD or middle-drag to move around.";
+        mapButton.TooltipText = "World map (M). Scroll to zoom, and use WASD or middle-drag to move around. F1 lists all controls.";
         StyleButton(mapButton);
         mapButton.Pressed += () =>
         {
@@ -2933,7 +2974,7 @@ public partial class Main : Control
         topBar.AddChild(climateLabel);
 
         worldInfoButton.Text = "Info";
-        worldInfoButton.TooltipText = "World Info";
+        worldInfoButton.TooltipText = "World Info (I)";
         StyleButton(worldInfoButton);
         worldInfoButton.Pressed += ToggleWorldInfo;
         topBar.AddChild(worldInfoButton);
@@ -2944,6 +2985,7 @@ public partial class Main : Control
         topBar.AddChild(inhabitantsButton);
 
         settlementButton.Text = "Town";
+        settlementButton.TooltipText = "Town stores and projects (T)";
         StyleButton(settlementButton);
         settlementButton.Pressed += () =>
         {
@@ -2957,6 +2999,7 @@ public partial class Main : Control
         topBar.AddChild(settlementButton);
 
         eventsButton.Text = "Events";
+        eventsButton.TooltipText = "Event Log (E)";
         StyleButton(eventsButton);
         eventsButton.Pressed += ToggleEvents;
         topBar.AddChild(eventsButton);
@@ -3006,6 +3049,10 @@ public partial class Main : Control
         menuButton.Pressed += () => _ = ToggleGameMenuAsync();
         topBar.AddChild(menuButton);
 
+        // Activated buttons return focus to the map. They remain reachable by
+        // Tab/Enter, including actions without a one-key shortcut.
+        foreach (var button in topBar.GetChildren().OfType<Button>())
+            button.Pressed += button.ReleaseFocus;
         margin.AddChild(topBar);
         chrome.AddChild(margin);
         // Mirrors the world-view menu shade so top-bar actions such as Start
@@ -3393,6 +3440,7 @@ public partial class Main : Control
         worldInfoPanel.ZIndex = 80;
         worldInfoPanel.Hide();
         content.AddChild(worldInfoPanel);
+        BuildControlsPanel(content);
 
         var tileBody = new VBoxContainer();
         var tileHeading = new HBoxContainer();
@@ -4635,12 +4683,12 @@ public partial class Main : Control
         var paused = snapshot.Authoring?.IsPaused == true;
         clockLabel.Text = DisplayWorldClock(snapshot.WorldTick);
         inhabitantsButton.Text = $"Agents {LivingPopulation(snapshot)}";
-        inhabitantsButton.TooltipText = "Living agents · open the agent list";
+        inhabitantsButton.TooltipText = "Living agents · open the agent list (R). N selects the next agent.";
         climateLabel.Text = snapshot.Authoring is { } authoring
             ? $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))}"
             : string.Empty;
         pauseButton.Text = paused ? "Play" : "Pause";
-        pauseButton.TooltipText = paused ? "Resume the world" : "Pause the world";
+        pauseButton.TooltipText = paused ? "Resume the world (Space)" : "Pause the world (Space)";
         menuResumeButton.Text = menuPausedWorld ? "Resume" : "Close menu";
     }
 
@@ -4683,7 +4731,8 @@ public partial class Main : Control
             $"Season and weather here: {localWeather}" +
             (WeatherRegionAtCamera(snapshot)?.SoilMoisture is { } moisture
                 ? $"\nSoil moisture here: {moisture}%"
-                : "");
+                : "") +
+            "\n\nPress F1 for keyboard and mouse controls.";
     }
 
     private void RenderInhabitantList(OwnerWorldSnapshot snapshot)
@@ -5282,6 +5331,7 @@ public partial class Main : Control
             }
         }
 
+        if (controlsPanel.Visible) PositionControlsPanel();
         rosterPanel.Position = new Vector2(14, 14);
         settlementPanel.Position = new Vector2(14, 14);
         worldInfoPanel.Position = new Vector2(14, 14);
@@ -5440,6 +5490,8 @@ public partial class Main : Control
 
         if (@event is InputEventMouseButton mouse)
         {
+            // Clicking the world hands the keyboard back to map controls.
+            if (mouse.Pressed) GetViewport().GuiReleaseFocus();
             if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && movingFounderId is not null &&
                 snapshot.FounderSetup is { Started: false })
             {
@@ -5471,17 +5523,8 @@ public partial class Main : Control
             }
             else if (mouse.Pressed && mouse.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
             {
-                var nextZoom = Math.Clamp(cameraZoom * (mouse.ButtonIndex == MouseButton.WheelUp ? 1.25f : 0.8f),
-                    minimumCameraZoom, maximumCameraZoom);
-                if (Math.Abs(nextZoom - cameraZoom) > 0.001f)
-                {
-                    // Keep the world point under the cursor fixed while zooming,
-                    // so zooming in moves toward what the player points at.
-                    var anchor = (mouse.Position - mapStage.Position) / (currentTileSize + TileGap);
-                    cameraZoom = nextZoom;
-                    RenderMap(snapshot);
-                    CenterCameraAt(anchor - (mouse.Position - mapCanvas.Size / 2) / (currentTileSize + TileGap));
-                }
+                // Zooming in moves toward what the player points at.
+                ZoomAt(mouse.Position, mouse.ButtonIndex == MouseButton.WheelUp);
                 mapCanvas.AcceptEvent();
             }
             else if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left)
@@ -5644,6 +5687,11 @@ public partial class Main : Control
         {
             return;
         }
+        if (HandleShortcutKey(key))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
 
         var direction = key.Keycode switch
         {
@@ -5688,6 +5736,11 @@ public partial class Main : Control
             return true;
         }
         if (mainMenuOverlay.Visible || !isInWorld) return false;
+        if (controlsPanel.Visible)
+        {
+            controlsPanel.Hide();
+            return true;
+        }
         if (choosingFirstTownSite)
         {
             CancelFirstTownSiteSelection();
