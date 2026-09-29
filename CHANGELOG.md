@@ -13,6 +13,8 @@ release yet.
 
 - Simultaneous lesson refusal and student cancellation safely preserve the terminal lesson instead of halting world advancement.
 
+- Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
 
