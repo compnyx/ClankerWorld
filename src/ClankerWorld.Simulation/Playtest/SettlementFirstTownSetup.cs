@@ -1,4 +1,5 @@
 using ClankerWorld.Simulation.Harness;
+using ClankerWorld.Simulation.Kernel;
 
 namespace ClankerWorld.Simulation.Playtest;
 
@@ -45,14 +46,49 @@ public sealed partial class PrivateWorldRuntime
                         definition.Width, definition.Height),
                 };
             }
+            var starterInventory = PrepareFirstTownStock(society.Checkpoint.Inventory);
             worldSimulation = WorldContentSimulationState.Empty with { Buildings = placed };
             towns = [town];
             roadTiles = plan.RoadTiles.ToHashSet();
+            ApplyInventoryTransition(_ => starterInventory);
             checkpointSchemaVersion = StateSchemaVersion;
             AppendEvent(existing.Count == 0 ? "first_town_layout_accepted" : "first_town_layout_redone",
                 $"{roughSite.X},{roughSite.Y}:buildings:{placed.Length}:roads:{roadTiles.Count}");
             return plan;
         }
         finally { gate.Release(); }
+    }
+
+    private static InventoryCheckpoint PrepareFirstTownStock(InventoryCheckpoint source)
+    {
+        const string firstHouse = "first-town-house-a";
+        const string secondHouse = "first-town-house-b";
+        const string warehouse = "first-town-warehouse";
+        var foodLocations = new Dictionary<string, (string OwnerId, string BuildingId)>(StringComparer.Ordinal)
+        {
+            [FoodLotId] = (HouseholdId, firstHouse),
+            ["food:camp-beta"] = (SecondHouseholdId, secondHouse),
+        };
+        foreach (var (lotId, location) in foodLocations)
+        {
+            if (!source.Lots.Any(lot => lot.Id == lotId && lot.ItemKind == "food" &&
+                    lot.OwnerId == location.OwnerId && lot.Quantity > 0 &&
+                    lot.ConditionBasisPoints > 0 && lot.FreshnessBasisPoints > 0))
+                throw new InvalidOperationException("The starting households need usable food before a Town site can be accepted.");
+        }
+
+        var stock = source with
+        {
+            Lots = source.Lots.Select(lot => foodLocations.TryGetValue(lot.Id, out var location)
+                ? lot with { StorageBuildingId = location.BuildingId }
+                : lot).ToArray(),
+        };
+        if (!stock.Lots.Any(lot => lot.Id == "first-town-wooden-axe"))
+            stock = InventoryFixture.AddLot(stock, "first-town-wooden-axe", "wooden_axe",
+                TownBorderRules.FirstTownId, 1, storageBuildingId: warehouse);
+        if (!stock.Lots.Any(lot => lot.Id == "first-town-wooden-pickaxe"))
+            stock = InventoryFixture.AddLot(stock, "first-town-wooden-pickaxe", "wooden_pickaxe",
+                TownBorderRules.FirstTownId, 1, storageBuildingId: warehouse);
+        return stock;
     }
 }

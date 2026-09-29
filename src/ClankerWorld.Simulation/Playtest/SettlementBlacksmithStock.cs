@@ -13,7 +13,7 @@ public sealed partial class PrivateWorldRuntime
         {
             if (!HasCarriedItem(actor, kind) && SharedItem(kind, actor) is not null)
                 candidates.Add(new CognitionCandidate(candidate,
-                    $"Collect a household {kind.Replace('_', ' ')} for resource work.", 18));
+                    $"Collect an accessible {kind.Replace('_', ' ')} for resource work.", 18));
         }
     }
 

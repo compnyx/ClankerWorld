@@ -13,9 +13,12 @@ release yet.
   starting households, while Farmhouse and Blacksmith claims stay unassigned;
   the chosen site, Town border, buildings and connected Roads survive reload.
   The signed Godot New World setup now offers a map-click Choose/Redo Town site
-  control before Add founders. Starter food/tools and suitability guidance are
-  still missing. Save schema 25 records the selected site while older Town saves
-  retain their camp-derived border.
+  control before Add founders. Accepting the site locates each starting
+  household's existing food in its House and puts one usable wooden axe and one
+  wooden pickaxe in the communal Warehouse. Redoing a site moves the food with
+  the Houses without duplicating tools. Supply choices, final quantities and
+  suitability guidance remain open. Save schema 25 records the selected site
+  while older Town saves retain their camp-derived border.
 - Newly created worlds now load the built-in House, Warehouse, Farmhouse,
   Blacksmith and cooking definitions during paused founder setup, before the
   first simulation tick. The five starter buildings are placed when the player

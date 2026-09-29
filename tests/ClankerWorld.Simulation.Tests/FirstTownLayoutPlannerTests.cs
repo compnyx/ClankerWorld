@@ -18,6 +18,7 @@ public sealed class FirstTownLayoutPlannerTests
         Assert.Equal(5, first.Buildings.Count);
         Assert.Equal(5, world.WorldSimulation.Buildings.Count);
         Assert.Equal(initialSite, Assert.Single(world.Towns).OriginSite);
+        AssertStarterStock(world);
         Assert.Equal(0, world.WorldTick);
         Assert.True(world.Society.IsPaused);
         world.Validate();
@@ -32,8 +33,28 @@ public sealed class FirstTownLayoutPlannerTests
         Assert.Equal(5, second.Buildings.Count);
         Assert.Equal(newSite, Assert.Single(restored.Towns).OriginSite);
         Assert.Equal(5, restored.WorldSimulation.Buildings.Count);
+        AssertStarterStock(restored);
+        Assert.Equal(1, restored.Society.Inventory.Lots.Count(lot => lot.Id == "first-town-wooden-axe"));
+        Assert.Equal(1, restored.Society.Inventory.Lots.Count(lot => lot.Id == "first-town-wooden-pickaxe"));
         Assert.Contains(restored.ExportState().Events, item => item.Kind == "first_town_layout_redone");
         restored.Validate();
+    }
+
+    private static void AssertStarterStock(PrivateWorldRuntime world)
+    {
+        var stock = world.Society.Inventory;
+        Assert.Equal("first-town-house-a", stock.GetLot("food:camp-alpha").StorageBuildingId);
+        Assert.Equal("first-town-house-b", stock.GetLot("food:camp-beta").StorageBuildingId);
+        Assert.True(stock.GetLot("food:camp-alpha").Quantity > 0);
+        Assert.True(stock.GetLot("food:camp-beta").Quantity > 0);
+        Assert.Equal("first-town-warehouse", stock.GetLot("first-town-wooden-axe").StorageBuildingId);
+        Assert.Equal("first-town-warehouse", stock.GetLot("first-town-wooden-pickaxe").StorageBuildingId);
+        Assert.Equal("town:first", stock.GetLot("first-town-wooden-axe").OwnerId);
+        Assert.Equal("town:first", stock.GetLot("first-town-wooden-pickaxe").OwnerId);
+        Assert.Equal("wooden_axe", stock.GetLot("first-town-wooden-axe").ItemKind);
+        Assert.Equal("wooden_pickaxe", stock.GetLot("first-town-wooden-pickaxe").ItemKind);
+        Assert.Equal(1, stock.GetLot("first-town-wooden-axe").Quantity);
+        Assert.Equal(1, stock.GetLot("first-town-wooden-pickaxe").Quantity);
     }
 
     [Theory]

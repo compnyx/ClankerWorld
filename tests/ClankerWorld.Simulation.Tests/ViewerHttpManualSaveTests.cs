@@ -175,6 +175,16 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(create.WrapEastWest, view.Baseline.Snapshot.WrapsEastWest);
                 Assert.True(view.Baseline.Snapshot.FounderSetup?.CanChooseTownSite == true);
                 Assert.True(view.Baseline.Snapshot.FounderSetup?.HasAcceptedTownSite == true);
+                Assert.Contains(view.Baseline.Snapshot.PlacedBuildings.Single(building =>
+                    building.InstanceId == "first-town-house-a").StoredItems ?? [],
+                    item => item.Kind == "food" && item.Quantity > 0);
+                Assert.Contains(view.Baseline.Snapshot.PlacedBuildings.Single(building =>
+                    building.InstanceId == "first-town-house-b").StoredItems ?? [],
+                    item => item.Kind == "food" && item.Quantity > 0);
+                var starterWarehouse = view.Baseline.Snapshot.PlacedBuildings.Single(building =>
+                    building.InstanceId == "first-town-warehouse");
+                Assert.Contains(starterWarehouse.StoredItems ?? [], item => item.Kind == "wooden_axe" && item.Quantity == 1);
+                Assert.Contains(starterWarehouse.StoredItems ?? [], item => item.Kind == "wooden_pickaxe" && item.Quantity == 1);
                 Assert.Empty(view.Baseline.Snapshot.Tiles);
                 var cachedReconnect = new OwnerReconnectAction(0, entry.WorldId,
                     view.Baseline.Snapshot.MapManifestDigest, view.Baseline.Snapshot.MapLayersDigest);
