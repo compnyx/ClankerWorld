@@ -548,3 +548,33 @@ The native contract follows Microsoft's [CryptProtectData documentation](https:/
 and [CryptUnprotectData documentation](https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptunprotectdata).
 This is protection at rest, not a guarantee against software running as the same
 Windows user or against recovery of previously created plaintext backups.
+
+### Exploration follow-up evidence gate (#137)
+
+The issue's original "no exploration candidate" description is superseded by
+`SettlementExploration.cs` and the runtime exploration regressions: a stable
+adult can choose `explore`, visit adjacent passable ground, record only visited
+facts, return, and preserve its ledger across reload. The hungry-actor regression
+excludes that candidate. These are existing prototype mechanics, not evidence
+that hosted agents choose useful exploration at an acceptable rate.
+
+**Proposed experiment, not yet executed:** compare the same seeded settlements
+with exploration disabled as a control versus the current prototype, under a
+stable-needs scenario and separate urgent-food/warmth scenarios. Use deterministic
+choice injection first to prove target/stop/return boundaries, then a separately
+approved limited provider sample to measure actual selection. Record eligible
+observations, exploration selections, unique actually visited tiles, completed
+returns, interrupted outings, needed-work delay and charged attempts per actor
+and simulated day. Do not count the player's visible terrain as discovery or a
+repeated visit as new knowledge. Keep map facts owner-scoped; a receiving agent
+learns only a physically shared/traded record's contents.
+
+Save/reload mid-outing, revoke presence, pause, block the return route and lower
+needs during travel. Expected safe behavior is a bounded stop/return or explicit
+blocked outcome, not endless search or extra per-step provider calls. Publish
+seed, commit, provider role/model, observation counts and raw aggregate outcomes;
+no prompts, keys or private thoughts in telemetry. Compare time spent exploring
+to missing necessary work before proposing cadence/urgency changes. Distant
+purposeful searches, automatic exploration-derived beliefs and shared Town
+knowledge remain separate unfinished features. No tuning or provider call is
+changed by this evidence plan.
