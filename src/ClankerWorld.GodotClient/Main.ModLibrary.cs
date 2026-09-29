@@ -13,7 +13,7 @@ public partial class Main
         var body = new VBoxContainer { CustomMinimumSize = new Vector2(0, 250) };
         var note = new Label
         {
-            Text = "This World · existing content packages. Personal library, imports, exports and invention controls are not available yet.",
+            Text = "Content added to this world. Your personal library, imports and exports are not available yet.",
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         body.AddChild(note);
@@ -38,7 +38,7 @@ public partial class Main
     {
         var packages = snapshot.ContentPackages;
         modLibraryContents.Text = packages.Count == 0
-            ? "No content packages are recorded in this world yet."
+            ? "Nothing has been added to this world yet."
             : string.Join("\n\n", packages.Select(package =>
             {
                 var proposer = package.ProposedByInhabitantId is { } id

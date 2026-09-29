@@ -89,7 +89,7 @@ public partial class Main
         body.AddChild(mainMenuNewButton);
 
         mainMenuLoadButton.Text = "Load World";
-        mainMenuLoadButton.TooltipText = "Choose a world. Named checkpoints remain inside each world's pause menu.";
+        mainMenuLoadButton.TooltipText = "Choose a world to play. Named saves are in each world's Pause Menu.";
         StyleButton(mainMenuLoadButton);
         mainMenuLoadButton.Pressed += () => OpenWorldMenu(create: false);
         body.AddChild(mainMenuLoadButton);
@@ -113,7 +113,7 @@ public partial class Main
         mainMenuCard.CustomMinimumSize = new Vector2(440, 0);
 
         quitToMenuConfirmation.Title = "Quit to Main Menu?";
-        quitToMenuConfirmation.DialogText = "Leave this world and return to the Main Menu? The simulation will remain paused until you continue it.";
+        quitToMenuConfirmation.DialogText = "Leave this world and return to the Main Menu? Time stays paused until you continue.";
         quitToMenuConfirmation.Confirmed += QuitToMainMenu;
         AddChild(quitToMenuConfirmation);
         BuildWorldMenu();
@@ -142,7 +142,7 @@ public partial class Main
         mainMenuConnectButton.Visible = !paired;
         mainMenuStatus.Text = paired
             ? "Continue your current world, create another, or load a different world."
-            : "Connect or pair this device to the private development world. No model key is needed to open the game.";
+            : "Connect this device to your world first. You do not need a model key to open the game.";
     }
 
     private async Task EnterWorldAsync()
@@ -154,7 +154,7 @@ public partial class Main
         if (successfulRefreshCount == previousRefreshCount)
         {
             RefreshMainMenuAvailability();
-            mainMenuStatus.Text = "Could not reach the development world. Check its connection and try Continue again.";
+            mainMenuStatus.Text = "Could not reach your world. Check your connection and try Continue again.";
             return;
         }
 
@@ -204,7 +204,7 @@ public partial class Main
         if (observationSession.Current?.Baseline.Snapshot.Authoring?.IsPaused != true &&
             !menuPauseConfirmed)
         {
-            SetStatus("Wait for the host to confirm the pause before leaving this world.", good: false);
+            SetStatus("Wait a moment for the world to pause before leaving.", good: false);
             return;
         }
         resumeWorldOnContinue = menuPausedWorld;
@@ -310,7 +310,7 @@ public partial class Main
         body.AddChild(worldPreviewButton);
         worldPreview.ShowCameraBounds = false;
         worldPreview.MouseFilter = MouseFilterEnum.Ignore;
-        worldPreview.TooltipText = "Generated map preview. Choose a Town site after creating the world.";
+        worldPreview.TooltipText = "Map preview. You will choose where your Town goes after creating the world.";
         worldPreview.CustomMinimumSize = new Vector2(400, 170);
         worldPreview.Hide();
         body.AddChild(worldPreview);
@@ -322,10 +322,10 @@ public partial class Main
             var world = listedWorlds[(int)index];
             worldSelectButton.Disabled = world.Compatibility == "incompatible";
             worldMenuStatus.Text = world.Compatibility == "incompatible"
-                ? "Cannot open this world: " + (world.CompatibilityReason ?? "Its save is incompatible.") + " The save was preserved."
+                ? "Cannot open this world: " + (world.CompatibilityReason ?? "It was made with a different version.") + " Your save is safe."
                 : world.Compatibility == "unknown"
-                    ? "Compatibility could not be assessed; opening will try the saved checkpoint without deleting it."
-                    : "This world passed save and required-content checks.";
+                    ? "Could not check this world. Opening it will try the saved copy and will not delete anything."
+                    : "This world is ready to open.";
         };
         worldSelectionList.Hide();
         body.AddChild(worldSelectionList);
@@ -434,7 +434,7 @@ public partial class Main
         previewedWorldOptions = null;
         worldCreateButton.Disabled = true;
         worldPreview.Hide();
-        worldPreviewStatus.Text = "Updating map preview for this seed and its options…";
+        worldPreviewStatus.Text = "Updating the preview…";
         if (refresh && worldMenuOverlay.Visible)
             _ = RefreshWorldPreviewAfterChangeAsync(revision);
     }
@@ -457,7 +457,7 @@ public partial class Main
         if (action.Name.Length is < 1 or > 80 || action.Seed.Length is < 1 or > 100 ||
             action.Name.Any(char.IsControl) || action.Seed.Any(char.IsControl))
         {
-            worldPreviewStatus.Text = "Enter a world name and generation seed first.";
+            worldPreviewStatus.Text = "Enter a world name and a seed first.";
             return;
         }
         worldMenuBusy = true;
@@ -478,7 +478,7 @@ public partial class Main
             previewedWorldOptions = action;
             worldCreateButton.Disabled = false;
             worldPreviewStatus.Text = $"Map preview · {result.ResourceSites} resource sites. " +
-                "Choose your Town site after creating the world.";
+                "You will choose where your Town goes after creating the world.";
         }
         catch (Exception exception)
         {
@@ -509,7 +509,7 @@ public partial class Main
         var action = CurrentWorldOptions();
         if (!SameGeneration(previewedWorldOptions, action))
         {
-            worldPreviewStatus.Text = "Preview the current seed and options before creating the world.";
+            worldPreviewStatus.Text = "Preview the map before creating the world.";
             worldCreateButton.Disabled = true;
             return;
         }

@@ -76,8 +76,8 @@ public partial class Main
             autosaveRotationChoice.Select(autosaveRotationChoice.GetItemIndex(saved.RotationCount));
             autosaveSettingsLoaded = true;
             autosaveSettingsStatus.Text = saved.LastWorldTick < 0
-                ? "No rotating snapshot yet. The active world is still saved after committed changes."
-                : $"Last rotating snapshot: tick {saved.LastWorldTick}. The active world is saved after committed changes.";
+                ? "No autosave copy yet. Your world is still saved as you play."
+                : $"Last autosave copy: {DisplayWorldClock(saved.LastWorldTick)}. Your world is saved as you play.";
         }
         catch (Exception exception)
         {
@@ -98,7 +98,7 @@ public partial class Main
             autosaveSettingsStatus.Text = updated.Enabled
                 ? $"Autosave every {updated.IntervalMinutes} minutes; " +
                   (updated.RotationCount == 0 ? "keep latest only." : $"keep {updated.RotationCount} copies.")
-                : "Autosave off. The active recovery save still updates after committed changes.";
+                : "Autosave off. Your world is still saved as you play.";
             return "Autosave settings saved for this world.";
         });
     }
@@ -171,8 +171,8 @@ public partial class Main
         manualSaveLoadMode = loadMode;
         manualSaveHeading.Text = loadMode ? "Load Save" : "Save World";
         manualSaveStatus.Text = loadMode
-            ? "Choose a named checkpoint. Your current state will be saved before loading it."
-            : "Create a new checkpoint, or select one by name to overwrite. A recovery copy of the old checkpoint is kept.";
+            ? "Choose a save to load. Your current world is saved first."
+            : "Make a new save, or pick one to overwrite. The old version is kept as a recovery copy.";
         manualSaveName.Visible = !loadMode;
         manualSaveCreateButton.Visible = !loadMode;
         manualSaveList.Visible = true;
@@ -188,7 +188,7 @@ public partial class Main
                 .Where(save => loadMode || !save.IsAutosave).ToArray();
             manualSaveList.Clear();
             foreach (var save in listedManualSaves)
-                manualSaveList.AddItem($"{(save.IsAutosave ? "Autosave" : save.Name)} · tick {save.WorldTick} · {save.CreatedUtc.ToLocalTime():g}");
+                manualSaveList.AddItem($"{(save.IsAutosave ? "Autosave" : save.Name)} · {DisplayWorldClock(save.WorldTick)} · {save.CreatedUtc.ToLocalTime():g}");
             if (listedManualSaves.Length == 0)
                 manualSaveStatus.Text = loadMode
                     ? "No saves yet. Continue the world and use Pause Menu → Save World."
@@ -205,7 +205,7 @@ public partial class Main
         var name = manualSaveName.Text.Trim();
         if (name.Length is < 1 or > 80 || name.Any(char.IsControl))
         {
-            manualSaveStatus.Text = "Choose a name of 1–80 printable characters.";
+            manualSaveStatus.Text = "Give the save a name (1–80 characters).";
             return;
         }
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
@@ -215,7 +215,7 @@ public partial class Main
                 deviceId, name, signer, CancellationToken.None);
             manualSaveOverlay.Hide();
             manualSaveName.Text = string.Empty;
-            return $"Saved world at tick {saved.WorldTick}.";
+            return "World saved.";
         });
     }
 
@@ -226,7 +226,7 @@ public partial class Main
             listedManualSaves[selected[0]].IsAutosave) return;
         var save = listedManualSaves[selected[0]];
         pendingOverwriteSaveId = save.Id;
-        manualSaveOverwriteConfirmation.DialogText = $"Replace only ‘{save.Name}’ (tick {save.WorldTick}) with the current paused world? A separate ‘Before overwriting: {save.Name}’ recovery save will keep its old state.";
+        manualSaveOverwriteConfirmation.DialogText = $"Replace ‘{save.Name}’ with the current world? The old version is kept as ‘Before overwriting: {save.Name}’.";
         manualSaveOverwriteConfirmation.PopupCentered(new Vector2I(520, 190));
     }
 
@@ -240,7 +240,7 @@ public partial class Main
             var receipt = await ownerApi.OverwriteManualSaveAsync(ResolveWorldUri(), authority,
                 deviceId, id, signer, CancellationToken.None);
             manualSaveOverlay.Hide();
-            return $"Overwrote {receipt.Saved.Name} at tick {receipt.Saved.WorldTick}; its prior state is in a Before overwriting recovery save.";
+            return $"Saved over {receipt.Saved.Name}. The old version is kept as a recovery copy.";
         });
     }
 
@@ -248,7 +248,7 @@ public partial class Main
     {
         if (!manualSaveLoadMode || manualSaveList.GetSelectedItems() is not { Length: 1 } selected ||
             selected[0] < 0 || selected[0] >= listedManualSaves.Length) return;
-        manualSaveLoadConfirmation.DialogText = $"Load ‘{listedManualSaves[selected[0]].Name}’? The current world will be saved first, and the loaded world will remain paused.";
+        manualSaveLoadConfirmation.DialogText = $"Load ‘{listedManualSaves[selected[0]].Name}’? Your current world is saved first, and the loaded world starts paused.";
         manualSaveLoadConfirmation.PopupCentered(new Vector2I(480, 180));
     }
 
@@ -276,7 +276,7 @@ public partial class Main
             isInWorld = true;
             resumeWorldOnContinue = false;
             menuPausedWorld = false;
-            return $"Loaded {save.Name} at tick {loaded.WorldTick}; the previous state is saved too.";
+            return $"Loaded {save.Name}. Your previous world is saved too.";
         });
     }
 }
