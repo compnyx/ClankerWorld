@@ -123,7 +123,9 @@ review and is not carried forward.
   The repository build now replaces raw household IDs, `Deterministic` and
   fallback labels, internal tick/revision wording and the unreported-condition
   placeholder in the agent card and status messages; laptop check pending.
-  Technical terms remain in some tooltips and developer tools.
+  The Town panel no longer carries an operator tooltip of ticks, revisions and
+  map digests, which computment confirmed should not be player-visible.
+  Technical terms remain in some other tooltips and developer tools.
 
 ## September 29 client UI audit
 
