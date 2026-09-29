@@ -514,3 +514,11 @@ change retention policy or attempt recovery of previously deleted files.
 Cancellation handles an already-terminal lesson as a no-op. Accept/decline prefixes
 are checked before parsing their target. The regression uses offered choices through
 the real runtime service and verifies advancement, unchanged role and reload.
+
+### Durable owner retries (#335)
+
+Pause and rename persist before acknowledging success even when their in-memory
+mutation is a no-op. A failed write remains an error; after storage recovers, a
+signed retry makes the already requested value durable. The filesystem-obstruction
+regression verifies restore after both endpoint retries. No automatic Resume or
+background spending is introduced.

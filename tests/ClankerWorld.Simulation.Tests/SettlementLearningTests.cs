@@ -21,10 +21,11 @@ public sealed class SettlementLearningTests
             var presence = new OwnerClientPresenceLease(TimeSpan.FromMinutes(5));
             presence.RecordAuthenticatedReconnect("test-owner");
             using var service = new PrivateWorldRuntimeService(world, file, presence);
-            for (var tick = 0; tick < 4; tick++) Assert.True(await service.TryAdvanceOnceAsync());
+            for (var tick = 0; tick < 3; tick++) Assert.True(await service.TryAdvanceOnceAsync());
             Assert.Equal("declined", world.Inhabitants.Single(person => person.InhabitantId == "founder-scout").Lesson!.Stage);
             Assert.Equal(beforeRole, world.Society.GetInhabitant("founder-scout").CurrentRole);
             Assert.False(world.Society.IsPaused);
+            Assert.True(await service.TryAdvanceOnceAsync());
             using var reloaded = file.LoadOrCreate("lesson-decline-cancel-repro");
             Assert.Equal(world.WorldTick, reloaded.WorldTick);
         }
