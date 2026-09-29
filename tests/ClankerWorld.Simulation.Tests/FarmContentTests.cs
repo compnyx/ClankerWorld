@@ -88,6 +88,35 @@ public sealed class FarmContentTests
         Assert.Contains(new OwnerWorldObservationStore(reloaded).GetSnapshot().PlacedBuildings
             .Single(item => item.InstanceId == placed.InstanceId).StoredItems!,
             item => item.Kind == "flour" && item.Quantity == 3);
+
+        var house = reloaded.WorldContent.Buildings.Single(item => item.LocalId == "house-1x1");
+        var housePlaced = state.Map.Tiles.Select(tile => tile.Position)
+            .Where(point => TownBorderRules.IsWithinOrAdjacent(Assert.Single(reloaded.Towns), point, 1, 1))
+            .Select(point => reloaded.PlaceBuilding("flour-home-alpha", house.CanonicalId, point,
+                "household:camp-alpha"))
+            .First(result => result.Applied);
+        using var collecting = PrivateWorldRuntime.Restore(reloaded.ExportState(),
+            id => new CandidateProvider(id == alpha ? "haul_farm_flour" : "safe_idle"));
+        for (var tick = 0; tick < 40 && !collecting.ExportState().Events.Any(item =>
+                 item.Kind == "farm_flour_picked_up" && item.Detail.StartsWith(alpha + ":", StringComparison.Ordinal)); tick++)
+            Assert.True((await collecting.AdvanceOneTickAsync()).Advanced);
+        Assert.Contains(collecting.ExportState().Events, item => item.Kind == "farm_flour_picked_up" &&
+            item.Detail.StartsWith(alpha + ":", StringComparison.Ordinal));
+        var carriedFlour = collecting.Society.Inventory.Lots.Single(lot => lot.OwnerId == alpha &&
+            lot.ItemKind == "flour" && lot.DeliveryBuildingId == housePlaced.InstanceId);
+        Assert.Null(carriedFlour.StorageBuildingId);
+        Assert.Empty(new OwnerWorldObservationStore(collecting).GetSnapshot().PlacedBuildings
+            .Single(item => item.InstanceId == housePlaced.InstanceId).StoredItems!);
+
+        using var delivered = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(collecting.ExportState())),
+            id => new CandidateProvider(id == alpha ? "haul_household_stock" : "safe_idle"));
+        for (var tick = 0; tick < 40 && delivered.Society.Inventory.GetLot(carriedFlour.Id).StorageBuildingId != housePlaced.InstanceId; tick++)
+            Assert.True((await delivered.AdvanceOneTickAsync()).Advanced);
+        Assert.Equal(housePlaced.InstanceId, delivered.Society.Inventory.GetLot(carriedFlour.Id).StorageBuildingId);
+        Assert.Contains(new OwnerWorldObservationStore(delivered).GetSnapshot().PlacedBuildings
+            .Single(item => item.InstanceId == housePlaced.InstanceId).StoredItems!,
+            item => item.Kind == "flour" && item.Quantity == 3);
     }
 
     [Fact]

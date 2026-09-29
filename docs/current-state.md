@@ -278,11 +278,14 @@ the grain remains carried through save/reload and appears in Farmhouse
 inspection only after arrival. Milling consumes only grain physically at that
 Farmhouse and leaves flour there as private household stock. Unclaimed
 Farmhouses cannot process, and another household cannot work at a claimed
-Farmhouse. Grain and flour are excluded from communal Warehouse stock. The
+Farmhouse. A member can also carry a bounded flour load from their Farmhouse
+to their House; it appears in House inspection only on arrival, and the
+in-transit load and delivered stock survive reload. Grain and flour are
+excluded from communal Warehouse stock. The
 Farmhouse's wood/stone cost, 1×1 footprint, grain/seed yields and flour recipe
 are provisional pending balance/footprint decisions. It is not generated in
 the first Town yet; field stages, the adjacent private Silo, crop variety and
-sale of flour remain unfinished.
+sale of flour remain unfinished. Flour-based House cooking is not implemented.
 An additive provisional 1×2 Blacksmith can be claimed by a household when
 placed or built. Household members physically move bounded wood and iron-ore
 loads from their other stock to the Blacksmith; an adult can also mine a

@@ -2960,6 +2960,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             HaulFarmGrain(inhabitantId, state);
             return;
         }
+        if (candidateId == "haul_farm_flour")
+        {
+            HaulFarmFlour(inhabitantId, state);
+            return;
+        }
         if (candidateId == "haul_smith_input")
         {
             HaulBlacksmithInput(inhabitantId, state);
@@ -3450,6 +3455,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             AddHouseHaulCandidate(candidates, inhabitantId, state);
             AddWarehouseStockCandidate(candidates, inhabitantId, state);
             AddFarmGrainCandidate(candidates, inhabitantId, state);
+            AddFarmFlourCandidate(candidates, inhabitantId, state);
             AddBlacksmithStockCandidate(candidates, inhabitantId, state);
             AddBlacksmithOreCandidates(candidates, inhabitantId, state);
             AddCraftToolCandidates(candidates, inhabitantId);

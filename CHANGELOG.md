@@ -8,6 +8,10 @@ release yet.
 
 ### Added
 
+- Adults in a household with both a Farmhouse and a House can carry milled
+  flour from its Farmhouse to its House. Flour remains with the carrier until
+  arrival, then becomes inspectable private House stock, including after a
+  save/reload. This does not yet add bread or other flour-based cooking.
 - A provisional household-claimed 1×2 Blacksmith joins the additive first-Town
   content. Its on-site stock can receive physically carried household wood;
   adults can mine natural iron ore and carry it to the building. Household
