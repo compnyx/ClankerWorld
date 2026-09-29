@@ -1359,3 +1359,46 @@ medicine and injuries; art reference/style and autonomous invention assets;
 save branches and mod compatibility. Resolve the finished-game experience
 before choosing an implementation sequence or narrowing it to the current
 prototype.
+
+### Terrain/object completion proposal (#280, #283)
+
+**Open implementation proposal; numeric biome targets, hills/passability,
+orchard species/yields/seasons and final art approval remain undecided.** Sand
+must not automatically outline every river/coast; ordinary trees and plants must
+not occupy sand. Forest floor should visibly carry predominantly trees/plants,
+while forest grass carries scattered trees. This does not authorize more cactus
+content or treating provisional sprites as approved art.
+
+Separate deterministic layers: elevation/hydrology, surface classification,
+vegetation eligibility, then object placement. Use sand eligibility based on an
+explicit surface rule rather than unconditional water adjacency. Validate object
+placement against the resulting surface; never fix the renderer by hiding an
+authoritative harvestable tree. Measure forest-floor occupied fraction separately
+from forest-grass tree density, over fixed seeds and climate choices. Record
+shoreline, inland-river, wrap-seam and mountain-edge cases. Choose numeric density
+and transition thresholds only after owner-reviewed maps and #150's targets.
+Do not introduce a hill travel cost until passability is selected.
+
+Propagation should be a supported typed transition, not a visual overlay:
+validate species/seed, eligible empty destination, season if defined, source
+ownership and quantity; consume the seed exactly once and create one saved
+sapling with growth stage. Reject sand, water, blocked building/Road tiles and
+unsupported species with a bounded reason. Growth/harvest must use the same
+resource state that inspection and art read. Save/reload between planting and
+maturity cannot duplicate yield or return the consumed seed. Whether natural
+spread is automatic, its range and rate, and orchard crop cycles still require
+a decision; planting code must not silently invent those systems.
+
+Required art handoff: one explicitly reviewed species/stage manifest mapping
+seed/sapling/mature/stump states to asset IDs and source/licence provenance.
+Missing art uses a clearly provisional existing fallback, not a claim of approval.
+Check tile occupancy, legibility and stage changes at supported zooms on Windows.
+
+Compatibility gate: new generation rules apply to new worlds unless a separate
+migration is approved. Preserve saved authoritative surfaces, objects, resource
+quantities and harvest history. Any old invalid placement needs an explicit
+non-destructive migration policy, not silent regeneration from the seed. Tests
+must cover deterministic seed replay, no ordinary vegetation on newly generated
+sand, distinct forest density measures, planting failure non-consumption, growth
+roundtrip and existing-save acceptance. No live map mutation or new species/art
+is introduced by this proposal.
