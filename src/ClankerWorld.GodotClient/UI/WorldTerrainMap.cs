@@ -134,63 +134,81 @@ public sealed class WorldTerrainMap
         return mask;
     }
 
-    /// <summary>Render independent surface/cover facts, falling back to the v1 projection for old maps.</summary>
-    public Color DisplayColorAt(int x, int y)
-    {
-        var index = y * Width + x;
-        if (!HasMapLayers) return ColorFor(terrain[index]);
-        var waterKind = hydrology![index];
-        if (waterKind != 0)
-            return waterKind switch
-            {
-                1 => new Color("325F89"),
-                2 => new Color("598FB3"),
-                3 => new Color("4786AB"),
-                _ => new Color("9B5463"),
-            };
+    /// <summary>Flat overview color: the base of the tile's pixel-art ground style.</summary>
+    public Color DisplayColorAt(int x, int y) => TerrainTextures.BaseColor(StyleAt(x, y));
 
-        var ground = surface![index] switch
-        {
-            0 => WorldMapPalette.TerrainColor("meadow"),
-            1 => new Color("BAA77B"),
-            2 => new Color("756D68"),
-            3 => new Color("CCD7D1"),
-            4 => new Color("4B7FA7"),
-            5 => new Color("4D684A"),
-            6 => new Color("8F8159"),
-            7 => new Color("735F45"),
-            _ => new Color("9B5463"),
-        };
-        if (elevation![index] >= 245) ground = new Color("AEB2B0");
-        else if (elevation[index] >= 215) ground = new Color("756D68");
-
-        return vegetation![index] switch
-        {
-            2 when surface[index] == 0 => new Color("426D4B"),
-            2 when surface[index] == 5 => new Color("3F5D42"),
-            3 when surface[index] == 0 => new Color("988857"),
-            3 when surface[index] == 6 => new Color("897A51"),
-            4 when surface[index] == 0 => new Color("869586"),
-            3 when surface[index] == 1 => new Color("AA985F"),
-            4 when surface[index] == 3 => new Color("D6DDD4"),
-            5 when surface[index] is 1 or 6 => new Color("907D57"),
-            _ => ground,
-        };
-    }
-
-    public string? DisplayMarkerAt(int x, int y)
+    /// <summary>
+    /// Ground style from independent surface/cover facts, falling back to the
+    /// v1 terrain projection for old maps. Cover overrides elevation, matching
+    /// the original flat palette.
+    /// </summary>
+    public TerrainStyle StyleAt(int x, int y)
     {
         var index = y * Width + x;
         if (!HasMapLayers)
             return terrain[index] switch
             {
-                2 or 4 => "≈",
-                3 or 10 => "▲",
-                _ => null,
+                1 => TerrainStyle.Grass,
+                2 => TerrainStyle.ShallowWater,
+                3 => TerrainStyle.Mountain,
+                4 => TerrainStyle.River,
+                5 => TerrainStyle.Lake,
+                6 => TerrainStyle.Ocean,
+                7 => TerrainStyle.Sand,
+                8 => TerrainStyle.ForestGrass,
+                9 => TerrainStyle.Snow,
+                10 => TerrainStyle.Peak,
+                _ => TerrainStyle.Unknown,
             };
-        return hydrology![index] == 0
-            ? elevation![index] >= 215 ? "▲" : null
-            : hydrology[index] <= 3 ? "≈" : null;
+        var water = hydrology![index];
+        if (water != 0)
+            return water switch
+            {
+                1 => TerrainStyle.Ocean,
+                2 => TerrainStyle.Lake,
+                3 => TerrainStyle.River,
+                _ => TerrainStyle.Unknown,
+            };
+        var ground = surface![index];
+        var covered = (vegetation![index], ground) switch
+        {
+            (2, 0) => TerrainStyle.ForestGrass,
+            (2, 5) => TerrainStyle.DenseForestFloor,
+            (3, 0) => TerrainStyle.ScrubGrass,
+            (3, 6) => TerrainStyle.DryBrush,
+            (4, 0) => TerrainStyle.Tundra,
+            (3, 1) => TerrainStyle.ScrubSand,
+            (4, 3) => TerrainStyle.TundraSnow,
+            // Cacti are not part of the current art direction; dry cactus
+            // cover reads as brush.
+            (5, 1) or (5, 6) => TerrainStyle.DesertBrush,
+            _ => (TerrainStyle?)null,
+        };
+        if (covered is { } style) return style;
+        if (elevation![index] >= 245) return TerrainStyle.Peak;
+        if (elevation[index] >= 215) return TerrainStyle.Mountain;
+        return ground switch
+        {
+            0 => TerrainStyle.Grass,
+            1 => TerrainStyle.Sand,
+            2 => TerrainStyle.Rock,
+            3 => TerrainStyle.Snow,
+            4 => TerrainStyle.ShallowWater,
+            5 => TerrainStyle.ForestFloor,
+            6 => TerrainStyle.DryScrub,
+            7 => TerrainStyle.FertileSoil,
+            _ => TerrainStyle.Unknown,
+        };
+    }
+
+    /// <summary>
+    /// Bit mask of cardinal edges where a water tile meets land, for
+    /// shoreline and river-bank pieces; N/E/S/W are bits 1/2/4/8.
+    /// </summary>
+    public byte ShoreMaskAt(int x, int y, bool wrapsEastWest)
+    {
+        if (!TerrainTextures.IsWater(StyleAt(x, y))) return 0;
+        return EdgeMask(x, y, wrapsEastWest, (nx, ny) => !TerrainTextures.IsWater(StyleAt(nx, ny)));
     }
 
     private byte? LayerAt(byte[]? layer, int x, int y) =>
@@ -293,20 +311,5 @@ public sealed class WorldTerrainMap
         "wild_seed_patch" => "Wild seed patch",
         "fertile_soil" => "Fertile soil",
         _ => null,
-    };
-
-    public static Color ColorFor(byte kind) => kind switch
-    {
-        1 => WorldMapPalette.TerrainColor("meadow"),
-        2 => WorldMapPalette.TerrainColor("water"),
-        3 => WorldMapPalette.TerrainColor("mountain"),
-        4 => new Color("4786AB"),
-        5 => new Color("598FB3"),
-        6 => new Color("325F89"),
-        7 => new Color("BAA77B"),
-        8 => new Color("426D4B"),
-        9 => new Color("CCD7D1"),
-        10 => new Color("999B9A"),
-        _ => new Color("9B5463"),
     };
 }

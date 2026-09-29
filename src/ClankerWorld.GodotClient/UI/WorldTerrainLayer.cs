@@ -5,6 +5,9 @@ namespace ClankerWorld.GodotClient.UI;
 /// <summary>Draws only camera-visible terrain; it never creates a node per tile.</summary>
 public partial class WorldTerrainLayer : Control
 {
+    /// <summary>Below this tile size the one-pixel-per-tile overview cache is drawn instead of textures.</summary>
+    public const int TexturedTileMinimum = 16;
+
     private WorldTerrainMap? world;
     private Texture2D? paletteTexture;
     private Rect2 visibleTiles;
@@ -27,6 +30,9 @@ public partial class WorldTerrainLayer : Control
     ];
 
     public int VisibleTileCount { get; private set; }
+
+    /// <summary>Whether the current zoom draws generated ground textures rather than flat overview pixels.</summary>
+    public bool DrawsGroundTextures => tileSize >= TexturedTileMinimum || tileGap != 0;
 
     public WorldTerrainLayer()
     {
@@ -281,7 +287,7 @@ public partial class WorldTerrainLayer : Control
         if (world is null) return;
         var bounds = VisibleBounds();
         var stride = tileSize + tileGap;
-        if (tileSize < 28 && tileGap == 0 && paletteTexture is not null)
+        if (tileSize < TexturedTileMinimum && tileGap == 0 && paletteTexture is not null)
         {
             var end = bounds.Left + bounds.Width;
             for (var x = bounds.Left; x < end;)
@@ -294,17 +300,22 @@ public partial class WorldTerrainLayer : Control
                 x += width;
             }
         }
-        else for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
+        else
         {
-            for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
+            // Zoomed in far enough to show detail: draw each tile's generated
+            // pixel-art ground, then shoreline pieces where water meets land.
+            var atlasSize = TerrainTextures.AtlasTileSize(tileSize);
+            var atlas = TerrainTextures.Atlas(atlasSize);
+            for (var y = bounds.Top; y < bounds.Top + bounds.Height; y++)
             {
-                var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
-                var position = new Vector2(x * stride, y * stride);
-                DrawRect(new Rect2(position, new Vector2(tileSize, tileSize)), world.DisplayColorAt(mapX, y));
-                if (tileSize >= 28 && world.DisplayMarkerAt(mapX, y) is { } marker)
+                for (var x = bounds.Left; x < bounds.Left + bounds.Width; x++)
                 {
-                    DrawString(ThemeDB.FallbackFont, position + new Vector2(tileSize * 0.4f, tileSize * 0.65f),
-                        marker, fontSize: Math.Clamp(tileSize / 5, 12, 28), modulate: new Color("E6F0E8"));
+                    var mapX = wrapsEastWest ? Mod(x, world.Width) : x;
+                    var tile = new Rect2(new Vector2(x * stride, y * stride), new Vector2(tileSize, tileSize));
+                    var style = world.StyleAt(mapX, y);
+                    DrawTextureRectRegion(atlas, tile, TerrainTextures.Region(style, TerrainTextures.VariantAt(mapX, y), atlasSize));
+                    var shore = world.ShoreMaskAt(mapX, y, wrapsEastWest);
+                    if (shore != 0) DrawShore(tile, style, shore);
                 }
             }
         }
@@ -346,6 +357,41 @@ public partial class WorldTerrainLayer : Control
                     new Vector2(tileSize - 2, tileSize - 2)),
                     new Color("FFD166"), filled: false, width: tileSize >= 12 ? 3 : 2);
             }
+        }
+    }
+
+    /// <summary>
+    /// A light shallow band along each water edge that meets land, plus a thin
+    /// foam line on coasts and lakes (rivers keep a quieter bank), in whole
+    /// art pixels so it stays crisp at every zoom.
+    /// </summary>
+    private void DrawShore(Rect2 tile, TerrainStyle style, byte mask)
+    {
+        var pixel = tileSize / 32f;
+        var river = style == TerrainStyle.River;
+        var band = Mathf.Max(1f, Mathf.Round(pixel * (river ? 2 : 3)));
+        var foam = river ? 0f : Mathf.Max(1f, Mathf.Round(pixel));
+        var shallow = TerrainTextures.BaseColor(style).Lightened(0.16f);
+        var foamColor = new Color(0.94f, 0.97f, 0.95f, 0.65f);
+        if ((mask & 1) != 0)
+        {
+            DrawRect(new Rect2(tile.Position, new Vector2(tile.Size.X, band)), shallow);
+            DrawRect(new Rect2(tile.Position, new Vector2(tile.Size.X, foam)), foamColor);
+        }
+        if ((mask & 2) != 0)
+        {
+            DrawRect(new Rect2(tile.End.X - band, tile.Position.Y, band, tile.Size.Y), shallow);
+            DrawRect(new Rect2(tile.End.X - foam, tile.Position.Y, foam, tile.Size.Y), foamColor);
+        }
+        if ((mask & 4) != 0)
+        {
+            DrawRect(new Rect2(tile.Position.X, tile.End.Y - band, tile.Size.X, band), shallow);
+            DrawRect(new Rect2(tile.Position.X, tile.End.Y - foam, tile.Size.X, foam), foamColor);
+        }
+        if ((mask & 8) != 0)
+        {
+            DrawRect(new Rect2(tile.Position, new Vector2(band, tile.Size.Y)), shallow);
+            DrawRect(new Rect2(tile.Position, new Vector2(foam, tile.Size.Y)), foamColor);
         }
     }
 
