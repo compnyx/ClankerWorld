@@ -2664,9 +2664,17 @@ public partial class Main : Control
             // and the displayed world remain current.
             SetStatus($"The world host did not accept that request · {FriendlyFailure(exception)}", good: false);
         }
-        catch (Exception exception)
+        catch (System.Net.Http.HttpRequestException exception)
         {
             ShowHeldState($"could not reach the world host · {FriendlyFailure(exception)}");
+        }
+        catch (TaskCanceledException exception)
+        {
+            ShowHeldState($"the world host did not respond · {FriendlyFailure(exception)}");
+        }
+        catch (Exception exception)
+        {
+            SetStatus($"Could not complete that action · {FriendlyFailure(exception)}", good: false);
         }
         finally
         {
@@ -4658,7 +4666,7 @@ public partial class Main : Control
         var activity = waitingForDecision ? "Decision pending" : decision is null
             ? "No decision yet"
             : decision.FellBack
-            ? $"Model unavailable · built-in rules chose to {GameUiText.HumanizeIdentifier(decision.CandidateId).ToLowerInvariant()}"
+            ? $"Model did not provide a usable choice · built-in rules chose to {GameUiText.HumanizeIdentifier(decision.CandidateId).ToLowerInvariant()}"
             : $"{ProviderDisplayName(decision.Provider)} chose to {GameUiText.HumanizeIdentifier(decision.CandidateId).ToLowerInvariant()}";
         var projectText = inhabitant.Project is { } project
             ? $"{project.Label} · {Pretty(project.Stage)} · {project.WorkDone}/{project.WorkRequired}" +

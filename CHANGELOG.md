@@ -17,10 +17,11 @@ release yet.
 - Plainer in-game wording: the agent card names households and relatives
   ("Member of Camp Alpha", "Parent of Mira") instead of internal IDs, leaves
   out an unassigned role or unreported condition, and reads "Wants to take it
-  easy" instead of "Wants to keeping a safe routine". A failed model call shows
-  as "Model unavailable · built-in rules chose to …", and the non-model option
-  is called Built-in rules instead of Deterministic. Status messages drop
-  request, revision and tick jargon ("World paused", "Connection lost · showing
+  easy" instead of "Wants to keeping a safe routine". When a model does not
+  provide a usable choice, the card says built-in rules chose the safe action;
+  local action failures are no longer described as lost host connectivity. The
+  non-model option is called Built-in rules instead of Deterministic. Status
+  messages drop request, revision and tick jargon ("World paused", "Connection lost · showing
   the world as of …"), and placing a founder or agent names the household they
   joined.
 - Fresh generated worlds no longer show a second pre-placed camp or provisional
