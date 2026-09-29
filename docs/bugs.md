@@ -162,8 +162,9 @@ test; computment's Windows playtest remains pending.
 - **Clicked top-bar buttons trapped the keyboard — fixed in repository build,
   laptop check pending:** after clicking a top-bar button the arrow keys moved
   focus between buttons instead of panning, and Space re-pressed that button.
-  Top-bar buttons no longer take focus, clicking the map releases it, and
-  Space now pauses or resumes. Keyboard shortcuts and the F1 controls list
+  Top-bar buttons remain reachable by Tab/Enter but release focus after
+  activation; clicking the map also releases focus, and Space now pauses or
+  resumes. Keyboard shortcuts and the F1 controls list
   still need evaluation with real play on Windows, as does smooth diagonal pan.
 
 ## September playtest reports and confirmed product gaps
