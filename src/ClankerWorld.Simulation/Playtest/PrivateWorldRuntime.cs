@@ -3665,8 +3665,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var householdWorkstation = recipe.WorkstationBuildingId is { } workstationId &&
                 worldContent.Buildings.Any(definition => definition.CanonicalId == workstationId &&
                     definition.Tags.Any(IsHouseholdBuildingTag));
-            var recipeOwner = householdWorkstation || recipe.Tags.Contains("grain", StringComparer.Ordinal)
-                ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
+            var recipeOwner = ProductionOwnerFor(null, inhabitant.Id);
             if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner, inhabitant.Id) ||
                 !TryFindRecipeSite(recipe, out var siteId, out var position, inhabitant.Id) ||
                 householdWorkstation &&

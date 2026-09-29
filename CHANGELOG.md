@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
+
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
   changing saved membership, property or custom household names. Founder setup

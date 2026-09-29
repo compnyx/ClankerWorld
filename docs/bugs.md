@@ -481,3 +481,12 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Project input owner and location (#338, #339)
+
+Recipe planning/continuation now resolve the same actor/building owner used by
+production. Crop recipes no longer fall back to the first household’s seeds.
+Household workstation projects revalidate ingredients at the actual building;
+remote household stock is not on-site stock. A rejected start becomes blocked
+under the existing retry path instead of repeating complete preparation forever.
+This does not grant cross-household access or instantly haul remote ingredients.
