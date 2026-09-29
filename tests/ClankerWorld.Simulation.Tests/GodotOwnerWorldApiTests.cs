@@ -18,9 +18,12 @@ public sealed class GodotOwnerWorldApiTests
         var session = new OwnerWorldObservationSession();
         var old = CreateCoherentReconnect();
         Assert.True(session.TryAccept(old, 3, out _));
-        var selected = old with { Baseline = new OwnerWorldReconnectBaseline(
-            old.Baseline.Snapshot with { WorldId = selectedWorld, WorldTick = 0, LatestEventId = 0 },
-            new OwnerWorldEventSlice(0, 0, [])) };
+        var selected = old with
+        {
+            Baseline = new OwnerWorldReconnectBaseline(
+                old.Baseline.Snapshot with { WorldId = selectedWorld, WorldTick = 0, LatestEventId = 0 },
+                new OwnerWorldEventSlice(0, 0, []))
+        };
         var committed = false;
         await Assert.ThrowsAsync<IOException>(() => session.ChangeTimelineAsync(() =>
         {
