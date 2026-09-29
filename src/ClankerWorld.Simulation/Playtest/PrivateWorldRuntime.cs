@@ -408,7 +408,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         runtime.events.Clear();
         runtime.events.AddRange(state.Events);
         runtime.nextEventId = runtime.events.Count == 0 ? checked(runtime.eventHistoryFloor + 1) : checked(runtime.events[^1].EventId + 1);
-        if (!trustedPreparedState) runtime.Validate();
+        if (!trustedPreparedState)
+        {
+            runtime.RepairSavedRoadFootprints();
+            runtime.Validate();
+        }
         return runtime;
     }
 

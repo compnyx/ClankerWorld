@@ -559,6 +559,17 @@ site sprites/glyphs remain at overview zoom, with full resource hover and tile
 inspection. This is a source-level presentation improvement; Windows visual
 acceptance of the labels and glyphs remains pending.
 
+### Saved Road/building overlap repair (#279)
+
+Restore removes Road tiles inside the exact saved, validated building footprints
+and emits one bounded repair-count event when anything changed. Other Road tiles,
+buildings, household membership, stock and map passability are unchanged. The
+repair is idempotent on subsequent save/load. It does not reroute Roads or invent
+bridges, and removing embedded tiles can expose an already broken connection;
+ordinary ground travel remains available. No active playtest save was rewritten
+as part of this source change. A normal authorized load/save will persist the
+repaired representation; back up old saves before upgrading.
+
 ### Failure feedback and held-key panning
 
 Ordinary failure messages use fixed recovery hints rather than raw exception
