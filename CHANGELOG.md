@@ -238,6 +238,14 @@ release yet.
   crystal-studded outcrops, clay banks, seed heads, tilled soil, and distinct
   depleted and regrowing sites. Their map markers no longer draw a second
   symbol on top.
+- Buildings are now drawn as top-down pixel-art roofs across their whole
+  footprint instead of a text symbol: red-tiled houses with chimneys, slate
+  warehouses with loading doors, thatched farmhouses, smithies with a glowing
+  forge, hide tents for shelters, plank storehouses, workshops with a hammer
+  sign, weaving frames, and stone-ringed hearths for campfires. Roads have a
+  worn edge and a lighter center. Agents appear as small top-down people with a
+  stable look per person and different sprites for infants, children, adults
+  and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
 
