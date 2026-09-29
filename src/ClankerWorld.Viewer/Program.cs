@@ -45,6 +45,7 @@ if (publicPort is <= 0 or > 65535 || localApprovalPort is < 0 or > 65535 || loca
 
 builder.WebHost.ConfigureKestrel(options =>
 {
+    options.Limits.MaxRequestBodySize = 30_000_000;
     options.Listen(IPAddress.Loopback, publicPort);
     if (localApprovalPort > 0)
     {
@@ -157,6 +158,7 @@ builder.Services.AddSingleton<OwnerWorldObservationStore>(services => isPrivateW
 builder.Services.AddSingleton(new OwnerAuthorityStateFile(authorityStatePath));
 var pairingHostOptions = new OwnerPairingHostOptions(localApprovalPort);
 builder.Services.AddSingleton(pairingHostOptions);
+builder.Services.AddSingleton<PairingRequestBudget>();
 builder.Services.AddSingleton<OwnerAuthorityStore>(services =>
 {
     var worldId = isPrivateWorld
@@ -219,6 +221,44 @@ app.MapGet("/api/v1/handshake", () => Results.Ok(new ViewerHandshake(
     new ProtocolVersion(Major: 1, Minor: 1),
     ["owner-device-pairing.v1"],
     ["owner-device-pairing.v1"])));
+
+// Bound unauthenticated creation before JSON binding. Do not spend this budget
+// on signed owner challenges/reconnect/pause or host-local recovery.
+app.Use(async (context, next) =>
+{
+    var pairingRoute = context.Request.Path.StartsWithSegments("/api/v1/pairings") ||
+        context.Request.Path.StartsWithSegments("/api/v1/local/pairings");
+    if (pairingRoute)
+    {
+        const long maximumPairingBytes = 16 * 1024;
+        if (context.Request.ContentLength > maximumPairingBytes)
+        {
+            context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+            return;
+        }
+        var bodyLimit = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+        if (bodyLimit is { IsReadOnly: false }) bodyLimit.MaxRequestBodySize = maximumPairingBytes;
+    }
+    if (HttpMethods.IsPost(context.Request.Method) && context.Request.Path == "/api/v1/pairings" &&
+        !context.RequestServices.GetRequiredService<PairingRequestBudget>().TryAcquire())
+    {
+        context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.Response.Headers.RetryAfter = "60";
+        return;
+    }
+    await next(context);
+});
+
+app.MapPost("/api/v1/local/pairings", (
+    StartOwnerPairingHttpRequest request, HttpContext context, OwnerPairingHostOptions options,
+    OwnerAuthorityStore authority, OwnerAuthorityStateFile stateFile) =>
+{
+    if (!options.IsLocalApprovalRequest(context)) return Results.NotFound();
+    var result = authority.StartPairingLocally(new OwnerPairingRequest(request?.PublicKeySpkiBase64 ?? string.Empty));
+    stateFile.Save(authority);
+    PairingRequestBudget.LogLocalRecovery(app.Logger, result.IsSuccess ? "created" : "refused");
+    return result.IsSuccess ? Results.Ok(result.Value) : OwnerFailures.ToHttpResult(result.Failure);
+});
 
 app.MapPost("/api/v1/pairings", (
     StartOwnerPairingHttpRequest request,
@@ -686,7 +726,7 @@ app.MapPost("/api/v1/owner/saves/autosave/configure", (
     try
     {
         var updated = autosave.Configure(action.Enabled, action.IntervalMinutes, action.RotationCount);
-        saves.KeepNewestAutosaves(Math.Max(1, updated.RotationCount));
+        saves.KeepNewestAutosaves(Math.Max(1, updated.RotationCount), worldId: updated.WorldId);
         ManualWorldSaveTelemetry.AutosaveConfigured(logger, updated.Enabled,
             updated.IntervalMinutes, updated.RotationCount, runtime.WorldTick);
         return Results.Ok(updated);

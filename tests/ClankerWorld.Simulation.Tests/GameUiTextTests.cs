@@ -7,6 +7,24 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class GameUiTextTests
 {
+    [Theory]
+    [InlineData("future_internal_diagnostic", false)]
+    [InlineData("saved_road_footprints_repaired", false)]
+    [InlineData("estate_will_started", false)]
+    [InlineData("town_resident_joined", true)]
+    [InlineData("child_born", true)]
+    [InlineData("world_started", true)]
+    [InlineData("partnership_accepted", true)]
+    [InlineData("partnership_ended", true)]
+    [InlineData("caregiver_assigned", true)]
+    [InlineData("council_policy_adopted", true)]
+    [InlineData("settlement_trade_completed", true)]
+    [InlineData("paused", true)]
+    public void EventLogSelectsKnownPlayerEventsInsteadOfPublishingUnknownDiagnostics(string kind, bool visible)
+    {
+        Assert.Equal(visible, GameUiText.IsPlayerFacingEvent(kind));
+    }
+
     private static readonly int[] UiScalePercentages = [100, 125, 150, 175, 200];
 
     [Theory]
@@ -48,6 +66,35 @@ public sealed class GameUiTextTests
         }
         Assert.Contains("connecting", GameUiText.FriendlyFailure(failures[6]), StringComparison.Ordinal);
         Assert.Contains("storage", GameUiText.FriendlyFailure(failures[1]), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HouseholdDisplayCleanupPreservesSavedMembershipAndCustomNames()
+    {
+        using var world = new PrivateWorldRuntime("household-display");
+        var state = world.ExportState();
+        Assert.Equal("First household", Assert.Single(state.Society.Society.Households).Name);
+        foreach (var name in new[] { "Camp Alpha", "River family" })
+        {
+            var legacy = state with
+            {
+                Society = state.Society with
+                {
+                    Society = state.Society.Society with
+                    {
+                        Households = state.Society.Society.Households.Select(home => home with { Name = name }).ToArray(),
+                    },
+                },
+            };
+            using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(legacy)));
+            var before = PrivateWorldRuntimeCodec.Encode(restored.ExportState());
+            var stockpile = Assert.Single(new OwnerWorldObservationStore(restored).GetSnapshot().Stockpiles);
+            Assert.Equal(name == "Camp Alpha" ? "First household" : name, stockpile.Name);
+            Assert.Equal("household:camp-alpha", stockpile.OwnerId);
+            Assert.Equal(before, PrivateWorldRuntimeCodec.Encode(restored.ExportState()));
+            Assert.Equal(state.Society.Society.Households[0].MemberIds,
+                restored.ExportState().Society.Society.Households[0].MemberIds);
+        }
     }
 
     [Fact]

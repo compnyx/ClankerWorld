@@ -14,13 +14,42 @@ using Microsoft.Extensions.Logging;
 
 namespace ClankerWorld.Simulation.Tests;
 
-public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory) : IClassFixture<ViewerWebApplicationFactory>
+public sealed partial class ViewerHttpTests : IDisposable
 {
+    // The public pairing budget is host-wide; independent scenarios own independent hosts.
+    private readonly ViewerWebApplicationFactory factory = new();
+
+    public void Dispose() => factory.Dispose();
+
     private static readonly System.Text.Json.JsonSerializerOptions WebJsonOptions =
         new(System.Text.Json.JsonSerializerDefaults.Web);
 
     private const string ApprovedAssetDigest =
         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    [Fact]
+    public async Task PairingVolumeIsBoundedWithoutBlockingAnExistingOwnersSignedRequests()
+    {
+        using var host = new ViewerWebApplicationFactory();
+        using var client = host.CreateClient();
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var device = await StartAndActivateAsync(host, client, key);
+        for (var index = 0; index < 7; index++)
+        {
+            using var rejected = await client.PostAsJsonAsync("/api/v1/pairings", new StartOwnerPairingHttpRequest("invalid"));
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        }
+        using var limited = await client.PostAsJsonAsync("/api/v1/pairings", new StartOwnerPairingHttpRequest("invalid"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.NotNull(limited.Headers.RetryAfter);
+        using var owner = await SendSignedAsync(host, client, key, device.DeviceId, "/api/v1/owner/reconnect",
+            new OwnerReconnectAction(0), OwnerHttpBinding.ReconnectPayload(new OwnerReconnectAction(0)));
+        Assert.Equal(HttpStatusCode.OK, owner.StatusCode);
+        using var hidden = await client.PostAsJsonAsync("/api/v1/local/pairings", new StartOwnerPairingHttpRequest("invalid"));
+        Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        using var oversized = await client.PostAsJsonAsync("/api/v1/pairings", new StartOwnerPairingHttpRequest(new string('x', 17_000)));
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
+    }
 
     [Fact]
     public async Task DamagedUsageMeterKeepsHostReachableAndReportsBlockedAccountingToOwner()
@@ -1112,7 +1141,10 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                 Assert.Equal(personalStatus.Revision, host.Services.GetRequiredService<ProviderConfigurationStore>().CaptureStatus().Revision);
 
                 var providerPath = host.Services.GetRequiredService<ProviderConfigurationStore>().Path;
-                Assert.Contains(secret, File.ReadAllText(providerPath), StringComparison.Ordinal);
+                Assert.Equal(secret, new ProviderConfigurationStore(providerPath,
+                    new ProviderConfigurationSeed("deterministic", null, null, null, null, null, null)).CaptureRuntimeConfiguration().OpenAi.ApiKey);
+                if (OperatingSystem.IsWindows())
+                    Assert.DoesNotContain(secret, File.ReadAllText(providerPath), StringComparison.Ordinal);
                 foreach (var file in Directory.EnumerateFiles(directory).Where(path => path != providerPath))
                 {
                     Assert.DoesNotContain(secret, File.ReadAllText(file), StringComparison.Ordinal);
@@ -1195,7 +1227,10 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                 endpoint, action, OwnerHttpBinding.CredentialSlotDeletionPayload(
                     action with { CredentialSlotId = Guid.NewGuid().ToString("N") }));
             Assert.Equal(HttpStatusCode.Unauthorized, tampered.StatusCode);
-            Assert.Contains(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
+            Assert.Equal(secret, Assert.Single(new ProviderConfigurationStore(store.Path,
+                new ProviderConfigurationSeed("deterministic", null, null, null, null, null, null)).CaptureRuntimeConfiguration().CredentialSlots!).ApiKey);
+            if (OperatingSystem.IsWindows())
+                Assert.DoesNotContain(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
 
             using var assigned = await SendSignedAsync(host, client, key, device.DeviceId,
                 endpoint, action, OwnerHttpBinding.CredentialSlotDeletionPayload(action));
@@ -1208,6 +1243,8 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
             Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
             var status = await removed.Content.ReadFromJsonAsync<OwnerProviderConfigurationStatus>();
             Assert.Empty(status!.CredentialSlots!);
+            Assert.Empty(new ProviderConfigurationStore(store.Path,
+                new ProviderConfigurationSeed("deterministic", null, null, null, null, null, null)).CaptureRuntimeConfiguration().CredentialSlots!);
             Assert.DoesNotContain(secret, File.ReadAllText(store.Path), StringComparison.Ordinal);
             Assert.DoesNotContain(secret, await removed.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         }
