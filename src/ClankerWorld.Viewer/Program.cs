@@ -189,6 +189,7 @@ if (advanceRuntime)
 }
 
 var app = builder.Build();
+ProviderCredentialTelemetry.Ready(app.Logger, OperatingSystem.IsWindows() ? "windows_current_user" : "private_file_permissions");
 app.Services.GetRequiredService<ProviderUsageStore>().LimitReached += () =>
 {
     if (isPrivateWorld)

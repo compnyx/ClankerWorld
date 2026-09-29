@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- On Windows, saved provider keys are protected for the current Windows user.
+  Valid old key files are migrated when loaded; an unreadable protected file is
+  preserved rather than reset. Forgetting a key still removes it from the
+  current installation, not from independent backups or the provider account.
+
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel
