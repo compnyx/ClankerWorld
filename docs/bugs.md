@@ -12,6 +12,55 @@ may track active implementation work, but closing an issue does not remove an
 entry here until the fix is merged and verified through the normal product
 path.
 
+## GitHub implementation and verification tracking
+
+Each current report below has GitHub tracking. A document entry is not a
+reason to close an unfixed issue. Historical implemented repairs stay resolved;
+normal Windows/VPS verification remains separate from source/test evidence.
+The September 29 reconciliation uses the current vision ledger, not the retired
+concept. Open design choices remain open rather than becoming implementation
+requirements by accident.
+
+| Register area | Tracking |
+| --- | --- |
+| Windows checkout/test | [#254](https://github.com/compoodment/ClankerWorld/issues/254) |
+| Personal-model needs and identity | [#255](https://github.com/compoodment/ClankerWorld/issues/255) |
+| Prompt shape and cost | [#256](https://github.com/compoodment/ClankerWorld/issues/256) |
+| Conversation and memory | [#257](https://github.com/compoodment/ClankerWorld/issues/257) |
+| Provider parity and observability | [#258](https://github.com/compoodment/ClankerWorld/issues/258) |
+| Tick failure and recovery | [#259](https://github.com/compoodment/ClankerWorld/issues/259) |
+| Persistence scale and retention | [#260](https://github.com/compoodment/ClankerWorld/issues/260) |
+| Save-list isolation | [#261](https://github.com/compoodment/ClankerWorld/issues/261) |
+| Usage-meter durability | [#262](https://github.com/compoodment/ClankerWorld/issues/262) |
+| Client presence/network | [#263](https://github.com/compoodment/ClankerWorld/issues/263) |
+| Pairing/API limits | [#264](https://github.com/compoodment/ClankerWorld/issues/264) |
+| Local credential storage | [#265](https://github.com/compoodment/ClankerWorld/issues/265) |
+| Event parsing | [#266](https://github.com/compoodment/ClankerWorld/issues/266) |
+| Delivery drift | [#267](https://github.com/compoodment/ClankerWorld/issues/267) |
+| Map readability | [#268](https://github.com/compoodment/ClankerWorld/issues/268) |
+| Client feedback/input/layout | [#269](https://github.com/compoodment/ClankerWorld/issues/269) |
+| Repair saved starter Roads overlapping building footprints | [#279](https://github.com/compoodment/ClankerWorld/issues/279) |
+| Correct sand, forest-floor vegetation and mountain transition distribution | [#280](https://github.com/compoodment/ClankerWorld/issues/280) |
+| Finish UI-scale sizing and saved fullscreen defaults | [#281](https://github.com/compoodment/ClankerWorld/issues/281) |
+| Finish player-facing settings, inspection and household naming cleanup | [#282](https://github.com/compoodment/ClankerWorld/issues/282) |
+| Finish supported vegetation propagation and approved object art | [#283](https://github.com/compoodment/ClankerWorld/issues/283) |
+| Decide long-term save compatibility and retention policy | [#284](https://github.com/compoodment/ClankerWorld/issues/284) |
+| Windows/live verification queue | [#285](https://github.com/compoodment/ClankerWorld/issues/285) |
+| Historical resolved register | [#286](https://github.com/compoodment/ClankerWorld/issues/286) |
+| Camera bounds and final zoom selection | [#127](https://github.com/compoodment/ClankerWorld/issues/127) |
+| Roads and bridges | [#158](https://github.com/compoodment/ClankerWorld/issues/158) |
+| Non-survival pacing | [#140](https://github.com/compoodment/ClankerWorld/issues/140) |
+| Curiosity and purposeful exploration | [#137](https://github.com/compoodment/ClankerWorld/issues/137) |
+| Mountain visibility targets | [#150](https://github.com/compoodment/ClankerWorld/issues/150) |
+| Agent naming and collision retries | [#136](https://github.com/compoodment/ClankerWorld/issues/136) |
+
+Issues #244 and #246–#251 were closed only to deduplicate against this
+document; linked successor issues above restore actionable tracking because
+the contributing account cannot reopen other authors’ issues. Historical
+AW-B001–AW-B022 evidence is indexed in #286; already-linked #107–#120 reports
+retain their original issue histories. Rejected recommendations below are not
+new defects.
+
 ## Live verification pending
 
 The provider-held tick fix is installed on the live VPS host. Computment is
