@@ -13,6 +13,10 @@ release yet.
   changing saved membership, property or custom household names. Founder setup
   instructions are shorter and describe the two-household grouping plainly.
 
+- Public pairing creation is limited to eight attempts per minute and pairing
+  request bodies to 16 KiB. Signed owner actions remain available. Host-local
+  recovery can replace one unapproved request in a full pairing queue without
+  discarding an approved pairing or revoking an active device.
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
