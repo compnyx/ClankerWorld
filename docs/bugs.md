@@ -98,6 +98,9 @@ review and is not carried forward.
   texture grain, striped transitions and large circular weather clouds are
   rejected. Hills should visibly lead into mountain regions; there is no hill
   terrain kind yet. Generator changes must not invalidate the running world.
+  The repository client now draws provisional pixel-art ground textures, relief
+  mountains and shoreline edges at close zoom (laptop check pending); the
+  distribution problems above are generator issues and remain open.
 - **Display and camera need playtest-driven bounds:** UI Scale enlarges text
   but leaves several window/panel dimensions small; at high render resolution
   the interface feels undersized. Start fullscreen by default. Small maps can

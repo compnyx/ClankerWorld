@@ -750,6 +750,8 @@ public partial class Main : Control
                 throw new InvalidOperationException("Mod Library must show existing agent proposal provenance.");
             RenderMap(sample);
             for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!terrainLayer.DrawsGroundTextures)
+                throw new InvalidOperationException("Zoomed-in terrain must draw pixel-art ground textures.");
             var inspectClick = mapStage.Position + new Vector2(currentTileSize * 1.5f,
                 currentTileSize * 1.5f);
             HandleMapInput(new InputEventMouseButton
@@ -839,6 +841,33 @@ public partial class Main : Control
             if ((transitionMap.WaterEdgeMaskAt(1, 1, false) & 2) == 0 ||
                 (transitionMap.SurfaceBoundaryMaskAt(1, 1, false) & 2) == 0)
                 throw new InvalidOperationException("Generated water and ground changes must expose functional tile-edge transitions.");
+            if (transitionMap.StyleAt(2, 1) != TerrainStyle.River || transitionMap.ShoreMaskAt(2, 1, false) != 15 ||
+                transitionMap.ShoreMaskAt(1, 1, false) != 0)
+                throw new InvalidOperationException("Water tiles must expose shoreline edges toward land, and land tiles none.");
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var style in Enum.GetValues<TerrainStyle>())
+                {
+                    var baseColor = TerrainTextures.BaseColor(style);
+                    var first = TerrainTextures.Tile(style, 0, atlasSize);
+                    var second = TerrainTextures.Tile(style, 1, atlasSize);
+                    foreach (var texture in new[] { first, second })
+                    {
+                        var detail = 0;
+                        for (var ty = 0; ty < atlasSize; ty++)
+                            for (var tx = 0; tx < atlasSize; tx++)
+                                if (!texture.GetPixel(tx, ty).IsEqualApprox(baseColor)) detail++;
+                        // Calm ground: a few pixel clusters, never per-pixel grain.
+                        // Mountains and peaks are drawn as relief shapes instead.
+                        var detailLimit = style is TerrainStyle.Mountain or TerrainStyle.Peak ? 0.4f : 0.12f;
+                        if (detail > atlasSize * atlasSize * detailLimit)
+                            throw new InvalidOperationException($"{style} {atlasSize}px texture is too busy: {detail} detail pixels.");
+                        for (var edge = 0; edge < atlasSize; edge++)
+                            if (!texture.GetPixel(edge, 0).IsEqualApprox(baseColor) || !texture.GetPixel(0, edge).IsEqualApprox(baseColor))
+                                throw new InvalidOperationException($"{style} {atlasSize}px details must stay off tile edges so neighbors join without seams.");
+                    }
+                    if (style != TerrainStyle.Unknown && first.GetData().SequenceEqual(second.GetData()))
+                        throw new InvalidOperationException($"{style} needs two distinct texture variants.");
+                }
             testHydrology[3] = 1;
             testSurfaces[3] = 4;
             var seamLayers = testLayers with
@@ -1125,6 +1154,8 @@ public partial class Main : Control
             };
             RenderMap(largeMap);
             for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (terrainLayer.DrawsGroundTextures)
+                throw new InvalidOperationException("Overview zoom must keep the flat one-pixel-per-tile palette instead of textures.");
             if (terrainLayer.GetChildCount() != 0 || terrainLayer.VisibleTileCount >= largeTerrain.Length / 2 ||
                 worldOverview.VisibleTiles.Size.X >= 256)
                 throw new InvalidOperationException($"A regional map must draw only the visible terrain without per-tile nodes: children={terrainLayer.GetChildCount()}, visible={terrainLayer.VisibleTileCount}, overview={worldOverview.VisibleTiles.Size}.");

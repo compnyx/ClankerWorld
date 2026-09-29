@@ -226,6 +226,11 @@ release yet.
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
   card's new Find button does the same.
+- Zooming in now shows pixel-art ground instead of flat color squares: two
+  calm 32×32 textures for each kind of grass, forest floor, sand, scrub, rock,
+  soil, snow and water, small top-down mountains with snowy peaks, and
+  shoreline foam or river banks where water meets land. The zoomed-out overview
+  keeps its flat colors, and the old ≈ and ▲ map symbols are gone.
 
 ### Fixed
 
