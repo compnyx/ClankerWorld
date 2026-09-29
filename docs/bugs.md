@@ -510,6 +510,14 @@ from zero even if the response is lost; normal same-timeline regression and
 terrain identity checks remain. Continue does not automatically resume after an
 uncertain switch. Transport-loss tests are not a Windows network playtest.
 
+### Mandatory instruction completion (#341)
+
+Recognized MustDo requests complete only when the requested legal action makes
+its corresponding state change (food acquired/eaten or a travel step). An accepted
+unrelated action, blocked movement or unavailable food does not consume the
+instruction. Pending instructions persist across reload. Suggestive instruction
+semantics remain unchanged; this does not reinterpret travel as a full-route goal.
+
 ### Interrupted exploration path (#315)
 
 When legal intervening movement leaves a scout away from the old path endpoint,

@@ -2999,10 +2999,20 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             candidateId = forcedCandidate;
         }
 
+        var carriedFoodBefore = society.Checkpoint.Inventory.Lots.Where(lot =>
+            lot.OwnerId == decision.InhabitantId && lot.ItemKind == "food").Sum(lot => (long)lot.Quantity);
         ApplyCandidate(decision.InhabitantId, state, candidateId, reportIdle: true);
+        var forcedApplied = forcedCandidate == candidateId && (candidateId switch
+        {
+            "seek_food" => inhabitants[decision.InhabitantId].Position != state.Position,
+            "consume_food" => inhabitants[decision.InhabitantId].HungerBasisPoints > state.HungerBasisPoints,
+            "harvest_food" => society.Checkpoint.Inventory.Lots.Where(lot =>
+                lot.OwnerId == decision.InhabitantId && lot.ItemKind == "food").Sum(lot => (long)lot.Quantity) > carriedFoodBefore,
+            _ => false,
+        });
 
         if (!decision.Admission.FellBack && pendingInstruction is not null &&
-            (pendingInstruction.Kind == OwnerInstructionKind.Suggestive || forcedCandidate is not null))
+            (pendingInstruction.Kind == OwnerInstructionKind.Suggestive || forcedApplied))
         {
             completedInstructionIds.Add(pendingInstruction.InstructionId);
             AppendEvent("instruction_applied", $"{pendingInstruction.InstructionId}:{candidateId}");
