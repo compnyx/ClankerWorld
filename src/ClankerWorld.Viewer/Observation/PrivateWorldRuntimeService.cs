@@ -205,13 +205,16 @@ public sealed partial class PrivateWorldRuntimeService(
                     if (actor is null || worldEvent.Detail.Length <= actor.Length + 1) continue;
                     LogInhabitantContentProposal(logger, result.WorldTick, actor, worldEvent.Detail[(actor.Length + 1)..]);
                 }
-                foreach (var worldEvent in result.Events.Where(item => item.Kind is "project_chosen" or "project_progress" or "project_request_fulfilled"))
+                foreach (var worldEvent in result.Events.Where(item => item.Kind is "project_chosen" or "project_progress" or
+                             "project_request_fulfilled" or "town_resources_stored" or "town_resource_collected"))
                 {
                     var actor = EventActor(worldEvent.Detail);
                     if (actor is null) continue;
                     var project = projects.GetValueOrDefault(actor);
                     LogSettlementActivity(logger, result.WorldTick, worldEvent.Kind, actor,
-                        project?.Stage ?? "helping", project?.WorkDone ?? 0,
+                        worldEvent.Kind is "town_resources_stored" or "town_resource_collected"
+                            ? "warehouse" : project?.Stage ?? "helping", project?.WorkDone ?? 0,
+                        worldEvent.Kind is not ("town_resources_stored" or "town_resource_collected") &&
                         project?.Blocker is not null);
                 }
                 foreach (var worldEvent in result.Events.Where(item => item.Kind == "survival_condition_changed"))

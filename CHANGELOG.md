@@ -8,6 +8,15 @@ release yet.
 
 ### Added
 
+- Town residents can build one 2×2 Warehouse inside their Town's growing
+  building area. Adults may carry spare personal wood, stone, fiber or seeds
+  there as communal stock; residents of another household can collect stored
+  tools, clothing, wood or seeds there for work. The building inspection shows
+  the actual stored lots after delivery, and they survive reload. Food cannot
+  be Warehouse stock. The old Storehouse remains loadable in existing saves
+  but is no longer offered for new agent construction once Warehouse content
+  activates. Expansion, full resource logistics and formal ownership remain
+  unfinished.
 - Town-assigned building placement now generates world-owned Road tiles along a
   bounded legal dry-land route to the camp or existing Road network. Roads are
   visible in the world and overview, named in tile inspection, survive reload,

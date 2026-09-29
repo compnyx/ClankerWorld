@@ -402,7 +402,11 @@ public sealed class OwnerWorldObservationStore
                     buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?.Height ?? 1,
                     item.TownId,
                     item.HouseholdId,
-                    item.HouseholdId is null ? null : InventoryFor(state, item.HouseholdId, item.InstanceId)))
+                    item.HouseholdId is { } householdId
+                        ? InventoryFor(state, householdId, item.InstanceId)
+                        : item.TownId is { } townId && buildingDefinitions?.GetValueOrDefault(item.DefinitionId)?
+                            .Tags.Contains("warehouse", StringComparer.Ordinal) == true
+                            ? InventoryFor(state, townId, item.InstanceId) : null))
                 .ToArray() ?? [],
             ProductionJobs = jobs
                 .OrderBy(item => item.JobId, StringComparer.Ordinal)

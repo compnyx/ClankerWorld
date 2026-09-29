@@ -253,6 +253,22 @@ unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities
 reuse prototype values; they are not accepted finished-game recipes or
 storage-capacity decisions.
+An additive 2×2 Warehouse definition now activates for Town-founded worlds.
+One Warehouse may be built per Town within or adjacent to the current saved
+border; its footprint expands that border. The Town ID holds its communal
+inventory for this prototype, without deciding formal legal ownership. Adults
+can carry personally held surplus wood, stone, fiber or seeds to the building;
+only on arrival does the stock become Town-held and appear in building
+inspection. Resident adults from any household can physically collect stored
+non-food equipment/materials when a task needs them. Food placed in a Warehouse
+is rejected on save/load. Residency is checked at pickup, so leaving a Town
+would not erase its Warehouse stock or grant ongoing access. The twelve-wood
+cost, four-unit delivery load, single-Warehouse rule and unbounded storage are
+prototype values, not accepted balance or final access law. Initial Town
+generation does not yet place a Warehouse; the 2×3 expansion, whole-inventory
+logistics, border-change policy and formal ownership remain open. Legacy
+Storehouses remain in old saves; agents stop proposing new ones after Warehouse
+content activates.
 Food provenance distinguishes foraging, crops, cooked meals and camp rations;
 inhabitants prefer a different available source, while monotonous diets reduce
 their diet score. Spoiled reserved ingredients cancel

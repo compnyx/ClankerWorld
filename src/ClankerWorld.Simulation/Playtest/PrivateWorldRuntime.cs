@@ -700,6 +700,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var targetTick = checked(WorldTick + 1);
             StageSettlementContent();
             StageHouseContent();
+            StageWarehouseContent();
             StageHouseCookingContent();
             StageForestryContent();
             var readyPackages = contentRegistry.GetActivationCandidates(targetTick);
@@ -1091,6 +1092,14 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 householdId is not null && !society.Checkpoint.Households.Any(item => item.Id == householdId))
                 return BuildingPlacementResult.Rejected(normalizedInstanceId, normalizedDefinitionId, position,
                     "A House requires an existing household; other buildings cannot take household ownership.");
+
+            if (definition.Tags.Contains("warehouse", StringComparer.Ordinal) &&
+                (assignedTownId is null || worldSimulation.Buildings.Any(building =>
+                    building.TownId == assignedTownId && worldContent.Buildings.Any(existing =>
+                        existing.CanonicalId == building.DefinitionId &&
+                        existing.Tags.Contains("warehouse", StringComparer.Ordinal)))))
+                return BuildingPlacementResult.Rejected(normalizedInstanceId, normalizedDefinitionId, position,
+                    "A Warehouse must join a Town that does not already have one.");
 
             if (!CanPlaceBuilding(definition, position, out var placementFailure))
             {
@@ -1566,7 +1575,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         assetReservations.Validate();
         ValidateAssetReservationsAgainstActivePackages();
         WorldContentSimulationRules.Validate(worldSimulation, worldContent, map, WorldTick);
-        ValidatePhysicalInventoryLocations(society.Checkpoint.Inventory, worldSimulation,
+        ValidatePhysicalInventoryLocations(society.Checkpoint.Inventory, worldSimulation, worldContent,
             society.Checkpoint.Inhabitants);
         if (worldSimulation.Buildings.Any(building => building.HouseholdId is { } householdId &&
             !society.Checkpoint.Households.Any(household => household.Id == householdId)))
@@ -2933,6 +2942,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             StoreHouseholdFood(inhabitantId, state);
             return;
         }
+        if (candidateId == "store_town_resources")
+        {
+            StoreTownResources(inhabitantId, state);
+            return;
+        }
         if (candidateId.StartsWith(KnowledgeSharePrefix, StringComparison.Ordinal))
         {
             ApplyKnowledgeShare(inhabitantId, state, candidateId);
@@ -3397,6 +3411,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var inhabitant = society.Checkpoint.GetInhabitant(inhabitantId);
             AddBuildCandidates(candidates, inhabitant, state);
             AddHouseHaulCandidate(candidates, inhabitantId, state);
+            AddWarehouseStockCandidate(candidates, inhabitantId, state);
             AddInhabitantBuildingDesignCandidates(candidates, inhabitant, state);
             AddProjectAssistanceCandidates(candidates, inhabitantId);
             AddForestryCandidates(candidates, inhabitantId, state);
@@ -3425,6 +3440,15 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             var layout = CreateTownLayoutContext(inhabitant.Id);
             foreach (var definition in worldContent.Buildings)
             {
+                if (definition.PackageDigest == LegacyStarterDigest && definition.LocalId == "storage" &&
+                    worldContent.Buildings.Any(building => building.Tags.Contains("warehouse", StringComparer.Ordinal)))
+                    continue;
+                if (definition.Tags.Contains("warehouse", StringComparer.Ordinal) &&
+                    (TownForResident(inhabitant.Id) is not { } townId ||
+                     worldSimulation.Buildings.Any(building => building.TownId == townId &&
+                         worldContent.Buildings.Any(existing => existing.CanonicalId == building.DefinitionId &&
+                             existing.Tags.Contains("warehouse", StringComparer.Ordinal)))))
+                    continue;
                 if (definition.Tags.Contains("house", StringComparer.Ordinal) &&
                     (inhabitant.HouseholdId is null || HouseForHousehold(inhabitant.HouseholdId) is not null))
                     continue;
@@ -3439,7 +3463,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 var constructionOwner = definition.Tags.Contains("house", StringComparer.Ordinal)
                     ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
                 if (worldSimulation.Buildings.Any(item => item.InstanceId == instanceId) ||
-                    !CanAcquireProjectInputs(definition.BuildCosts, constructionOwner))
+                    !CanAcquireProjectInputs(definition.BuildCosts, constructionOwner, inhabitant.Id))
                 {
                     continue;
                 }
@@ -3472,7 +3496,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
             }
             var recipeOwner = recipe.WorkstationBuildingId == House1x1DefinitionId
                 ? inhabitant.HouseholdId : inhabitant.HouseholdId is null ? inhabitant.Id : null;
-            if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner) ||
+            if (!NeedsRecipeOutput(recipe, recipeOwner) || !CanAcquireProjectInputs(recipe.Inputs, recipeOwner, inhabitant.Id) ||
                 !TryFindRecipeSite(recipe, out var siteId, out var position, inhabitant.Id) ||
                 recipe.WorkstationBuildingId == House1x1DefinitionId &&
                 (recipeOwner is null || !HasIngredientsAtBuilding(recipe.Inputs, recipeOwner, siteId)))
@@ -3611,16 +3635,23 @@ public sealed partial class PrivateWorldRuntime : IDisposable
     }
 
     private static void ValidatePhysicalInventoryLocations(InventoryCheckpoint inventory,
-        WorldContentSimulationState simulation, IReadOnlyList<SocietyInhabitant> inhabitants)
+        WorldContentSimulationState simulation, DeclarativeWorldContentState content,
+        IReadOnlyList<SocietyInhabitant> inhabitants)
     {
         var buildings = simulation.Buildings.ToDictionary(item => item.InstanceId, StringComparer.Ordinal);
+        var definitions = content.Buildings.ToDictionary(item => item.CanonicalId, StringComparer.Ordinal);
         var people = inhabitants.ToDictionary(item => item.Id, StringComparer.Ordinal);
         foreach (var lot in inventory.Lots)
         {
-            if (lot.StorageBuildingId is { } storageId &&
-                (!buildings.TryGetValue(storageId, out var storage) ||
-                 storage.HouseholdId is null || storage.HouseholdId != lot.OwnerId))
-                throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid House storage location.");
+            if (lot.StorageBuildingId is { } storageId)
+            {
+                if (!buildings.TryGetValue(storageId, out var storage) ||
+                    !definitions.TryGetValue(storage.DefinitionId, out var definition) ||
+                    !(storage.HouseholdId == lot.OwnerId && definition.Tags.Contains("house", StringComparer.Ordinal) ||
+                      storage.TownId == lot.OwnerId && storage.HouseholdId is null && lot.ItemKind != "food" &&
+                      definition.Tags.Contains("warehouse", StringComparer.Ordinal)))
+                    throw new InvalidDataException($"Inventory lot '{lot.Id}' has an invalid building storage location.");
+            }
             if (lot.DeliveryBuildingId is { } deliveryId &&
                 (!buildings.TryGetValue(deliveryId, out var destination) ||
                  destination.HouseholdId is null ||
@@ -3734,7 +3765,7 @@ public sealed partial class PrivateWorldRuntime : IDisposable
                 state.Map,
                 state.Society.Society.WorldTick);
             ValidatePhysicalInventoryLocations(state.Society.Society.Inventory, state.WorldSimulation,
-                state.Society.Society.Inhabitants);
+                state.WorldContent, state.Society.Society.Inhabitants);
             if (state.WorldSimulation.Buildings.Any(building => building.HouseholdId is { } householdId &&
                 !state.Society.Society.Households.Any(household => household.Id == householdId)))
                 throw new InvalidDataException("A House references a missing household.");

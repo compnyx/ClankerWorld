@@ -166,6 +166,23 @@ public sealed partial class PrivateWorldRuntime
         AppendEvent("house_content_staged", manifest.PackageId);
     }
 
+    private void StageWarehouseContent()
+    {
+        var packages = contentRegistry.ExportState().Packages;
+        if (packages.Any(package => package.Manifest.PackageId == WarehouseContent.PackageId) ||
+            !packages.Any(package => package.Manifest.PackageId == HouseContent.PackageId &&
+                package.Lifecycle == ContentPackageLifecycle.Active))
+            return;
+        var manifest = WarehouseContent.Create();
+        var resolution = ContentPackageResolver.Resolve(packages.Select(package => package.Manifest).Append(manifest),
+            [manifest.PackageId]);
+        contentRegistry.Propose(manifest, WorldTick);
+        contentRegistry.Validate(manifest.PackageId, resolution, WorldTick);
+        contentRegistry.Approve(manifest.PackageId, WorldTick);
+        contentRegistry.Stage(manifest.PackageId, WorldTick);
+        AppendEvent("warehouse_content_staged", manifest.PackageId);
+    }
+
     private void StageHouseCookingContent()
     {
         var packages = contentRegistry.ExportState().Packages;
@@ -367,6 +384,19 @@ public sealed partial class PrivateWorldRuntime
                 return;
             }
         }
+        if (building?.Tags.Contains("warehouse", StringComparer.Ordinal) == true &&
+            (TownForResident(inhabitantId) is not { } townId ||
+             worldSimulation.Buildings.Any(placed => placed.TownId == townId &&
+                 worldContent.Buildings.Any(definition => definition.CanonicalId == placed.DefinitionId &&
+                     definition.Tags.Contains("warehouse", StringComparer.Ordinal)))))
+        {
+            SetProject(inhabitantId, project with
+            {
+                Stage = "cancelled",
+                Blocker = "This Town already has a Warehouse, or the builder is no longer a resident.",
+            });
+            return;
+        }
         var inputs = building?.BuildCosts ?? recipe!.Inputs;
         var constructionOwner = building?.Tags.Contains("house", StringComparer.Ordinal) == true ||
             recipe?.WorkstationBuildingId == House1x1DefinitionId
@@ -488,6 +518,26 @@ public sealed partial class PrivateWorldRuntime
             return;
         }
 
+        if (WarehouseForResident(inhabitantId) is { } warehouse &&
+            society.Checkpoint.Inventory.Lots.FirstOrDefault(lot =>
+                lot.OwnerId == warehouse.TownId && lot.StorageBuildingId == warehouse.InstanceId &&
+                lot.ItemKind == input.ResourceId && AvailableLotQuantity(lot) > 0) is { } communal)
+        {
+            SetProject(inhabitantId, project with { Stage = "gathering", Blocker = $"Collecting {input.ResourceId} from the Town Warehouse" });
+            if (state.Position != warehouse.Position)
+            {
+                MoveToward(inhabitantId, inhabitants[inhabitantId], warehouse.Position, "warehouse_materials", 0);
+                return;
+            }
+            var quantity = Math.Min(WarehouseLoadQuantity,
+                Math.Min(input.Amount, AvailableLotQuantity(communal)));
+            ApplyInventoryTransition(inventory => InventoryFixture.Transfer(inventory,
+                $"warehouse-pickup:{WorldTick}:{inhabitantId}", warehouse.TownId!, inhabitantId,
+                communal.Id, quantity, "town_resource_collected"));
+            AppendEvent("town_resource_collected", $"{inhabitantId}:{communal.Id}:{quantity}:{warehouse.InstanceId}");
+            return;
+        }
+
         var source = map.Resources.Where(resource =>
             (resource.Kind == input.ResourceId || (input.ResourceId == "wood" && resource.Kind == "construction")) &&
             resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
@@ -574,7 +624,8 @@ public sealed partial class PrivateWorldRuntime
         resources.GetValueOrDefault(resource.Id) == ResourceState.Available &&
         map.IsReachableFromCampOnFoot(resource.Position));
 
-    private bool CanAcquireProjectInputs(IReadOnlyList<ContentQuantity> inputs, string? ownerId = null) => inputs.All(input =>
+    private bool CanAcquireProjectInputs(IReadOnlyList<ContentQuantity> inputs, string? ownerId = null,
+        string? residentId = null) => inputs.All(input =>
     {
         var stored = society.Checkpoint.Inventory.Lots.Where(lot => lot.ItemKind == input.ResourceId &&
                 (lot.OwnerId == (ownerId ?? HouseholdId) || inhabitants.ContainsKey(lot.OwnerId) &&
@@ -585,7 +636,12 @@ public sealed partial class PrivateWorldRuntime
                 (resource.Kind == input.ResourceId || (input.ResourceId == "wood" && resource.Kind == "construction")) &&
                 map.IsReachableFromCampOnFoot(resource.Position))
             .Sum(resource => (long)resource.Quantity * 4);
-        return stored + harvestable >= input.Amount;
+        var warehouse = residentId is null ? null : WarehouseForResident(residentId);
+        var communal = warehouse is null ? 0 : society.Checkpoint.Inventory.Lots.Where(lot =>
+                lot.OwnerId == warehouse.TownId && lot.StorageBuildingId == warehouse.InstanceId &&
+                lot.ItemKind == input.ResourceId)
+            .Sum(lot => (long)AvailableLotQuantity(lot));
+        return stored + harvestable + communal >= input.Amount;
     });
 
     private void AddProjectAssistanceCandidates(List<CognitionCandidate> candidates, string helperId)
