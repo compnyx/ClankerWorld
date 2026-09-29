@@ -66,7 +66,8 @@ public sealed class ProjectInputBoundaryTests
         {
             Inhabitants = state.Inhabitants.Select(person => person.InhabitantId == beta ? person with
             {
-                Position = placed.Position, HungerBasisPoints = 9_500,
+                Position = placed.Position,
+                HungerBasisPoints = 9_500,
                 Project = new SettlementProject("build:recipe:" + recipe.CanonicalId, "Cook", state.Society.Society.WorldTick, "working", 10,
                     LastTransitionTick: state.Society.Society.WorldTick),
             } : person).ToArray(),
@@ -76,12 +77,21 @@ public sealed class ProjectInputBoundaryTests
         Assert.Equal("blocked", blocked.Inhabitants.Single(person => person.InhabitantId == beta).Project!.Stage);
         Assert.Empty(blocked.WorldSimulation.ProductionJobs);
         state = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(blocked.ExportState()));
-        state = state with { Society = state.Society with { Society = state.Society.Society with
+        state = state with
         {
-            Inventory = state.Society.Society.Inventory with { Lots = state.Society.Society.Inventory.Lots.Select(lot =>
-                lot.OwnerId == "household:camp-beta" && lot.ItemKind is "food" or "wood"
-                    ? lot with { StorageBuildingId = "cook-home" } : lot).ToArray() },
-        } } };
+            Society = state.Society with
+            {
+                Society = state.Society.Society with
+                {
+                    Inventory = state.Society.Society.Inventory with
+                    {
+                        Lots = state.Society.Society.Inventory.Lots.Select(lot =>
+                        lot.OwnerId == "household:camp-beta" && lot.ItemKind is "food" or "wood"
+                            ? lot with { StorageBuildingId = "cook-home" } : lot).ToArray()
+                    },
+                }
+            }
+        };
         using var replenished = PrivateWorldRuntime.Restore(state, _ => new Idle());
         for (var tick = 0; tick < 80 && replenished.WorldSimulation.ProductionJobs.Count == 0; tick++)
             _ = await replenished.AdvanceOneTickAsync();
