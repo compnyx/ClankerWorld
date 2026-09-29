@@ -480,3 +480,11 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Lost world-switch receipts (#313)
+
+Create and select clear the held timeline before the potentially committed
+request, matching manual rewind’s ambiguity handling. The next reconnect starts
+from zero even if the response is lost; normal same-timeline regression and
+terrain identity checks remain. Continue does not automatically resume after an
+uncertain switch. Transport-loss tests are not a Windows network playtest.
