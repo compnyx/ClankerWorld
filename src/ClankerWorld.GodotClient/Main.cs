@@ -145,6 +145,8 @@ public partial class Main : Control
     private readonly ColorRect appBackdrop = new();
     private readonly ColorRect worldBackdrop = new();
     private readonly OptionButton themeChoice = new();
+    private readonly CheckButton cloudHazeToggle = new();
+    private readonly CheckButton lightningToggle = new();
     private readonly Label menuHeadingLabel = new();
     private readonly Button menuCloseButton = new();
     private readonly Button menuResumeButton = new();
@@ -490,6 +492,14 @@ public partial class Main : Control
                 throw new InvalidOperationException("Choosing a theme must restyle the open window at once and be remembered.");
             themeChoice.Select((int)UiTheme.Parse(themeBefore));
             SetUiTheme((int)UiTheme.Parse(themeBefore));
+            var (hazeBefore, flashesBefore) = (displayPreferences.CloudHaze, displayPreferences.LightningFlashes);
+            cloudHazeToggle.ButtonPressed = !hazeBefore;
+            lightningToggle.ButtonPressed = !flashesBefore;
+            if (weatherLayer.CloudsEnabled == hazeBefore || weatherLayer.LightningEnabled == flashesBefore ||
+                displayPreferences.CloudHaze == hazeBefore || displayPreferences.LightningFlashes == flashesBefore)
+                throw new InvalidOperationException("The cloud haze and lightning switches must take effect at once and be remembered.");
+            cloudHazeToggle.ButtonPressed = hazeBefore;
+            lightningToggle.ButtonPressed = flashesBefore;
             if (!topBarShade.Visible || topBarShade.ZIndex <= mainMenuOverlay.ZIndex)
                 throw new InvalidOperationException("Main Menu Settings must shade the top bar like the rest of the title backdrop.");
             SetStatus("Settings status check", good: true);
@@ -3481,6 +3491,8 @@ public partial class Main : Control
 
         // Weather falls over buildings and agents alike.
         weatherLayer.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        weatherLayer.CloudsEnabled = displayPreferences.CloudHaze;
+        weatherLayer.LightningEnabled = displayPreferences.LightningFlashes;
         weatherLayer.Follow(terrainLayer);
         mapStage.AddChild(weatherLayer);
 
@@ -3714,6 +3726,16 @@ public partial class Main : Control
         renderResolutionChoice.ItemSelected += SetRenderResolution;
         gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
 
+
+        gameSettingsContent.AddChild(SettingsSection("Weather"));
+        cloudHazeToggle.TooltipText = "A faint haze of cloud that drifts over the land now and then.";
+        cloudHazeToggle.ButtonPressed = displayPreferences.CloudHaze;
+        cloudHazeToggle.Toggled += SetCloudHaze;
+        gameSettingsContent.AddChild(DisplaySettingRow("Cloud haze", cloudHazeToggle));
+        lightningToggle.TooltipText = "A soft flash every several seconds during storms.";
+        lightningToggle.ButtonPressed = displayPreferences.LightningFlashes;
+        lightningToggle.Toggled += SetLightningFlashes;
+        gameSettingsContent.AddChild(DisplaySettingRow("Lightning flashes", lightningToggle));
 
         gameSettingsContent.AddChild(SettingsSection("Date and time"));
         clockFormatChoice.AddItem("24-hour", 0);
@@ -4405,6 +4427,18 @@ public partial class Main : Control
         var percent = DisplayUiScalePolicy.SupportedPercentages[(int)index];
         SaveDisplayPreferences(displayPreferences with { UiScalePercent = percent });
         ApplyUiScale(percent);
+    }
+
+    private void SetCloudHaze(bool enabled)
+    {
+        SaveDisplayPreferences(displayPreferences with { CloudHaze = enabled });
+        weatherLayer.CloudsEnabled = enabled;
+    }
+
+    private void SetLightningFlashes(bool enabled)
+    {
+        SaveDisplayPreferences(displayPreferences with { LightningFlashes = enabled });
+        weatherLayer.LightningEnabled = enabled;
     }
 
     private void SetUiTheme(long index)

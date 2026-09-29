@@ -13,6 +13,8 @@ release yet.
   Settings has a new Theme choice of Light, Dark (dark wood with cream text)
   or Match system, which follows your computer's setting. Switching applies at
   once and is remembered.
+- Settings can turn off the drifting cloud haze and the soft lightning flashes
+  in storms. Both are on to start with and your choice is remembered.
 - Escape now backs out one step at a time: a focused text field, an open
   menu, Town-site selection or a founder move, the newest open panel, then the
   selected agent. With nothing open it opens the Pause Menu. The mouse wheel
