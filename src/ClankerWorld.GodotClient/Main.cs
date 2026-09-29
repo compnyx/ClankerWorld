@@ -419,6 +419,9 @@ public partial class Main : Control
                 if (!worldMenuOverlay.GetGlobalRect().Encloses(worldMenuCard.GetGlobalRect()) ||
                     worldMenuOverlay.GetGlobalRect().GetCenter().DistanceTo(worldMenuCard.GetGlobalRect().GetCenter()) > 2)
                     throw new InvalidOperationException($"World creation/selection panel escaped its centered bounds at {size}.");
+                if (!worldMenuScroll.GetGlobalRect().Grow(1).Encloses(worldCreateButton.GetGlobalRect()) ||
+                    worldPreviewFrame.Size.X < 480 || worldPreviewFrame.GetGlobalRect().Position.X <= worldNameInput.GetGlobalRect().Position.X)
+                    throw new InvalidOperationException($"At {size} New World must show a large preview beside its options and Create World without scrolling: preview={worldPreviewFrame.GetGlobalRect()} create={worldCreateButton.GetGlobalRect()} scroll={worldMenuScroll.GetGlobalRect()}.");
                 worldMenuOverlay.Hide();
                 worldPreview.Hide();
             }
@@ -5409,7 +5412,7 @@ public partial class Main : Control
         foreach (var caption in settingCaptionLabels)
             caption.CustomMinimumSize = new Vector2(captionWidth, 0);
         mainMenuCard.CustomMinimumSize = new Vector2(panelWidth(440), 0);
-        worldMenuCard.CustomMinimumSize = new Vector2(panelWidth(480), 0);
+        LayoutWorldMenu();
         manualSaveCard.CustomMinimumSize = new Vector2(panelWidth(470), 0);
 
         if (observationSession.Current?.Baseline.Snapshot is { } snapshot && HasMap(snapshot))

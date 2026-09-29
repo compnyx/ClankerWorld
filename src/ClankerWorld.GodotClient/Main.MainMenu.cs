@@ -1,3 +1,4 @@
+using ClankerWorld.GodotClient.ClientState;
 using Godot;
 using ClankerWorld.GodotClient.UI;
 using System.Globalization;
@@ -19,6 +20,10 @@ public partial class Main
     private readonly Button menuSaveWorldButton = new();
     private readonly Control worldMenuOverlay = new();
     private readonly PanelContainer worldMenuCard = new();
+    private readonly ScrollContainer worldMenuScroll = new();
+    private readonly VBoxContainer worldMenuBody = new();
+    private readonly HFlowContainer worldMenuColumns = new();
+    private readonly PanelContainer worldPreviewFrame = new();
     private readonly Label worldMenuHeading = new();
     private readonly Label worldMenuStatus = new();
     private readonly LineEdit worldNameInput = new();
@@ -240,29 +245,27 @@ public partial class Main
         worldMenuOverlay.AddChild(center);
         center.AddChild(worldMenuCard);
 
-        var body = new VBoxContainer { CustomMinimumSize = new Vector2(440, 0) };
-        body.AddThemeConstantOverride("separation", 8);
+        // New World reads left to right: options, then the large preview and
+        // the actions that act on it. Narrow or scaled-up screens wrap the
+        // preview under the options and the card scrolls instead of clipping.
+        worldMenuBody.AddThemeConstantOverride("separation", 10);
         worldMenuHeading.AddThemeFontSizeOverride("font_size", 24);
-        body.AddChild(worldMenuHeading);
+        worldMenuBody.AddChild(worldMenuHeading);
         worldMenuStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        body.AddChild(worldMenuStatus);
+        worldMenuBody.AddChild(worldMenuStatus);
+
+        var options = new VBoxContainer { CustomMinimumSize = new Vector2(WorldOptionsWidth, 0) };
+        options.AddThemeConstantOverride("separation", 8);
         // Both fields open pre-filled, which hides their placeholders, so each
         // keeps a visible caption.
         worldNameInput.PlaceholderText = "World name";
         worldNameInput.MaxLength = 80;
-        worldNameInput.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        var nameRow = new HBoxContainer();
-        nameRow.AddChild(new Label { Text = "Name", CustomMinimumSize = new Vector2(52, 0) });
-        nameRow.AddChild(worldNameInput);
-        body.AddChild(nameRow);
+        options.AddChild(WorldOptionRow("Name", worldNameInput));
         worldSeedInput.PlaceholderText = "Generation seed";
         worldSeedInput.MaxLength = 100;
         worldSeedInput.TextChanged += _ => InvalidateWorldPreview();
-        var seedRow = new HBoxContainer();
-        worldSeedInput.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        seedRow.AddChild(new Label { Text = "Seed", CustomMinimumSize = new Vector2(52, 0) });
-        seedRow.AddChild(worldSeedInput);
-        var reroll = new Button { Text = "Reroll seed" };
+        var seedRow = WorldOptionRow("Seed", worldSeedInput);
+        var reroll = new Button { Text = "Reroll", TooltipText = "Pick a new random seed" };
         StyleButton(reroll);
         reroll.Pressed += () =>
         {
@@ -270,32 +273,32 @@ public partial class Main
             if (!worldMenuBusy) _ = PreviewWorldAsync();
         };
         seedRow.AddChild(reroll);
-        body.AddChild(seedRow);
+        options.AddChild(seedRow);
         worldSizeChoice.AddItem("Small · 256 × 128", 0);
         worldSizeChoice.AddItem("Medium · 512 × 256", 1);
         worldSizeChoice.ItemSelected += _ => InvalidateWorldPreview();
-        body.AddChild(worldSizeChoice);
-        worldWaterChoice.AddItem("Less water · 35%", 35);
-        worldWaterChoice.AddItem("Balanced water · 45%", 45);
-        worldWaterChoice.AddItem("More water · 55%", 55);
+        options.AddChild(WorldOptionRow("Size", worldSizeChoice));
+        worldWaterChoice.AddItem("Less · 35%", 35);
+        worldWaterChoice.AddItem("Balanced · 45%", 45);
+        worldWaterChoice.AddItem("More · 55%", 55);
         worldWaterChoice.Select(1);
         worldWaterChoice.ItemSelected += _ => InvalidateWorldPreview();
-        body.AddChild(worldWaterChoice);
-        worldResourceChoice.AddItem("Sparse resources", 0);
-        worldResourceChoice.AddItem("Normal resources", 1);
-        worldResourceChoice.AddItem("Abundant resources", 2);
+        options.AddChild(WorldOptionRow("Water", worldWaterChoice));
+        worldResourceChoice.AddItem("Sparse", 0);
+        worldResourceChoice.AddItem("Normal", 1);
+        worldResourceChoice.AddItem("Abundant", 2);
         worldResourceChoice.Select(1);
         worldResourceChoice.ItemSelected += _ => InvalidateWorldPreview();
-        body.AddChild(worldResourceChoice);
-        worldClimateModeChoice.AddItem("Balanced climates", 0);
-        worldClimateModeChoice.AddItem("Uniform climate", 1);
-        worldClimateModeChoice.AddItem("Dominant climate", 2);
+        options.AddChild(WorldOptionRow("Resources", worldResourceChoice));
+        worldClimateModeChoice.AddItem("Balanced", 0);
+        worldClimateModeChoice.AddItem("Uniform", 1);
+        worldClimateModeChoice.AddItem("Dominant", 2);
         worldClimateModeChoice.ItemSelected += _ =>
         {
-            worldClimateFamilyChoice.Visible = worldClimateModeChoice.GetSelectedId() != 0;
+            worldClimateFamilyChoice.GetParent<Control>().Visible = worldClimateModeChoice.GetSelectedId() != 0;
             InvalidateWorldPreview();
         };
-        body.AddChild(worldClimateModeChoice);
+        options.AddChild(WorldOptionRow("Climates", worldClimateModeChoice));
         worldClimateFamilyChoice.AddItem("Tropical", 0);
         worldClimateFamilyChoice.AddItem("Dry", 1);
         worldClimateFamilyChoice.AddItem("Temperate", 2);
@@ -303,29 +306,46 @@ public partial class Main
         worldClimateFamilyChoice.AddItem("Polar", 4);
         worldClimateFamilyChoice.Select(2);
         worldClimateFamilyChoice.ItemSelected += _ => InvalidateWorldPreview();
-        worldClimateFamilyChoice.Visible = false;
-        body.AddChild(worldClimateFamilyChoice);
+        var familyRow = WorldOptionRow("Main climate", worldClimateFamilyChoice);
+        familyRow.Visible = false;
+        options.AddChild(familyRow);
         worldLatitudeChoice.Text = "Colder toward the poles";
         worldLatitudeChoice.ButtonPressed = true;
         worldLatitudeChoice.Toggled += _ => InvalidateWorldPreview();
-        body.AddChild(worldLatitudeChoice);
+        options.AddChild(worldLatitudeChoice);
         worldWrapChoice.Text = "Wrap east/west";
         worldWrapChoice.ButtonPressed = true;
         worldWrapChoice.Toggled += _ => InvalidateWorldPreview();
-        body.AddChild(worldWrapChoice);
-        worldPreviewButton.Text = "Preview map";
-        StyleButton(worldPreviewButton);
-        worldPreviewButton.Pressed += () => _ = PreviewWorldAsync();
-        body.AddChild(worldPreviewButton);
+        options.AddChild(worldWrapChoice);
+
+        var previewColumn = new VBoxContainer
+        {
+            CustomMinimumSize = new Vector2(WorldPreviewWidth, 0),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        previewColumn.AddThemeConstantOverride("separation", 8);
+        // The frame keeps its size while a new preview generates, so the
+        // layout does not jump each time an option changes.
+        worldPreviewFrame.CustomMinimumSize = new Vector2(WorldPreviewWidth, WorldPreviewWidth / 2f);
+        worldPreviewFrame.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color("101A1E") });
         worldPreview.ShowCameraBounds = false;
         worldPreview.MouseFilter = MouseFilterEnum.Ignore;
         worldPreview.TooltipText = "Map preview. You will choose where your Town goes after creating the world.";
-        worldPreview.CustomMinimumSize = new Vector2(400, 170);
+        worldPreview.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         worldPreview.Hide();
-        body.AddChild(worldPreview);
+        worldPreviewFrame.AddChild(worldPreview);
+        previewColumn.AddChild(worldPreviewFrame);
         worldPreviewStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        body.AddChild(worldPreviewStatus);
-        worldSelectionList.CustomMinimumSize = new Vector2(0, 240);
+        worldPreviewStatus.CustomMinimumSize = new Vector2(0, 44);
+        previewColumn.AddChild(worldPreviewStatus);
+
+        worldMenuColumns.AddThemeConstantOverride("h_separation", 20);
+        worldMenuColumns.AddThemeConstantOverride("v_separation", 12);
+        worldMenuColumns.AddChild(options);
+        worldMenuColumns.AddChild(previewColumn);
+        worldMenuBody.AddChild(worldMenuColumns);
+
+        worldSelectionList.CustomMinimumSize = new Vector2(0, 300);
         worldSelectionList.ItemSelected += index =>
         {
             var world = listedWorlds[(int)index];
@@ -336,27 +356,86 @@ public partial class Main
                     ? "Could not check this world. Opening it will try the saved copy and will not delete anything."
                     : "This world is ready to open.";
         };
+        worldSelectionList.ItemActivated += index => _ = SelectListedWorldAsync();
         worldSelectionList.Hide();
-        body.AddChild(worldSelectionList);
+        worldMenuBody.AddChild(worldSelectionList);
+
+        var actions = new HBoxContainer();
+        actions.AddThemeConstantOverride("separation", 8);
+        var back = new Button { Text = "Back", CustomMinimumSize = new Vector2(110, 0) };
+        StyleButton(back);
+        back.CustomMinimumSize = new Vector2(110, 38);
+        back.Pressed += () => { if (!worldMenuBusy) worldMenuOverlay.Hide(); };
+        actions.AddChild(back);
+        actions.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+        worldPreviewButton.Text = "Preview again";
+        worldPreviewButton.TooltipText = "The preview updates by itself when you change an option. Use this if it failed.";
+        StyleButton(worldPreviewButton);
+        worldPreviewButton.CustomMinimumSize = new Vector2(0, 38);
+        worldPreviewButton.Pressed += () => _ = PreviewWorldAsync();
+        actions.AddChild(worldPreviewButton);
         worldCreateButton.Text = "Create World";
         StyleButton(worldCreateButton, primary: true);
+        worldCreateButton.CustomMinimumSize = new Vector2(170, 38);
         worldCreateButton.Pressed += () => _ = CreateSelectedWorldAsync();
         worldCreateButton.Disabled = true;
-        body.AddChild(worldCreateButton);
+        actions.AddChild(worldCreateButton);
         worldSelectButton.Text = "Open World";
         StyleButton(worldSelectButton, primary: true);
+        worldSelectButton.CustomMinimumSize = new Vector2(170, 38);
         worldSelectButton.Pressed += () => _ = SelectListedWorldAsync();
         worldSelectButton.Hide();
-        body.AddChild(worldSelectButton);
-        var back = new Button { Text = "Back" };
-        StyleButton(back);
-        back.Pressed += () => { if (!worldMenuBusy) worldMenuOverlay.Hide(); };
-        body.AddChild(back);
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(440, 570) };
-        scroll.AddChild(body);
-        AddPanelContents(worldMenuCard, scroll);
-        worldMenuCard.CustomMinimumSize = new Vector2(480, 0);
+        actions.AddChild(worldSelectButton);
+        worldMenuBody.AddChild(actions);
+
+        worldMenuBody.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        worldMenuScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        worldMenuScroll.AddChild(worldMenuBody);
+        AddPanelContents(worldMenuCard, worldMenuScroll);
+        worldMenuOverlay.VisibilityChanged += () => Callable.From(LayoutWorldMenu).CallDeferred();
+        worldMenuBody.MinimumSizeChanged += () => Callable.From(LayoutWorldMenu).CallDeferred();
         worldMenuOverlay.Hide();
+    }
+
+    private const float WorldOptionsWidth = 380;
+    private const float WorldPreviewWidth = 540;
+
+    private static HBoxContainer WorldOptionRow(string caption, Control field)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        var label = new Label { Text = caption, CustomMinimumSize = new Vector2(104, 0) };
+        label.AddThemeColorOverride("font_color", new Color("A7B9B7"));
+        row.AddChild(label);
+        field.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddChild(field);
+        return row;
+    }
+
+    /// <summary>
+    /// Sizes the New World / Load World card to the screen: both columns side
+    /// by side when they fit, and a scroll height that never exceeds the view.
+    /// </summary>
+    private void LayoutWorldMenu()
+    {
+        // Hidden containers report no minimum size, so this runs once shown.
+        if (!worldMenuOverlay.Visible) return;
+        var viewport = GetViewportRect().Size;
+        var uiScale = DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent);
+        const float margins = 20;
+        var optionsWidth = WorldOptionsWidth * uiScale;
+        var previewWidth = WorldPreviewWidth * uiScale;
+        // The slack keeps both columns side by side even if a scrollbar shows.
+        var width = Math.Min(optionsWidth + previewWidth + 20 + 16, Math.Max(280, viewport.X - 40 - margins));
+        previewWidth = Math.Min(previewWidth, width);
+        worldMenuColumns.GetChild<Control>(0).CustomMinimumSize = new Vector2(Math.Min(optionsWidth, width), 0);
+        worldMenuColumns.GetChild<Control>(1).CustomMinimumSize = new Vector2(previewWidth, 0);
+        worldPreviewFrame.CustomMinimumSize = new Vector2(previewWidth, previewWidth / 2);
+        worldMenuScroll.CustomMinimumSize = new Vector2(width, 0);
+        var contentHeight = worldMenuBody.GetCombinedMinimumSize().Y;
+        worldMenuScroll.CustomMinimumSize = new Vector2(width,
+            Math.Min(contentHeight, Math.Max(200, viewport.Y - 40 - margins)));
+        worldMenuCard.Size = worldMenuCard.GetCombinedMinimumSize();
     }
 
     private void OpenWorldMenu(bool create)
@@ -366,17 +445,8 @@ public partial class Main
         worldMenuStatus.Text = create
             ? "Choose a seed and size. Then choose your Town site and add four founders before starting time."
             : "Choose a world. The current world is saved before switching.";
-        worldNameInput.GetParent<Control>().Visible = create;
-        worldSeedInput.GetParent<Control>().Visible = create;
-        worldSizeChoice.Visible = create;
-        worldWaterChoice.Visible = create;
-        worldResourceChoice.Visible = create;
-        worldClimateModeChoice.Visible = create;
-        worldClimateFamilyChoice.Visible = create && worldClimateModeChoice.GetSelectedId() != 0;
-        worldLatitudeChoice.Visible = create;
-        worldWrapChoice.Visible = create;
+        worldMenuColumns.Visible = create;
         worldPreviewButton.Visible = create;
-        worldPreviewStatus.Visible = create;
         worldPreview.Visible = create && previewedWorldOptions is not null;
         worldCreateButton.Visible = create;
         worldSelectionList.Visible = !create;
@@ -402,11 +472,21 @@ public partial class Main
                 .ThenByDescending(world => world.UpdatedUtc).ToArray();
             worldSelectionList.Clear();
             foreach (var world in listedWorlds)
-                worldSelectionList.AddItem(world.Name +
-                    (world.Id == catalog.ActiveId ? " · current" : "") +
-                    " · " + world.UpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) +
-                    " · " + world.Compatibility);
-            worldMenuStatus.Text = listedWorlds.Length == 0 ? "No worlds yet." : "Choose a world.";
+            {
+                // A compatible world needs no label; the others say what that means.
+                var state = world.Compatibility switch
+                {
+                    "incompatible" => "  ·  can't open in this version",
+                    "unknown" => "  ·  not checked yet",
+                    _ => string.Empty,
+                };
+                var row = worldSelectionList.AddItem(world.Name +
+                    (world.Id == catalog.ActiveId ? "  ·  current" : string.Empty) +
+                    "  ·  saved " + world.UpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) + state);
+                if (world.Compatibility == "incompatible")
+                    worldSelectionList.SetItemCustomFgColor(row, new Color("8FA5A7"));
+            }
+            worldMenuStatus.Text = listedWorlds.Length == 0 ? "No worlds yet." : "Choose a world. Double-click to open it.";
         }
         catch (Exception exception)
         {
