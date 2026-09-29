@@ -1359,3 +1359,39 @@ medicine and injuries; art reference/style and autonomous invention assets;
 save branches and mod compatibility. Resolve the finished-game experience
 before choosing an implementation sequence or narrowing it to the current
 prototype.
+
+### Naming similarity investigation proposal (#136)
+
+**Open experiment; not an accepted uniqueness or cultural naming rule.** Similar
+playtest names do not establish a model defect or prove a shared-prompt cause.
+The current request asks for a given name plus surname (optional middle name),
+with a bounded full-name output. Family/surname continuity must remain distinct
+from accidental whole-name duplication.
+
+Proposed comparison: baseline prompt versus bounded settlement-role context and
+versus actor-owned family/cultural context only when such context actually
+exists. Do not fabricate a culture from ethnicity stereotypes or leak the global
+name roster to a model. Fix the observation/candidate state and compare each
+configured provider/model/version separately; record seeds/temperature only
+where supported, sample counts, invalid/missing outputs, exact normalized
+full-name repeats, given-name frequency and surname frequency. Similar spelling
+alone is not an exact collision. Report raw counts and uncertainty, not a causal
+claim from a few memorable examples. Store synthetic names separately from keys,
+prompts and any private playtest data. Paid sampling needs an approved call cap.
+
+Collision-policy options for owner review:
+
+- Allow duplicate display names and distinguish people by stable identity and
+  context. Cheapest; does not force implausible unique surnames.
+- Reject only an exact normalized full-name collision in the relevant accepted
+  scope, return a bounded "name already used" result without revealing the name
+  list, and permit at most one separately metered retry. No infinite renaming.
+- Use a visibly provisional owner-editable placeholder after missing/invalid
+  output or exhausted retry; preserve the stable agent ID. Whether whole-world
+  uniqueness is desirable remains undecided.
+
+Before choosing: test Unicode normalization/whitespace/case rules, legitimate
+shared surnames, save/reload, concurrent births/additions, stale naming replies,
+API failure and exhausted budget. A retry cannot bypass pause/presence or charge
+another model silently. The experiment should recommend a policy after evidence;
+this proposal changes neither naming admission nor retry behavior.
