@@ -268,6 +268,12 @@ release yet.
   crystal-studded outcrops, clay banks, seed heads, tilled soil, and distinct
   depleted and regrowing sites. Their map markers no longer draw a second
   symbol on top.
+- The starting camp no longer shows plain ■ squares: its cooking fire draws as
+  the stone-ringed hearth, the camp path as flagstones, and an old bedroll as
+  a blanket. The camp's original food, wood, stone, fiber and seed stores draw
+  as berry bushes, a log pile, boulders, fiber plants and seed heads instead of
+  ●, ⬟ and ♧ symbols. Camp objects are named like buildings ("Campfire",
+  "Shelter", "Path") instead of FIRE and HOME.
 - Buildings are now drawn as top-down pixel-art roofs across their whole
   footprint instead of a text symbol: red-tiled houses with chimneys, slate
   warehouses with loading doors, thatched farmhouses, smithies with a glowing

@@ -922,8 +922,8 @@ public partial class Main : Control
                             for (var bx = 0; bx < roof.GetWidth(); bx++)
                                 if (roof.GetPixel(bx, by).A > 0.05f) covered++;
                         var area = roof.GetWidth() * roof.GetHeight();
-                        // A hearth is a fixed-size stone ring; roofs cover most of their footprint.
-                        var minimum = kind == BuildingKind.Hearth ? 0.05f : 0.2f;
+                        // Hearths and bedrolls keep a fixed size; roofs and paths cover most of their footprint.
+                        var minimum = kind is BuildingKind.Hearth or BuildingKind.Bedroll ? 0.05f : 0.2f;
                         if (roof.GetWidth() != footprintWidth * tilePixels || roof.GetHeight() != footprintHeight * tilePixels ||
                             roof.GetPixel(0, 0).A > 0 || covered < area * minimum || covered > area * 0.95f)
                             throw new InvalidOperationException($"{kind} {footprintWidth}x{footprintHeight} {tilePixels}px building art must fill its footprint inside a clear margin: {covered} of {area} pixels.");
@@ -936,6 +936,10 @@ public partial class Main : Control
                 BuildingSprites.KindFor(["cooking", "warmth"]) != BuildingKind.Hearth ||
                 BuildingSprites.KindFor(null) != BuildingKind.Generic ||
                 BuildingSprites.KindForObject("campfire") != BuildingKind.Hearth ||
+                BuildingSprites.KindForObject("cooking") != BuildingKind.Hearth ||
+                BuildingSprites.KindForObject("path") != BuildingKind.Path ||
+                NatureSprites.ForCampResource("construction") != NatureSprite.WoodPile ||
+                NatureSprites.ForCampResource("iron_ore") is not null ||
                 BuildingSprites.KindForObject("resource") is not null)
                 throw new InvalidOperationException("Buildings and camp objects must pick their art family from their recorded tags and kinds.");
             var agentData = new HashSet<string>(StringComparer.Ordinal);
@@ -1062,6 +1066,8 @@ public partial class Main : Control
             if (founderButton.Variant != AgentSprites.VariantFor(founder.Id) || !founderButton.ShowNameTag ||
                 founderButton.Caption.Length == 0)
                 throw new InvalidOperationException("A lone agent on the map must use their stable sprite and show a name tag.");
+            if (terrainLayer.CampResourceSpriteCount == 0 || mapObjectVisuals["resource:wood"].Text.Contains('▰'))
+                throw new InvalidOperationException("Older camp resources such as the wood store must draw as sprites instead of glyphs.");
             if (terrainLayer.BuildingSpriteCount != occupied.PlacedBuildings.Count ||
                 mapObjectVisuals.TryGetValue("building:test-hall", out var hallMarker) && hallMarker.Text.Contains('⌂'))
                 throw new InvalidOperationException("Placed buildings must be drawn as roof art rather than text glyphs.");
@@ -4512,7 +4518,8 @@ public partial class Main : Control
                 resource.Position,
                 // Natural sites are drawn as terrain sprites; their marker only
                 // adds hover help and a caption, not a second symbol.
-                WorldTerrainMap.NaturalObjectName(resource.NaturalObjectKind) is null
+                WorldTerrainMap.NaturalObjectName(resource.NaturalObjectKind) is null &&
+                    (resource.NaturalObjectKind is not null || NatureSprites.ForCampResource(resource.Kind) is null)
                     ? ResourceGlyph(resource.Kind, resource.NaturalObjectKind) : string.Empty,
                 ResourceMarker(resource.Kind, resource.NaturalObjectKind) + (resource.Quantity is null ? "" : " " + GameUiText.ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity)),
                 GameUiText.ResourceTooltip(resource));
@@ -6372,10 +6379,16 @@ public partial class Main : Control
         _ => "◆",
     };
 
+    // Objects drawn as camp art are named like buildings; the rest keep a
+    // short uppercase marker beside their symbol.
     private static string ObjectMarker(string kind) => kind switch
     {
-        "campfire" => "FIRE",
-        "shelter" => "HOME",
+        "campfire" or "cooking" => "Campfire",
+        "bedroll" => "Bedroll",
+        "shelter" => "Shelter",
+        "storage" => "Storage",
+        "workshop" => "Workshop",
+        "path" => "Path",
         "tree" => "TREE",
         _ => ShortMarker(kind),
     };

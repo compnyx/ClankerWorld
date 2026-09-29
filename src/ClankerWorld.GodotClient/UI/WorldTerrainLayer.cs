@@ -21,6 +21,7 @@ public partial class WorldTerrainLayer : Control
     private Vector2I? selectedTile;
     private byte[] trees = [];
     private byte[] naturalObjects = [];
+    private readonly Dictionary<int, NatureSprite> campResources = [];
     private byte[] naturalStages = [];
     private int weatherRegionSize = 32;
     private readonly Dictionary<Vector2I, string> weatherRegions = [];
@@ -57,6 +58,7 @@ public partial class WorldTerrainLayer : Control
         paletteTexture = ImageTexture.CreateFromImage(image);
         trees = new byte[checked(map.Width * map.Height)];
         naturalObjects = new byte[checked(map.Width * map.Height)];
+        campResources.Clear();
         naturalStages = new byte[checked(map.Width * map.Height)];
         weatherRegions.Clear();
         townBorderTiles.Clear();
@@ -279,8 +281,26 @@ public partial class WorldTerrainLayer : Control
         }
         naturalObjects = next;
         naturalStages = stages;
+        // Older camp resources carry only a resource kind; draw them with the
+        // matching site's sprite where no generated site already stands.
+        campResources.Clear();
+        foreach (var resource in resources)
+        {
+            if (resource.TreeKind is not null || resource.NaturalObjectKind is not null ||
+                NatureSprites.ForCampResource(resource.Kind) is not { } sprite) continue;
+            var x = resource.Position.X;
+            var y = resource.Position.Y;
+            if (x < 0 || x >= world.Width || y < 0 || y >= world.Height) continue;
+            var index = y * world.Width + x;
+            if (trees[index] != 0 || next[index] != 0) continue;
+            campResources[index] = resource.Quantity == 0 || resource.State != "available"
+                ? resource.IsRenewable ? NatureSprite.Regrowing : NatureSprite.Depleted
+                : sprite;
+        }
         QueueRedraw();
     }
+
+    public int CampResourceSpriteCount => campResources.Count;
 
     public void SetHoveredTile(Vector2I? tile)
     {
@@ -354,6 +374,8 @@ public partial class WorldTerrainLayer : Control
                 var index = y * world.Width + mapX;
                 if (naturalObjects[index] != 0)
                     DrawNaturalObject(new Vector2(x * stride, y * stride), naturalObjects[index], naturalStages[index]);
+                else if (campResources.TryGetValue(index, out var campSprite))
+                    DrawCampResource(new Vector2(x * stride, y * stride), campSprite);
             }
         DrawPrecipitation(bounds, stride);
         DrawHouseholdProperties(bounds, stride);
@@ -666,6 +688,26 @@ public partial class WorldTerrainLayer : Control
     }
 
     /// <summary>A generated tree or natural-site sprite filling its tile.</summary>
+    private void DrawCampResource(Vector2 position, NatureSprite sprite)
+    {
+        if (tileSize >= SpriteTileMinimum)
+        {
+            DrawNatureSprite(position, sprite);
+            return;
+        }
+        // Overview zoom: one small dot in the resource's main color.
+        var color = sprite switch
+        {
+            NatureSprite.WoodPile => new Color("8A6440"),
+            NatureSprite.StoneOutcrop => new Color("8C8A82"),
+            NatureSprite.FertileSoil => new Color("5E4A36"),
+            NatureSprite.WildSeedPatch => new Color("C8B066"),
+            NatureSprite.Depleted => new Color("77766D", 0.78f),
+            _ => new Color("4F7A45"),
+        };
+        DrawCircle(position + new Vector2(tileSize * 0.5f, tileSize * 0.56f), Math.Max(1.5f, tileSize * 0.2f), color);
+    }
+
     private void DrawNatureSprite(Vector2 position, NatureSprite sprite)
     {
         var size = NatureSprites.AtlasTileSize(tileSize);

@@ -27,6 +27,7 @@ public enum NatureSprite : byte
     FertileSoil,
     Depleted,
     Regrowing,
+    WoodPile,
 }
 
 /// <summary>
@@ -78,6 +79,21 @@ public static class NatureSprites
             11 => NatureSprite.ClayBank,
             _ => null,
         },
+    };
+
+    /// <summary>
+    /// Older camp resources record only a resource kind, not a natural site;
+    /// they borrow the matching site's look, and gathered wood is a log pile.
+    /// </summary>
+    public static NatureSprite? ForCampResource(string kind) => kind switch
+    {
+        "food" => NatureSprite.BerryBush,
+        "construction" => NatureSprite.WoodPile,
+        "stone" => NatureSprite.StoneOutcrop,
+        "fiber" => NatureSprite.FiberPlant,
+        "seed" => NatureSprite.WildSeedPatch,
+        "fertile_land" => NatureSprite.FertileSoil,
+        _ => null,
     };
 
     public static int AtlasTileSize(int drawnTileSize) => drawnTileSize >= 24 ? 32 : 16;
@@ -248,6 +264,22 @@ public static class NatureSprites
                 canvas.Ellipse(16, 17, 8, 5, new Color("6C6452", 0.7f));
                 foreach (var (x, y) in new[] { (12, 16), (18, 15), (15, 19), (20, 19) })
                     canvas.Disc(x, y, 1, new Color("8C8577"));
+                break;
+            case NatureSprite.WoodPile:
+                // Seen from above: logs lying side by side, a second layer
+                // across the middle, with pale cut ends on the east side.
+                canvas.Ellipse(17, 18, 12, 9, Shadow);
+                foreach (var (y, top) in new[] { (9f, false), (13f, false), (17f, false), (21f, false), (11f, true), (15f, true), (19f, true) })
+                {
+                    var left = top ? 9f : 6f;
+                    var right = top ? 24f : 26f;
+                    canvas.Rect(left, y - 2, right - left, 4, new Color("3F2A1A"));
+                    canvas.Rect(left, y - 1.5f, right - left, 3, top ? new Color("8A6440") : new Color("6E4E31"));
+                    canvas.Rect(left + 1, y - 1.5f, right - left - 2, 1, top ? new Color("A77C52") : new Color("85603D"));
+                    canvas.Disc(right, y, 2, new Color("3F2A1A"));
+                    canvas.Disc(right, y, 1.5f, new Color("D2AC77"));
+                    if (canvas.Unit >= 1) canvas.Dot(right, y, new Color("9C7447"));
+                }
                 break;
             case NatureSprite.Regrowing:
                 canvas.Ellipse(16, 19, 5, 3, new Color("5A4635", 0.55f));
