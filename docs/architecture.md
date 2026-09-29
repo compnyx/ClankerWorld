@@ -387,3 +387,67 @@ installation and state paths. Keep the previous private world and pairing
 authority only in a root-only rollback backup; copy provider credentials to the
 new protected state path without printing them. Ignored old export/build
 artifacts are historical binaries, not current source names.
+
+## Proposed owner-view completion and verification (#143, #144, #195, #281)
+
+**Draft boundary and acceptance plan, not four newly implemented UI features.**
+Filters already use saved household building footprints and Town borders. Add
+Agent already previews those records and applies the starting-affiliation rule.
+Saved fullscreen preference already overrides the new-install default. These
+existing slices need verification and extension, not replacement with guessed
+ownership or a forced fullscreen reset.
+
+### Authoritative overlays and Add Agent
+
+The player overlay reads only saved claims/footprints and recorded Town-border
+tiles. Unclaimed land stays uncoloured; a Town outline is not household property.
+Toggling a filter changes presentation only. Recompute after an admitted boundary
+or ownership transition, and remove stale geometry on world switch/reconnect.
+Until land claims exist beyond building footprints, label that limitation.
+
+The placement preview and commit must use one shared precedence contract:
+household property means that household plus enclosing Town; unclaimed land
+inside a Town means Town only; outside both means independent starting status.
+No consent or House occupancy cap is inserted into player-created starting
+membership. Later walking does not revise ancestry or affiliation. A preview is
+not a reservation: revalidate the same map revision at commit and return a clear
+changed-placement result instead of committing stale membership. Overlapping
+claims/Towns and otherwise invalid placements need an explicit selected policy;
+this draft recommends refusal of ambiguity, not arbitrary first-list-wins, but
+does not declare that recommendation accepted.
+
+### Discovered capabilities in World Info
+
+Do not equate an installed/active content package with a discovered capability.
+Before adding the list, define an authoritative discovery record with capability
+ID, discovery tick/source, known-by scope and validation status. Player inspection
+may aggregate permitted discovery records, but opening World Info must never add
+those facts to agent knowledge. An unknown/empty record set displays "No recorded
+discoveries" rather than granting every built-in recipe. Mark experimental or
+unvalidated proposals separately from usable discoveries; a model's prose is not
+a discovery commit. Save/load and world switching must preserve or replace the
+record set consistently. This record/projection/UI integration remains unbuilt.
+
+### Sizing and fullscreen acceptance
+
+UI scale must affect usable button/panel/hit-target dimensions, not only fonts.
+At 720p and high internal render resolution, test 100/150/200% scale with long
+names, populated settings, Add Agent, Filters, World Info and nested inspection.
+Use scrollable content and bounded panels where content exceeds the viewport;
+no inaccessible bottom action or overlapping click target is acceptable. Verify
+keyboard focus, Escape/back, toggles and tooltips by actual interaction. New
+installation may default fullscreen; saved `false` must remain windowed across
+restart, save/load and display-scale changes. Keep application preferences outside
+world saves. Do not infer Windows/DPI acceptance from a headless geometry check.
+
+### Required evidence
+
+Use two households, a Town, unclaimed interior/exterior tiles and a second world.
+Toggle overlays, place an adult in each case, apply an ownership/border update,
+reconnect and switch worlds; assert preview and committed affiliation agree.
+Before/after owner inspection must produce unchanged world/knowledge hashes.
+For discoveries, assert an uninformed agent remains uninformed after player
+inspection and only an admitted learning event changes its record. Attach real
+Windows window/render/DPI/scale settings and screenshots/interaction results;
+record each missing gate explicitly. Current source tests and existing Godot
+smoke remain useful evidence but do not certify all of this matrix.
