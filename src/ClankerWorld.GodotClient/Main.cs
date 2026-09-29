@@ -750,6 +750,8 @@ public partial class Main : Control
                 throw new InvalidOperationException("Mod Library must show existing agent proposal provenance.");
             RenderMap(sample);
             for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!terrainLayer.DrawsGroundTextures)
+                throw new InvalidOperationException("Zoomed-in terrain must draw pixel-art ground textures.");
             var inspectClick = mapStage.Position + new Vector2(currentTileSize * 1.5f,
                 currentTileSize * 1.5f);
             HandleMapInput(new InputEventMouseButton
@@ -839,6 +841,54 @@ public partial class Main : Control
             if ((transitionMap.WaterEdgeMaskAt(1, 1, false) & 2) == 0 ||
                 (transitionMap.SurfaceBoundaryMaskAt(1, 1, false) & 2) == 0)
                 throw new InvalidOperationException("Generated water and ground changes must expose functional tile-edge transitions.");
+            if (transitionMap.StyleAt(2, 1) != TerrainStyle.River || transitionMap.ShoreMaskAt(2, 1, false) != 15 ||
+                transitionMap.ShoreMaskAt(1, 1, false) != 0)
+                throw new InvalidOperationException("Water tiles must expose shoreline edges toward land, and land tiles none.");
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var style in Enum.GetValues<TerrainStyle>())
+                {
+                    var baseColor = TerrainTextures.BaseColor(style);
+                    var first = TerrainTextures.Tile(style, 0, atlasSize);
+                    var second = TerrainTextures.Tile(style, 1, atlasSize);
+                    foreach (var texture in new[] { first, second })
+                    {
+                        var detail = 0;
+                        for (var ty = 0; ty < atlasSize; ty++)
+                            for (var tx = 0; tx < atlasSize; tx++)
+                                if (!texture.GetPixel(tx, ty).IsEqualApprox(baseColor)) detail++;
+                        // Calm ground: a few pixel clusters, never per-pixel grain.
+                        // Mountains and peaks are drawn as relief shapes instead.
+                        var detailLimit = style is TerrainStyle.Mountain or TerrainStyle.Peak ? 0.4f : 0.12f;
+                        if (detail > atlasSize * atlasSize * detailLimit)
+                            throw new InvalidOperationException($"{style} {atlasSize}px texture is too busy: {detail} detail pixels.");
+                        for (var edge = 0; edge < atlasSize; edge++)
+                            if (!texture.GetPixel(edge, 0).IsEqualApprox(baseColor) || !texture.GetPixel(0, edge).IsEqualApprox(baseColor))
+                                throw new InvalidOperationException($"{style} {atlasSize}px details must stay off tile edges so neighbors join without seams.");
+                    }
+                    if (style != TerrainStyle.Unknown && first.GetData().SequenceEqual(second.GetData()))
+                        throw new InvalidOperationException($"{style} needs two distinct texture variants.");
+                }
+            var spriteData = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var atlasSize in new[] { 16, 32 })
+                foreach (var nature in Enum.GetValues<NatureSprite>())
+                {
+                    var sprite = NatureSprites.Sprite(nature, atlasSize);
+                    var covered = 0;
+                    for (var sy = 0; sy < atlasSize; sy++)
+                        for (var sx = 0; sx < atlasSize; sx++)
+                            if (sprite.GetPixel(sx, sy).A > 0.05f) covered++;
+                    if (sprite.GetPixel(0, 0).A > 0 || sprite.GetPixel(atlasSize - 1, 0).A > 0 ||
+                        covered < atlasSize * atlasSize * 0.03f || covered > atlasSize * atlasSize * 0.9f)
+                        throw new InvalidOperationException($"{nature} {atlasSize}px sprite must sit on a transparent tile with visible art: {covered} pixels.");
+                    if (atlasSize == 32 && !spriteData.Add(Convert.ToBase64String(sprite.GetData())))
+                        throw new InvalidOperationException($"{nature} must look different from every other nature sprite.");
+                }
+            for (byte code = 1; code <= 9; code++)
+                if (NatureSprites.ForTree(code) is null)
+                    throw new InvalidOperationException($"Tree state {code} has no sprite.");
+            for (byte kind = 1; kind <= 11; kind++)
+                if (NatureSprites.ForNaturalObject(kind, 0) is null)
+                    throw new InvalidOperationException($"Natural object {kind} has no sprite.");
             testHydrology[3] = 1;
             testSurfaces[3] = 4;
             var seamLayers = testLayers with
@@ -1125,6 +1175,8 @@ public partial class Main : Control
             };
             RenderMap(largeMap);
             for (var frame = 0; frame < 2; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (terrainLayer.DrawsGroundTextures)
+                throw new InvalidOperationException("Overview zoom must keep the flat one-pixel-per-tile palette instead of textures.");
             if (terrainLayer.GetChildCount() != 0 || terrainLayer.VisibleTileCount >= largeTerrain.Length / 2 ||
                 worldOverview.VisibleTiles.Size.X >= 256)
                 throw new InvalidOperationException($"A regional map must draw only the visible terrain without per-tile nodes: children={terrainLayer.GetChildCount()}, visible={terrainLayer.VisibleTileCount}, overview={worldOverview.VisibleTiles.Size}.");
@@ -4342,7 +4394,10 @@ public partial class Main : Control
             AddMapObjectVisual(
                 "resource:" + resource.Id,
                 resource.Position,
-                ResourceGlyph(resource.Kind, resource.NaturalObjectKind),
+                // Natural sites are drawn as terrain sprites; their marker only
+                // adds hover help and a caption, not a second symbol.
+                WorldTerrainMap.NaturalObjectName(resource.NaturalObjectKind) is null
+                    ? ResourceGlyph(resource.Kind, resource.NaturalObjectKind) : string.Empty,
                 ResourceMarker(resource.Kind, resource.NaturalObjectKind) + (resource.Quantity is null ? "" : " " + GameUiText.ResourceQuantity(resource.Kind, resource.Quantity, resource.Capacity)),
                 GameUiText.ResourceTooltip(resource));
         }
@@ -4564,7 +4619,8 @@ public partial class Main : Control
             renderedMapSnapshot?.WrapsEastWest == true), position.Y * stride + 4);
         visual.Size = new Vector2(stride * Math.Clamp(width, 1, 32) - TileGap - 8,
             stride * Math.Clamp(height, 1, 32) - TileGap - 8);
-        visual.Text = MapObjectLabelFits(visual, label) ? $"{glyph}\n{label}" : glyph;
+        visual.Text = !MapObjectLabelFits(visual, label) ? glyph :
+            glyph.Length == 0 ? label : $"{glyph}\n{label}";
         visual.TooltipText = tooltip;
     }
 

@@ -98,6 +98,9 @@ review and is not carried forward.
   texture grain, striped transitions and large circular weather clouds are
   rejected. Hills should visibly lead into mountain regions; there is no hill
   terrain kind yet. Generator changes must not invalidate the running world.
+  The repository client now draws provisional pixel-art ground textures, relief
+  mountains and shoreline edges at close zoom (laptop check pending); the
+  distribution problems above are generator issues and remain open.
 - **Display and camera need playtest-driven bounds:** UI Scale enlarges text
   but leaves several window/panel dimensions small; at high render resolution
   the interface feels undersized. Start fullscreen by default. Small maps can
@@ -202,7 +205,8 @@ test; computment's Windows playtest remains pending.
   gap:** generated broadleaf/conifer and generic orchard-fruit tree objects now
   occupy at most one tree per tile. Wood trees visibly become stumps or
   replanted saplings; orchard trees show fruiting, picked and growing stages.
-  The Godot client draws simple top-down shapes, not approved final textures.
+  The Godot client now draws provisional code-generated top-down pixel sprites
+  for every tree stage and natural site, not approved final textures.
   Orchard species, yield, seasonality and cultivation are not finalized;
   replanting spends the prototype generic seed on an existing depleted wood
   tree site, while planting on new tiles and species-specific seed/art remain

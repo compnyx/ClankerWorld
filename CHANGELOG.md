@@ -233,6 +233,18 @@ release yet.
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
   card's new Find button does the same.
+- Zooming in now shows pixel-art ground instead of flat color squares: two
+  calm 32×32 textures for each kind of grass, forest floor, sand, scrub, rock,
+  soil, snow and water, small top-down mountains with snowy peaks, and
+  shoreline foam or river banks where water meets land. The zoomed-out overview
+  keeps its flat colors, and the old ≈ and ▲ map symbols are gone.
+- Trees and natural sites are now pixel-art sprites instead of plain circles:
+  leafy broadleaf and star-shaped conifer canopies, stumps with growth rings,
+  saplings, fruiting and picked orchard trees, berry bushes, wild greens, fiber
+  plants, reeds, stone boulders, rust-streaked iron, gold-flecked and
+  crystal-studded outcrops, clay banks, seed heads, tilled soil, and distinct
+  depleted and regrowing sites. Their map markers no longer draw a second
+  symbol on top.
 
 ### Fixed
 
