@@ -22,6 +22,7 @@ public sealed partial class ViewerHttpTests
             using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var device = await StartAndActivateAsync(host, client, key);
             var runtime = host.Services.GetRequiredService<PrivateWorldRuntime>();
+            var agentId = runtime.Inhabitants.First().InhabitantId;
             var file = host.Services.GetRequiredService<PrivateWorldStateFile>();
             file.Save(runtime);
             var savedPath = file.Path + ".prior";
@@ -31,7 +32,7 @@ public sealed partial class ViewerHttpTests
             {
                 if (rename)
                 {
-                    var action = new OwnerAgentRenameAction("founder-scout", "Durable Name");
+                    var action = new OwnerAgentRenameAction(agentId, "Durable Name");
                     return await SendSignedAsync(host, client, key, device.DeviceId,
                         "/api/v1/owner/agents/rename", action, OwnerHttpBinding.AgentRenamePayload(action));
                 }
@@ -45,13 +46,13 @@ public sealed partial class ViewerHttpTests
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
-            Assert.True(rename ? runtime.Society.GetInhabitant("founder-scout").Name == "Durable Name" : runtime.Society.IsPaused);
+            Assert.True(rename ? runtime.Society.GetInhabitant(agentId).Name == "Durable Name" : runtime.Society.IsPaused);
             Directory.Delete(file.Path);
             File.Move(savedPath, file.Path);
             using var retry = await SendMutation();
             Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
             using var restored = file.LoadOrCreate(runtime.ExportState().WorldSeed);
-            Assert.True(rename ? restored.Society.GetInhabitant("founder-scout").Name == "Durable Name" : restored.Society.IsPaused);
+            Assert.True(rename ? restored.Society.GetInhabitant(agentId).Name == "Durable Name" : restored.Society.IsPaused);
         }
         finally { directory.Delete(recursive: true); }
     }
