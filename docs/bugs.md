@@ -169,8 +169,9 @@ review and is not carried forward.
   technical/AI wording throughout player-facing screens (for example,
   `Inhabitant cognition` with `Agent model`), explain the model-call limit in
   ordinary language, and tighten oversized empty agent/settings panels. The
-  placeholder household names `Camp Alpha`/`Camp Beta` are disliked; the
-  naming flow needs a player-facing replacement without changing membership.
+  default household names now display as First household/Second household,
+  preserving saved IDs, membership, property and custom names. Founder setup
+  uses shorter two-household wording; Windows acceptance remains pending.
   The repository build now replaces raw household IDs, `Deterministic` and
   fallback labels, internal tick/revision wording and the unreported-condition
   placeholder in the agent card and status messages; laptop check pending.

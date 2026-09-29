@@ -10,6 +10,35 @@ public sealed class GameUiTextTests
     private static readonly int[] UiScalePercentages = [100, 125, 150, 175, 200];
 
     [Fact]
+    public void HouseholdDisplayCleanupPreservesSavedMembershipAndCustomNames()
+    {
+        using var world = new PrivateWorldRuntime("household-display");
+        var state = world.ExportState();
+        Assert.Equal("First household", Assert.Single(state.Society.Society.Households).Name);
+        foreach (var name in new[] { "Camp Alpha", "River family" })
+        {
+            var legacy = state with
+            {
+                Society = state.Society with
+                {
+                    Society = state.Society.Society with
+                    {
+                        Households = state.Society.Society.Households.Select(home => home with { Name = name }).ToArray(),
+                    },
+                },
+            };
+            using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(legacy)));
+            var before = PrivateWorldRuntimeCodec.Encode(restored.ExportState());
+            var stockpile = Assert.Single(new OwnerWorldObservationStore(restored).GetSnapshot().Stockpiles);
+            Assert.Equal(name == "Camp Alpha" ? "First household" : name, stockpile.Name);
+            Assert.Equal("household:camp-alpha", stockpile.OwnerId);
+            Assert.Equal(before, PrivateWorldRuntimeCodec.Encode(restored.ExportState()));
+            Assert.Equal(state.Society.Society.Households[0].MemberIds,
+                restored.ExportState().Society.Society.Households[0].MemberIds);
+        }
+    }
+
+    [Fact]
     public void OwnerSnapshotReportsTheSavedWorldCalendarPace()
     {
         using var world = new PrivateWorldRuntime("calendar-projection");
