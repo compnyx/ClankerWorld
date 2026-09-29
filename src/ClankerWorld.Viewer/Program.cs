@@ -191,6 +191,8 @@ if (advanceRuntime)
 }
 
 var app = builder.Build();
+if (app.Services.GetRequiredService<ProviderUsageStore>().Capture().AccountingError is not null)
+    ProviderUsageTelemetry.AccountingBlocked(app.Logger);
 app.Services.GetRequiredService<ProviderUsageStore>().LimitReached += () =>
 {
     if (isPrivateWorld)
@@ -568,6 +570,8 @@ app.MapPost("/api/v1/owner/control/resume", (
         var privateRuntime = services.GetRequiredService<PrivateWorldRuntime>();
         if (privateRuntime.FounderSetup is { Started: false })
             return Results.Conflict(new { message = "Place four configured founders, then select Start World." });
+        if (services.GetRequiredService<ProviderUsageStore>().Capture().AccountingError is { } accountingError)
+            return Results.Conflict(new { message = accountingError });
         if (services.GetRequiredService<ProviderUsageStore>().Capture().LimitReached)
             return Results.Conflict(new { message = "The paid-call limit is reached. Grant more calls or turn off the limit in World Settings before resuming." });
         var privateStateFile = services.GetRequiredService<PrivateWorldStateFile>();

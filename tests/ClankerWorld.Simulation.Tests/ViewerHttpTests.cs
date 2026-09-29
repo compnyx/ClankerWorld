@@ -52,6 +52,39 @@ public sealed partial class ViewerHttpTests : IDisposable
     }
 
     [Fact]
+    public async Task DamagedUsageMeterKeepsHostReachableAndReportsBlockedAccountingToOwner()
+    {
+        var directory = Directory.CreateTempSubdirectory("clankerworld-meter-startup-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "provider-usage.json");
+            const string damaged = "{private sk-secret-accounting";
+            File.WriteAllText(path, damaged);
+            using var host = new ViewerWebApplicationFactory(directory.FullName,
+                configureProviderUsagePath: false);
+            var log = new RecordingLogger<ViewerHttpTests>();
+            using var configured = host.WithWebHostBuilder(builder => builder.ConfigureLogging(logging =>
+                logging.AddProvider(new RecordingLoggerProvider<ViewerHttpTests>(log))));
+            using var client = configured.CreateClient();
+            using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+            var device = await StartAndActivateAsync(configured, client, key);
+            using var response = await SendSignedAsync(configured, client, key, device.DeviceId,
+                "/api/v1/owner/usage/status", new OwnerUsageStatusAction(), OwnerHttpBinding.UsageStatusPayload());
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var status = await response.Content.ReadFromJsonAsync<ProviderUsageStatus>();
+            Assert.NotNull(status);
+            Assert.True(status.LimitReached);
+            Assert.Equal(ProviderUsageStore.RecoveryMessage, status.AccountingError);
+            Assert.DoesNotContain("sk-secret", await response.Content.ReadAsStringAsync());
+            Assert.Equal(damaged, File.ReadAllText(path));
+            Assert.Contains(log.Messages, message => message.Contains("provider_usage_unavailable outcome=blocked", StringComparison.Ordinal));
+            Assert.DoesNotContain(log.Messages, message => message.Contains("sk-secret", StringComparison.Ordinal) ||
+                message.Contains(path, StringComparison.Ordinal));
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Fact]
     public void DefaultProviderUsageMeterUsesTheConfiguredPrivateStateDirectory()
     {
         var directory = Directory.CreateTempSubdirectory("clankerworld-provider-usage-path-");
@@ -1286,7 +1319,7 @@ public sealed partial class ViewerHttpTests : IDisposable
     }
 
     private static async Task<OwnerDevice> StartAndActivateAsync(
-        ViewerWebApplicationFactory host,
+        WebApplicationFactory<Program> host,
         HttpClient client,
         ECDsa key)
     {
@@ -1326,7 +1359,7 @@ public sealed partial class ViewerHttpTests : IDisposable
     }
 
     private static async Task<HttpResponseMessage> SendSignedAsync<TAction>(
-        ViewerWebApplicationFactory host,
+        WebApplicationFactory<Program> host,
         HttpClient client,
         ECDsa key,
         string deviceId,
@@ -1380,7 +1413,7 @@ public sealed partial class ViewerHttpTests : IDisposable
     }
 
     private static async Task<OwnerSignedHttpRequest<TAction>> CreateSignedRequestAsync<TAction>(
-        ViewerWebApplicationFactory host,
+        WebApplicationFactory<Program> host,
         HttpClient client,
         ECDsa key,
         string deviceId,
