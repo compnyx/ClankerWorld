@@ -92,18 +92,26 @@ public partial class Main
 
     private void ToggleFirstTownSite()
     {
-        if (observationSession.Current?.Baseline.Snapshot.FounderSetup is not
-            { CanChooseTownSite: true }) return;
-        choosingFirstTownSite = !choosingFirstTownSite;
-        townSiteButton.Text = TownSiteButtonText(observationSession.Current.Baseline.Snapshot.FounderSetup);
         if (choosingFirstTownSite)
         {
-            founderApiKeyInput.Text = string.Empty;
-            founderSetupPanel.Hide();
-            SetStatus("Click buildable land to generate the first Town. Choose again to redo before placing founders.", good: true,
-                StatusToastKind.Sticky);
+            CancelFirstTownSiteSelection();
+            return;
         }
-        else SetStatus("Town-site selection closed", good: true);
+        if (observationSession.Current?.Baseline.Snapshot.FounderSetup is not
+            { CanChooseTownSite: true }) return;
+        choosingFirstTownSite = true;
+        townSiteButton.Text = TownSiteButtonText(observationSession.Current.Baseline.Snapshot.FounderSetup);
+        founderApiKeyInput.Text = string.Empty;
+        founderSetupPanel.Hide();
+        SetStatus("Click buildable land to generate the first Town. Choose again to redo before placing founders.", good: true,
+            StatusToastKind.Sticky);
+    }
+
+    private void CancelFirstTownSiteSelection()
+    {
+        choosingFirstTownSite = false;
+        townSiteButton.Text = TownSiteButtonText(observationSession.Current?.Baseline.Snapshot.FounderSetup);
+        SetStatus("Town-site selection closed", good: true);
     }
 
     private async Task AcceptFirstTownSiteAtAsync(Vector2I tile)
@@ -300,10 +308,8 @@ public partial class Main
                     return $"Agent joined {townName} without a household";
                 }
                 var newHousehold = receipt.HouseholdId == "household:" + agentId;
-                var householdName = snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == receipt.HouseholdId)?.Name
-                    ?? receipt.HouseholdId;
-                return newHousehold ? $"Agent placed in independent household {receipt.HouseholdId}"
-                    : $"Agent joined {householdName}";
+                return newHousehold ? "Agent placed in a new independent household"
+                    : $"Agent joined {GameUiText.PartyName(snapshot, receipt.HouseholdId)}";
             });
         }
         finally
@@ -350,7 +356,7 @@ public partial class Main
                 providerConfiguration = await ownerApi.GetProviderStatusAsync(
                     ResolveWorldUri(), authority, deviceId, signer, CancellationToken.None);
                 PopulateFounderCredentials();
-                return $"Founder {receipt.Placed}/{receipt.Required} placed in {receipt.HouseholdId}";
+                return $"Founder {receipt.Placed}/{receipt.Required} placed · joins {GameUiText.PartyName(snapshot, receipt.HouseholdId)}";
             });
         }
         finally
@@ -430,7 +436,7 @@ public partial class Main
         var town = snapshot.Towns.FirstOrDefault(item =>
             item.BorderTiles.Any(point => point.X == tile.X && point.Y == tile.Y));
         var home = ownerId is not null
-            ? snapshot.Stockpiles.FirstOrDefault(item => item.OwnerId == ownerId)?.Name ?? ownerId
+            ? GameUiText.PartyName(snapshot, ownerId)
             : town is null ? "new independent household" : "none";
         founderSetupHint.Text = $"Tile {tile.X}, {tile.Y} · Household: {home} · Town: {town?.Name ?? "no Town"}. " +
             "Placement requires a passable tile, no conflicting occupant outside a House, and server validation.";

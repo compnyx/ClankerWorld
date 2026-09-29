@@ -8,6 +8,21 @@ release yet.
 
 ### Added
 
+- Escape now backs out one step at a time: a focused text field, an open
+  menu, Town-site selection or a founder move, the newest open panel, then the
+  selected agent. With nothing open it opens the Pause Menu. The mouse wheel
+  now zooms toward the pointer instead of the screen center. The open Settings
+  category shows as a selected tab instead of looking disabled, and New World
+  labels its name and seed fields.
+- Plainer in-game wording: the agent card names households and relatives
+  ("Member of Camp Alpha", "Parent of Mira") instead of internal IDs, leaves
+  out an unassigned role or unreported condition, and reads "Wants to take it
+  easy" instead of "Wants to keeping a safe routine". A failed model call shows
+  as "Model unavailable · built-in rules chose to …", and the non-model option
+  is called Built-in rules instead of Deterministic. Status messages drop
+  request, revision and tick jargon ("World paused", "Connection lost · showing
+  the world as of …"), and placing a founder or agent names the household they
+  joined.
 - Fresh generated worlds no longer show a second pre-placed camp or provisional
   Town beside the player-chosen five-building site. The New World preview no
   longer marks a supposed starting camp. Older saves keep their original map
