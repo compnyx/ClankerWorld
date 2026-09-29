@@ -184,6 +184,27 @@ public sealed class GameUiTextTests
         Assert.Equal(expected, GameUiText.RelationshipSummary(type, state, "Camp Alpha", direction));
     }
 
+    [Theory]
+    [InlineData(10_000, "well fed")]
+    [InlineData(7_000, "well fed")]
+    [InlineData(6_999, "fed")]
+    [InlineData(3_499, "hungry")]
+    [InlineData(2_499, "very hungry")]
+    [InlineData(0, "very hungry")]
+    public void FullnessStatesReadLowValuesAsHungry(int fullness, string expected)
+    {
+        Assert.Equal(expected, GameUiText.FullnessState(fullness));
+    }
+
+    [Theory]
+    [InlineData("seek_food", "looking for food", "looking for food")]
+    [InlineData("build:building:sha256:abcdef/building/stone-hearth@1.0.0", "build:building:sha256:abcdef/building/stone-hearth@1.0.0", "build Stone hearth")]
+    [InlineData(null, null, "taking in the surroundings")]
+    public void RosterActivitiesReadAsShortPhrases(string? candidate, string? summary, string expected)
+    {
+        Assert.Equal(expected, GameUiText.ActivityPhrase(candidate, summary));
+    }
+
     [Fact]
     public void PartyNamesUseAgentHouseholdAndTownNamesInsteadOfIds()
     {

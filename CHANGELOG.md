@@ -220,6 +220,13 @@ release yet.
   Maps view shows their knowledge and held artifacts. Schema-21 and schema-22
   saves load with an empty knowledge ledger and migrate to schema 23.
 
+### Changed
+
+- The Agents list now shows what each living agent is doing and flags anyone
+  hungry, lists the deceased under their own heading, and fits its height to
+  the people in it. Choosing someone moves the map to them, and the agent
+  card's new Find button does the same.
+
 ### Fixed
 
 - A world where an agent ate orchard fruit now saves and reloads normally;

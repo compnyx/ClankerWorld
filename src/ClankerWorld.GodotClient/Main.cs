@@ -118,6 +118,7 @@ public partial class Main : Control
     private readonly Label selectedActorSummaryLabel = new();
     private readonly Label selectedActorConditionLabel = new();
     private readonly Button clearSelectionButton = new();
+    private readonly Button findAgentButton = new();
     private readonly Button familyTreeButton = new();
     private readonly PanelContainer familyTreePanel = new();
     private readonly FamilyTreeView familyTreeView = new();
@@ -1380,6 +1381,42 @@ public partial class Main : Control
             if (PositiveMod(cameraCenterTiles.X + 1, 256) > 2 || Math.Abs(cameraCenterTiles.Y - 64.5f) > 1.5f)
                 throw new InvalidOperationException($"A Town across the wrapped seam must be framed as one place: camera={cameraCenterTiles}.");
             RenderMap(largeMap);
+            var rosterPosition = new OwnerWorldPosition(180, 90);
+            OwnerWorldInhabitant RosterAgent(string id, string name, string lifecycle, int fullness) =>
+                new(id, name, lifecycle, rosterPosition, fullness, [], [],
+                    new OwnerWorldRoute("idle", null, null, [], string.Empty),
+                    new OwnerWorldSpatialKnowledge(rosterPosition, [rosterPosition], [rosterPosition]), false);
+            var rosterMap = largeMap with
+            {
+                WorldId = "ui-roster",
+                Inhabitants =
+                [
+                    RosterAgent("roster-rowan", "Rowan", "active", 2_000) with
+                    {
+                        PublicIntention = new OwnerWorldPublicIntention("seek_food", "looking for food", "deterministic", 1),
+                    },
+                    RosterAgent("roster-ilya", "Ilya", "active", 9_000),
+                    RosterAgent("roster-mira", "Mira", "dead", 5_000),
+                ],
+            };
+            RenderMap(rosterMap);
+            RenderInhabitantList(rosterMap);
+            if (inhabitantList.ItemCount != 4 || !inhabitantList.Visible ||
+                !inhabitantList.GetItemText(0).StartsWith("Ilya", StringComparison.Ordinal) ||
+                !inhabitantList.GetItemText(1).Contains("looking for food", StringComparison.Ordinal) ||
+                !inhabitantList.GetItemText(1).Contains("very hungry", StringComparison.Ordinal) ||
+                inhabitantList.GetItemText(0).Contains("hungry", StringComparison.Ordinal) ||
+                inhabitantList.GetItemText(2) != "Deceased" || inhabitantList.IsItemSelectable(2) ||
+                !inhabitantList.GetItemText(3).StartsWith("Mira", StringComparison.Ordinal))
+                throw new InvalidOperationException("The roster must list the living with their activity and hunger before the deceased.");
+            CenterCameraAt(new Vector2(40, 30));
+            SelectInhabitantFromList(1);
+            if (selectedInhabitantId != "roster-rowan" || cameraCenterTiles.DistanceTo(new Vector2(180.5f, 90.5f)) > 1.5f)
+                throw new InvalidOperationException($"Choosing a living agent in the roster must bring them into view: camera={cameraCenterTiles}.");
+            selectedInhabitantId = null;
+            RenderInhabitantList(rosterMap with { Inhabitants = [] });
+            if (inhabitantList.Visible || !rosterSummaryLabel.Text.Contains("No one lives here yet", StringComparison.Ordinal))
+                throw new InvalidOperationException("An empty roster must show its summary without an empty list box.");
             var formerPosition = new OwnerWorldPosition(2, 2);
             var deceased = new OwnerWorldInhabitant("archived-mira", "Mira", "dead", formerPosition,
                 5_000, [], [new("age-band", "elder"), new("death-tick", "1")],
@@ -3181,12 +3218,12 @@ public partial class Main : Control
         rosterSummaryLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         rosterBody.AddChild(rosterSummaryLabel);
 
-        inhabitantList.CustomMinimumSize = new Vector2(300, 260);
+        inhabitantList.CustomMinimumSize = new Vector2(300, 40);
         inhabitantList.ItemSelected += index => SelectInhabitantFromList(index);
         inhabitantList.TooltipText = "Choose someone to find them in the world.";
         rosterBody.AddChild(inhabitantList);
         AddPanelContents(rosterPanel, "Inhabitants", rosterBody);
-        rosterPanel.CustomMinimumSize = new Vector2(330, 330);
+        rosterPanel.CustomMinimumSize = new Vector2(330, 0);
         rosterPanel.ZIndex = 80;
         rosterPanel.Hide();
         content.AddChild(rosterPanel);
@@ -3565,6 +3602,14 @@ public partial class Main : Control
         clearSelectionButton.TooltipText = "Close";
         StyleButton(clearSelectionButton);
         clearSelectionButton.Pressed += ClearInhabitantSelection;
+        findAgentButton.Text = "Find";
+        findAgentButton.TooltipText = "Center the map on this agent.";
+        StyleButton(findAgentButton);
+        findAgentButton.Pressed += () =>
+        {
+            if (selectedInhabitantId is { } id) CenterOnInhabitant(id);
+        };
+        heading.AddChild(findAgentButton);
         heading.AddChild(clearSelectionButton);
         body.AddChild(heading);
 
@@ -4543,33 +4588,75 @@ public partial class Main : Control
         var previousSelection = selectedInhabitantId;
         var selectionFound = false;
         inhabitantList.Clear();
+        // The living come first, each with what they are doing; the deceased
+        // follow under their own heading so history stays inspectable.
         var inhabitants = snapshot.Inhabitants
             .Where(inhabitant => !inhabitant.IsDraft)
-            .OrderBy(inhabitant => inhabitant.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(inhabitant => IsLiving(inhabitant) ? 0 : 1)
+            .ThenBy(inhabitant => inhabitant.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var living = inhabitants.Count(inhabitant => string.Equals(inhabitant.Lifecycle, "active", StringComparison.OrdinalIgnoreCase));
+        var living = inhabitants.Count(IsLiving);
         var deceased = inhabitants.Length - living;
         rosterSummaryLabel.Text = inhabitants.Length == 0
             ? "No one lives here yet."
             : deceased == 0 ? $"{living} living" : $"{living} living · {deceased} deceased";
 
-        for (var index = 0; index < inhabitants.Length; index++)
+        foreach (var inhabitant in inhabitants)
         {
-            var inhabitant = inhabitants[index];
-            inhabitantList.AddItem($"{inhabitant.DisplayName}   ·   {Pretty(inhabitant.Lifecycle)}");
-            inhabitantList.SetItemMetadata(index, inhabitant.Id);
+            if (!IsLiving(inhabitant) && living > 0 && inhabitantList.ItemCount == living)
+            {
+                var header = inhabitantList.AddItem("Deceased", selectable: false);
+                inhabitantList.SetItemCustomFgColor(header, new Color("8FA5A7"));
+            }
+            var row = inhabitantList.AddItem(RosterRow(inhabitant));
+            inhabitantList.SetItemMetadata(row, inhabitant.Id);
+            inhabitantList.SetItemTooltip(row, IsLiving(inhabitant)
+                ? "Select to find this agent on the map and open their card."
+                : "Select to open this historical profile.");
+            if (!IsLiving(inhabitant)) inhabitantList.SetItemCustomFgColor(row, new Color("A7B9B7"));
             if (string.Equals(inhabitant.Id, previousSelection, StringComparison.Ordinal))
             {
                 selectionFound = true;
-                inhabitantList.Select(index);
+                inhabitantList.Select(row);
             }
         }
+        // Fit the list to its rows instead of reserving a tall empty box.
+        inhabitantList.Visible = inhabitantList.ItemCount > 0;
+        var rowHeight = inhabitantList.GetThemeFont("font").GetHeight(inhabitantList.GetThemeFontSize("font_size")) +
+            inhabitantList.GetThemeConstant("v_separation") + 4;
+        var uiScale = DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent);
+        inhabitantList.CustomMinimumSize = new Vector2(inhabitantList.CustomMinimumSize.X,
+            Math.Clamp(inhabitantList.ItemCount * rowHeight + 12, 40, 360 * uiScale));
+        rosterPanel.Size = rosterPanel.GetCombinedMinimumSize();
 
         if (!selectionFound)
         {
             selectedInhabitantId = null;
             inhabitantList.DeselectAll();
         }
+    }
+
+    private static bool IsLiving(OwnerWorldInhabitant inhabitant) =>
+        string.Equals(inhabitant.Lifecycle, "active", StringComparison.OrdinalIgnoreCase);
+
+    private static string RosterRow(OwnerWorldInhabitant inhabitant)
+    {
+        if (!IsLiving(inhabitant)) return $"{inhabitant.DisplayName}  ·  died";
+        var activity = inhabitant.DecisionFactors.Any(factor => factor.Key == "decision-pending")
+            ? "deciding what to do"
+            : GameUiText.ActivityPhrase(inhabitant.PublicIntention?.CandidateId, inhabitant.PublicIntention?.Summary);
+        var fullness = GameUiText.FullnessState(inhabitant.HungerBasisPoints);
+        return $"{inhabitant.DisplayName}  ·  {activity}" +
+            (fullness is "hungry" or "very hungry" ? $"  ·  {fullness}" : string.Empty);
+    }
+
+    /// <summary>Moves the camera to a living agent; historical profiles have no map position to show.</summary>
+    private void CenterOnInhabitant(string inhabitantId)
+    {
+        if (renderedMapSnapshot?.Inhabitants.FirstOrDefault(person => person.Id == inhabitantId) is not { } person ||
+            person.IsDraft || !IsLiving(person))
+            return;
+        CenterCameraAt(new Vector2(person.Position.X + 0.5f, person.Position.Y + 0.5f));
     }
 
     private void RenderInhabitantDetails(OwnerWorldSnapshot snapshot)
@@ -4637,6 +4724,7 @@ public partial class Main : Control
         var willHeir = inhabitant.DecisionFactors.FirstOrDefault(factor => factor.Key == "will-heir")?.Detail;
         var isDeceased = string.Equals(inhabitant.Lifecycle, "dead", StringComparison.OrdinalIgnoreCase);
         modelSettingsButton.Disabled = isDeceased || registration is null;
+        findAgentButton.Visible = !isDeceased;
         if (selectedAgentModelScroll.Visible && SelectedCognitionTarget() != inhabitant.Id)
             CloseAgentModelEditor();
         var waitingForDecision = inhabitant.DecisionFactors.Any(factor => factor.Key == "decision-pending");
@@ -4870,6 +4958,8 @@ public partial class Main : Control
 
         selectedInhabitantId = inhabitantId;
         rosterPanel.Hide();
+        // The roster promises to find the agent, so bring them into view.
+        CenterOnInhabitant(inhabitantId);
         if (observationSession.Current is { } current)
         {
             RenderInhabitantDetails(current.Baseline.Snapshot);
@@ -5060,7 +5150,7 @@ public partial class Main : Control
         climateLabel.Visible = Size.X >= 1100;
         var uiScale = DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent);
         float panelWidth(int width) => Math.Min(width * uiScale, Math.Max(1, viewport.X - 28));
-        rosterPanel.CustomMinimumSize = new Vector2(panelWidth(330), 330);
+        rosterPanel.CustomMinimumSize = new Vector2(panelWidth(330), 0);
         eventsPanel.CustomMinimumSize = new Vector2(panelWidth(390), 360);
         settlementPanel.CustomMinimumSize = new Vector2(panelWidth(420), 380);
         worldInfoPanel.CustomMinimumSize = new Vector2(panelWidth(365), 280);
