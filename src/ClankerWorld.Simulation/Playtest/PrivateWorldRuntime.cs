@@ -1492,6 +1492,11 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         if (founderSetup is not { Started: false } setup || !society.Checkpoint.IsPaused ||
             WorldTick != 0 || setup.FounderIds.Count >= RequiredFounders)
             throw new InvalidOperationException("Founders can only be placed during the initial paused setup.");
+        if (geographyOptions is not null && setup.FounderIds.Count == 0 &&
+            contentRegistry.ExportState().Packages.Any(package =>
+                package.Manifest.PackageId == StarterContent.PackageId && package.ActivationTick == 0) &&
+            towns.Single(item => item.Id == TownBorderRules.FirstTownId).OriginSite is null)
+            throw new InvalidOperationException("Choose the first Town site before placing founders.");
         if (founderId is null || !founderId.StartsWith("founder:", StringComparison.Ordinal) ||
             !Guid.TryParseExact(founderId["founder:".Length..], "N", out _) ||
             inhabitants.ContainsKey(founderId))

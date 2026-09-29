@@ -102,7 +102,11 @@ public sealed record OwnerWorldKnowledgeArtifact(
     string CreatorName,
     IReadOnlyList<OwnerWorldKnowledgeSite> Sites);
 public sealed record OwnerWorldCalendarPace(int TicksPerDay, int DaysPerYear);
-public sealed record OwnerFounderSetup(int Required, int Placed, bool Started);
+public sealed record OwnerFounderSetup(int Required, int Placed, bool Started)
+{
+    public bool CanChooseTownSite { get; init; }
+    public bool HasAcceptedTownSite { get; init; }
+}
 public sealed record OwnerWorldTown(
     string Id,
     string Name,
@@ -396,6 +400,8 @@ public sealed record OwnerFounderPlacementAction(
     string FounderId, int X, int Y, OwnerProviderConfigurationAction Cognition);
 
 public sealed record OwnerFounderPlacementReceipt(string FounderId, string HouseholdId, int Placed, int Required);
+public sealed record OwnerFirstTownLayoutAction(int X, int Y);
+public sealed record OwnerFirstTownLayoutReceipt(int X, int Y, int Buildings, int RoadTiles);
 
 public sealed record OwnerAgentPlacementAction(
     string AgentId, int X, int Y, OwnerProviderConfigurationAction Cognition);
@@ -793,6 +799,11 @@ public static class OwnerWorldActionPayload
             $"cognition-sha256={digest}");
     }
 
+    public static string FirstTownLayout(OwnerFirstTownLayoutAction action) => string.Join('\n',
+        "clankerworld.owner-first-town-layout.v1",
+        $"x={action.X.ToString(CultureInfo.InvariantCulture)}",
+        $"y={action.Y.ToString(CultureInfo.InvariantCulture)}");
+
     public static string AgentPlacement(OwnerAgentPlacementAction action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -1179,6 +1190,15 @@ public sealed class OwnerWorldApi
         pairing.SendSignedActionAsync<OwnerFounderPlacementAction, OwnerFounderPlacementReceipt>(
             serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerFounderPlace,
             OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.FounderPlacement(action),
+            action, deviceKey, cancellationToken);
+
+    public Task<OwnerFirstTownLayoutReceipt> AcceptFirstTownLayoutAsync(
+        Uri serverUri, OwnerAuthorityIdentity authority, string deviceId,
+        OwnerFirstTownLayoutAction action, IOwnerDeviceSigner deviceKey,
+        CancellationToken cancellationToken) =>
+        pairing.SendSignedActionAsync<OwnerFirstTownLayoutAction, OwnerFirstTownLayoutReceipt>(
+            serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerFirstTownLayout,
+            OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.FirstTownLayout(action),
             action, deviceKey, cancellationToken);
 
     public Task<OwnerAgentPlacementReceipt> PlaceAgentAsync(

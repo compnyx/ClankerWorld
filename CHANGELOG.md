@@ -12,13 +12,14 @@ release yet.
   Town layout before any founders are placed. Its two Houses belong to the two
   starting households, while Farmhouse and Blacksmith claims stay unassigned;
   the chosen site, Town border, buildings and connected Roads survive reload.
-  This is not yet exposed by the signed New World client, and starter food/tools
-  are still missing. Save schema 25 records the selected site while older Town
-  saves retain their camp-derived border.
+  The signed Godot New World setup now offers a map-click Choose/Redo Town site
+  control before Add founders. Starter food/tools and suitability guidance are
+  still missing. Save schema 25 records the selected site while older Town saves
+  retain their camp-derived border.
 - Newly created worlds now load the built-in House, Warehouse, Farmhouse,
   Blacksmith and cooking definitions during paused founder setup, before the
-  first simulation tick. The five starter buildings still await the player's
-  site/layout acceptance and are not placed automatically yet.
+  first simulation tick. The five starter buildings are placed when the player
+  chooses a rough site, not automatically when the map is created.
 - Adults in a household with both a Farmhouse and a House can carry milled
   flour from its Farmhouse to its House. Flour remains with the carrier until
   arrival, then becomes inspectable private House stock, including after a
@@ -29,9 +30,10 @@ release yet.
   members can make distinct wooden axes and pickaxes or refine ore into a
   separate iron item there. Another household cannot work
   the building. Carrying the matching wooden tool increases one resource-site
-  wood or stone/ore gathering action from four to six units. The Blacksmith is
-  not yet generated at New World start; tool durability, sales/requests, later
-  tool tiers, footprint and cost balance remain unfinished.
+  wood or stone/ore gathering action from four to six units. The first-Town
+  Blacksmith footprint is now generated but initially unclaimed; tool
+  durability, sales/requests, later tool tiers, footprint and cost balance
+  remain unfinished.
 - Household builders can claim a provisional 1×1 Farmhouse. A distinct
   universal-grain crop now yields household-owned grain; household members
   carry grain to their Farmhouse before milling it into flour. Only that
@@ -39,8 +41,9 @@ release yet.
   on site after reload. Unclaimed Farmhouses cannot produce, and food crops or
   flour cannot be stored in the communal Warehouse. A field's output now goes
   to its actual farmer's household instead of the old camp-alpha fallback.
-  Initial Farmhouse generation, farm fields' full growth states, private Silo,
-  sales and final recipes/footprints remain unfinished.
+  The first-Town Farmhouse footprint is now generated but initially unclaimed;
+  farm fields' full growth states, private Silo, sales and final
+  recipes/footprints remain unfinished.
 - Town residents can build one 2×2 Warehouse inside their Town's growing
   building area. Adults may carry spare personal wood, stone, fiber or seeds
   there as communal stock; residents of another household can collect stored

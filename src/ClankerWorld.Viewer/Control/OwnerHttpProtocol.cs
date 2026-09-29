@@ -86,6 +86,8 @@ public sealed record OwnerFounderPlacementAction(
     string FounderId, int X, int Y, OwnerProviderConfigurationAction Cognition);
 
 public sealed record OwnerFounderPlacementReceipt(string FounderId, string HouseholdId, int Placed, int Required);
+public sealed record OwnerFirstTownLayoutAction(int X, int Y);
+public sealed record OwnerFirstTownLayoutReceipt(int X, int Y, int Buildings, int RoadTiles);
 
 public sealed record OwnerAgentPlacementAction(
     string AgentId, int X, int Y, OwnerProviderConfigurationAction Cognition);
@@ -284,6 +286,11 @@ public static class OwnerHttpBinding
             $"y={action.Y.ToString(CultureInfo.InvariantCulture)}",
             $"cognition-sha256={digest}");
     }
+
+    public static string FirstTownLayoutPayload(OwnerFirstTownLayoutAction action) => string.Join('\n',
+        "clankerworld.owner-first-town-layout.v1",
+        $"x={action.X.ToString(CultureInfo.InvariantCulture)}",
+        $"y={action.Y.ToString(CultureInfo.InvariantCulture)}");
 
     public static string AgentPlacementPayload(OwnerAgentPlacementAction action)
     {

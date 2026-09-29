@@ -6,6 +6,7 @@ namespace ClankerWorld.GodotClient;
 public partial class Main
 {
     private readonly Button founderSetupButton = new();
+    private readonly Button townSiteButton = new();
     private readonly Button addAgentButton = new();
     private readonly Button startWorldButton = new();
     private readonly PanelContainer founderSetupPanel = new();
@@ -16,6 +17,36 @@ public partial class Main
     private readonly LineEdit founderKeyLabelInput = new();
     private readonly LineEdit founderApiKeyInput = new();
     private bool placingAddedAgent;
+    private bool choosingFirstTownSite;
+
+    private void ToggleFirstTownSite()
+    {
+        if (observationSession.Current?.Baseline.Snapshot.FounderSetup is not
+            { CanChooseTownSite: true }) return;
+        choosingFirstTownSite = !choosingFirstTownSite;
+        if (choosingFirstTownSite)
+        {
+            founderApiKeyInput.Text = string.Empty;
+            founderSetupPanel.Hide();
+            SetStatus("Click buildable land to generate the first Town. Choose again to redo before placing founders.", good: true);
+        }
+        else SetStatus("Town-site selection closed", good: true);
+    }
+
+    private async Task AcceptFirstTownSiteAtAsync(Vector2I tile)
+    {
+        if (!choosingFirstTownSite || isOwnerAction ||
+            observationSession.Current?.Baseline.Snapshot is not { FounderSetup: { CanChooseTownSite: true } } snapshot ||
+            !MapContains(snapshot, tile.X, tile.Y) ||
+            !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        await RunOwnerActionAsync(async () =>
+        {
+            var result = await ownerApi.AcceptFirstTownLayoutAsync(ResolveWorldUri(), authority, deviceId,
+                new OwnerFirstTownLayoutAction(tile.X, tile.Y), signer, CancellationToken.None);
+            choosingFirstTownSite = false;
+            return $"First Town: {result.Buildings} buildings and {result.RoadTiles} Road tiles near {result.X}, {result.Y}. Add founders or choose another site.";
+        });
+    }
 
     private void BuildFounderSetupPanel(Control canvas)
     {
@@ -102,6 +133,7 @@ public partial class Main
 
     private async Task ToggleFounderSetupAsync()
     {
+        choosingFirstTownSite = false;
         placingAddedAgent = false;
         if (founderSetupPanel.Visible)
         {
@@ -266,17 +298,21 @@ public partial class Main
     private void RenderFounderSetup(OwnerWorldSnapshot snapshot)
     {
         var setup = snapshot.FounderSetup;
+        townSiteButton.Visible = setup is { CanChooseTownSite: true };
+        townSiteButton.Text = setup?.HasAcceptedTownSite == true ? "Redo Town site" : "Choose Town site";
         founderSetupButton.Visible = setup is { Started: false };
         startWorldButton.Visible = setup is { Started: false };
         addAgentButton.Visible = setup is { Started: true };
         if (setup is not { Started: false })
         {
+            choosingFirstTownSite = false;
             if (!placingAddedAgent) founderSetupPanel.Hide();
             return;
         }
+        if (!setup.CanChooseTownSite) choosingFirstTownSite = false;
         founderSetupButton.Text = $"Add founders {setup.Placed}/{setup.Required}";
         founderSetupHint.Text = setup.Placed < setup.Required
-            ? $"Choose this founder’s provider, model, and API key. Then click an empty camp tile. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed."
+            ? $"Choose this founder’s provider, model, and API key. Then click an empty tile near the first Town. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed."
             : "All four founders are placed. Close this panel and choose Start World to let time run.";
     }
 

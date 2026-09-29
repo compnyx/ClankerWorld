@@ -39,4 +39,13 @@ internal static partial class TownTelemetry
         Message = "town_site_rejected tick={WorldTick} town={TownId} inhabitant={InhabitantId} building={BuildingId} x={X} y={Y} reason={Reason}")]
     private static partial void LogTownSiteRejected(ILogger logger, long worldTick, string townId, string inhabitantId,
         string buildingId, int x, int y, string reason);
+
+    public static void LayoutAccepted(ILogger logger, long worldTick, string outcome, int x, int y,
+        int buildings, int roadTiles) =>
+        LogTownLayoutAccepted(logger, worldTick, outcome, x, y, buildings, roadTiles);
+
+    [LoggerMessage(EventId = 2267, Level = LogLevel.Information,
+        Message = "first_town_layout outcome={Outcome} world_tick={WorldTick} x={X} y={Y} buildings={Buildings} roads={RoadTiles}")]
+    private static partial void LogTownLayoutAccepted(ILogger logger, long worldTick, string outcome, int x, int y,
+        int buildings, int roadTiles);
 }

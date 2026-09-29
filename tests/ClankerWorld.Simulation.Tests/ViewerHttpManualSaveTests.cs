@@ -68,6 +68,9 @@ public sealed partial class ViewerHttpTests
                 var selectionLog = new RecordingLogger<WorldSelectionCoordinator>();
                 host.Services.GetRequiredService<ILoggerFactory>().AddProvider(
                     new RecordingLoggerProvider<WorldSelectionCoordinator>(selectionLog));
+                var townLog = new RecordingLogger<ViewerHttpTests>();
+                host.Services.GetRequiredService<ILoggerFactory>().AddProvider(
+                    new RecordingLoggerProvider<ViewerHttpTests>(townLog));
                 var device = await StartAndActivateAsync(host, client, key);
                 deviceId = device.DeviceId;
                 var listAction = new OwnerControlAction("list-worlds");
@@ -144,6 +147,20 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(ResourceAbundance.Abundant, runtime.ExportState().Geography?.ResourceAbundance);
                 Assert.Equal(ClimateZone.Dry, runtime.ExportState().Map.ClimateAt(
                     runtime.ExportState().Map.GetObject("storage").Position));
+                var townSite = new OwnerFirstTownLayoutAction(preview.Camp.X, preview.Camp.Y);
+                using var acceptedTown = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/town/first-layout", townSite,
+                    OwnerHttpBinding.FirstTownLayoutPayload(townSite));
+                Assert.Equal(HttpStatusCode.OK, acceptedTown.StatusCode);
+                var layoutReceipt = (await acceptedTown.Content.ReadFromJsonAsync<OwnerFirstTownLayoutReceipt>())!;
+                Assert.Equal(5, layoutReceipt.Buildings);
+                Assert.Equal(5, runtime.WorldSimulation.Buildings.Count);
+                Assert.NotEmpty(runtime.RoadTiles);
+                Assert.Equal(new GridPoint(preview.Camp.X, preview.Camp.Y), Assert.Single(runtime.Towns).OriginSite);
+                Assert.Contains(townLog.Messages, message => message.Contains(
+                    "first_town_layout outcome=accepted world_tick=0", StringComparison.Ordinal));
+                Assert.DoesNotContain(townLog.Messages, message => message.Contains(
+                    "test-secret-key", StringComparison.Ordinal));
                 var reconnect = new OwnerReconnectAction(0);
                 using var observed = await SendSignedAsync(host, client, key, device.DeviceId,
                     "/api/v1/owner/reconnect", reconnect,
@@ -156,6 +173,8 @@ public sealed partial class ViewerHttpTests
                 Assert.Equal(preview.PackedMapLayers, view.Baseline.Snapshot.PackedMapLayers);
                 Assert.Equal(preview.MapLayersDigest, view.Baseline.Snapshot.MapLayersDigest);
                 Assert.Equal(create.WrapEastWest, view.Baseline.Snapshot.WrapsEastWest);
+                Assert.True(view.Baseline.Snapshot.FounderSetup?.CanChooseTownSite == true);
+                Assert.True(view.Baseline.Snapshot.FounderSetup?.HasAcceptedTownSite == true);
                 Assert.Empty(view.Baseline.Snapshot.Tiles);
                 var cachedReconnect = new OwnerReconnectAction(0, entry.WorldId,
                     view.Baseline.Snapshot.MapManifestDigest, view.Baseline.Snapshot.MapLayersDigest);
@@ -239,6 +258,8 @@ public sealed partial class ViewerHttpTests
             var restoredRuntime = restarted.Services.GetRequiredService<PrivateWorldRuntime>();
             Assert.Equal(WorldSizePreset.Small, restoredRuntime.ExportState().Geography?.Size);
             Assert.Equal(7, restoredRuntime.Content.Packages.Count);
+            Assert.Equal(5, restoredRuntime.WorldSimulation.Buildings.Count);
+            Assert.NotEmpty(restoredRuntime.RoadTiles);
             var selectedOld = restarted.Services.GetRequiredService<WorldSelectionCoordinator>()
                 .Select(firstId);
             Assert.Equal(firstId, selectedOld.Id);

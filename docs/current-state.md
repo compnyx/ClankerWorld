@@ -144,28 +144,25 @@ not a claim that all interview proposals should be implemented at once.
 | Priority | Decided behavior | Current playable behavior / remaining work |
 | --- | --- | --- |
 | 1 | A slow or unavailable personal model does not stop unrelated agents or invent an important choice | The private-world host dispatches hosted decisions between committed ticks; unrelated agents and world systems keep advancing. Failed or low-confidence requests can select only `safe_idle`, never complete an instruction or invent a strategic choice. Pending decisions survive save/reload and stale answers after pause/provider changes are rejected. A live Windows/VPS model-wait playtest remains to be done. |
-| 2 | New World creates a map; the player chooses a rough site, and generation creates the first Town with two Houses, a Warehouse, Roads, minimum food and some tools; four configured starting agents are added, then Start World begins time | The signed host and Main Menu now preview, create and select separately saved Small/Medium worlds with initial climate-mode/family/latitude choices. Preview is read-only even while the current world is running; creation still pauses it before switching. Generated worlds open paused at a fixed empty camp with a saved first-Town identity and provisional rectangular border; founder placement records membership, and assigned-building additions can grow that border. Starting-agent placement and explicit Start World are shared with the previous development world. The chosen site, suitability guidance, layout acceptance/redo, actual first-Town buildings, specified starter supplies, deeper generation controls and scalable physical-map persistence are missing; Large/Huge/Mega cannot be played yet. |
+| 2 | New World creates a map; the player chooses a rough site, and generation creates the first Town with two Houses, a Warehouse, Roads, minimum food and some tools; four configured starting agents are added, then Start World begins time | The signed host and Main Menu now preview, create and select separately saved Small/Medium worlds with initial climate-mode/family/latitude choices. Preview is read-only even while the current world is running; creation still pauses it before switching. Generated worlds open paused with built-in content active; the player clicks a rough map site to place the saved five-building first Town and connected Roads, and can choose another site before placing founders. The two Houses belong to the two starting households, while Farmhouse and Blacksmith remain unclaimed. The chosen site anchors a provisional rectangular Town border; founder placement records membership, and later assigned-building additions can grow the border. Starting-agent placement and explicit Start World are shared with the previous development world. Suitability guidance, a separate inspect-before-accept layout step, starter House food and distinct axe/pickaxe supplies, deeper generation controls and scalable physical-map persistence are missing; Large/Huge/Mega cannot be played yet. |
 | 3 | Playtest a six-minute day and custom 40-day/four-season year, with at most six hours of life from birth | Fresh host-created worlds save 360 ticks/day, 40 days/year and four 10-day seasons; day-based stages and a hard 60-day lifespan use the same saved pace. The host still aims for one tick per real second, subject to load. The live VPS has a paused development world with this calendar; its former save is archived. The decided pacing and starting-agent setup still need a Windows/VPS playtest. |
 | 4 | Each agent owns a personal model and key; Jev is an optional per-world support layer | The selected agent card and World Settings can choose one provider/model and a named saved key for an inhabitant, applying to both routine and planning decisions. The starting-agent setup uses that same private key routing before Start World. Several keys from the same provider can coexist in private host storage. Personal-model decisions retrieve a bounded, relevant set of the agent's own saved experiences and beliefs. Existing Jev routine calls may score a small batch of that agent's records, retaining source-linked evidence labels; the Jev-off path still uses local retrieval. Automatic experience capture and generated memory summaries remain incomplete. |
 | 5 | One continuous zoomable pixel-art world view with an always-available draggable overview and inspection controls | The Godot Main Menu offers Continue, New World and Load World when paired. The view has single-view zoom, camera-bounded terrain drawing, overview navigation, located Event Log entries, private thoughts and a family tree. Large playable maps, land-claim overlays and automatic belief/memory formation remain unbuilt. Town-border and household-owned-building filters are available, but there are no saved land claims to display. Art is prototype-quality. |
 | 6 | Local Windows install runs the authoritative simulation and keeps saves/keys on that PC | The Godot client currently requires the private VPS host. Preserve it for development, then package the same simulation locally and prove a fresh install without the VPS. |
 | 7 | Regional weather, bounded inventions and mods, cross-generation social life | Generated worlds now use local weather regions for survival, work and display, with a short rain-derived soil-moisture effect on crops; seasonal effects and data-only building proposals remain thin. The Pause Menu now lists recorded packages read-only, but the full Mod Library, import/export, review flow, restricted scripted content, deep conversation/memory and full inheritance are not yet connected. |
 
-A deterministic first-Town layout planner is a **verified primitive** only. For
-a buildable rough tile it can seek the five accepted building footprints and
+The deterministic first-Town layout planner is connected to paused New World
+setup. For a buildable rough tile it can seek the five accepted building footprints and
 connect their anchors with dry-land Roads without occupying camp objects or
 resource sites. Its search radius, order and route rules are provisional; it
-does not yet rank site suitability, persist or display a plan, assign claims,
-or place buildings during paused New World setup. A newly created generated
-world now has its seven shipped starter/settlement/House/Warehouse/Farmhouse/
+does not yet rank site suitability or preview an unaccepted plan. The signed
+site action persists or replaces the layout before the first founder is placed.
+A newly created generated world has its seven shipped starter/settlement/House/Warehouse/Farmhouse/
 Blacksmith/cooking packages active at tick zero; this makes their definitions
-available before Start World, but no initial buildings or supplies are placed.
-At the host simulation boundary, a paused world with no placed founders can
-accept or redo the generated five-building layout and persist its selected
-site, border and connected Roads. The two Houses are assigned to the existing
-starting households; productive-building claims remain unassigned. This is
-not yet a signed owner action or Godot New World control, and no starter stock
-is distributed by accepting a layout.
+available before Start World. Choosing a site creates the five starter
+footprints and Roads, but no starter food or tools are distributed. The two
+Houses are assigned to the existing starting households; productive-building
+claims remain unassigned.
 
 ## Current cognition behavior
 
@@ -266,8 +263,8 @@ unaffiliated residents do not yet negotiate entry or decide to form a new
 household. The invitation and permission rules remain open.
 Other gathering, cross-household helper and production paths do not yet
 physically deliver goods to House storage. Legacy Shelters remain loadable.
-Houses are not yet guaranteed at world start; expansion and guest entry are
-unfinished.
+Two Houses are generated when the first-Town site is chosen; expansion and
+guest entry are unfinished.
 Its current eight-wood construction cost and the meal's food/wood quantities
 reuse prototype values; they are not accepted finished-game recipes or
 storage-capacity decisions.
@@ -283,7 +280,7 @@ is rejected on save/load. Residency is checked at pickup, so leaving a Town
 would not erase its Warehouse stock or grant ongoing access. The twelve-wood
 cost, four-unit delivery load, single-Warehouse rule and unbounded storage are
 prototype values, not accepted balance or final access law. Initial Town
-generation does not yet place a Warehouse; the 2×3 expansion, whole-inventory
+site acceptance now places a Warehouse; the 2×3 expansion, whole-inventory
 logistics, border-change policy and formal ownership remain open. Legacy
 Storehouses remain in old saves; agents stop proposing new ones after Warehouse
 content activates.
@@ -301,9 +298,10 @@ to their House; it appears in House inspection only on arrival, and the
 in-transit load and delivered stock survive reload. Grain and flour are
 excluded from communal Warehouse stock. The
 Farmhouse's wood/stone cost, 1×1 footprint, grain/seed yields and flour recipe
-are provisional pending balance/footprint decisions. It is not generated in
-the first Town yet; field stages, the adjacent private Silo, crop variety and
-sale of flour remain unfinished. Flour-based House cooking is not implemented.
+are provisional pending balance/footprint decisions. The first-Town layout
+places one unclaimed Farmhouse; field stages, the adjacent private Silo, crop
+variety and sale of flour remain unfinished. Flour-based House cooking is not
+implemented.
 An additive provisional 1×2 Blacksmith can be claimed by a household when
 placed or built. Household members physically move bounded wood and iron-ore
 loads from their other stock to the Blacksmith; an adult can also mine a
@@ -316,7 +314,7 @@ work at a claimed one. A carried wooden axe improves wood gathering yield,
 and a carried wooden pickaxe improves stone and iron-ore gathering yield, from
 four to six units per consumed resource-site unit. These are provisional
 effects without wear/durability. This building and the two tools are not yet
-guaranteed in first-Town generation; the Blacksmith's footprint, costs,
+claimed by a starting household yet; the Blacksmith's footprint, costs,
 recipes, tool tiers, direct sale and requests remain unfinished.
 Food provenance distinguishes foraging, crops, cooked meals and camp rations;
 inhabitants prefer a different available source, while monotonous diets reduce

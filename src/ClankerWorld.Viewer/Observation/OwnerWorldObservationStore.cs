@@ -290,6 +290,10 @@ public sealed class OwnerWorldObservationStore
             JevEnabled = state.JevEnabled ?? true,
             FounderSetup = state.FounderSetup is { } setup
                 ? new ViewerFounderSetup(PrivateWorldRuntime.RequiredFounders, setup.FounderIds.Count, setup.Started)
+                {
+                    CanChooseTownSite = state.Geography is not null && !setup.Started && setup.FounderIds.Count == 0,
+                    HasAcceptedTownSite = (state.Towns ?? []).Any(town => town.OriginSite is not null),
+                }
                 : null,
             Towns = (state.Towns ?? []).OrderBy(item => item.Id, StringComparer.Ordinal)
                 .Select(item => new ViewerTown(item.Id, item.Name, item.FoundingState, item.FoundedTick,

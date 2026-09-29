@@ -598,6 +598,26 @@ public partial class Main : Control
             usageStatus = null;
             RenderUsageStatus();
             Render(sample, []);
+            Render(sample with
+            {
+                FounderSetup = new OwnerFounderSetup(4, 0, false)
+                {
+                    CanChooseTownSite = true,
+                }
+            }, []);
+            if (!townSiteButton.Visible || townSiteButton.Text != "Choose Town site" ||
+                !founderSetupButton.Disabled)
+                throw new InvalidOperationException("Paused New World must offer Town-site selection before founders.");
+            Render(sample with
+            {
+                FounderSetup = new OwnerFounderSetup(4, 0, false)
+                {
+                    CanChooseTownSite = true,
+                    HasAcceptedTownSite = true,
+                }
+            }, []);
+            if (!townSiteButton.Visible || townSiteButton.Text != "Redo Town site")
+                throw new InvalidOperationException("Accepted first Town must offer a redo before founders.");
             Render(sample with { FounderSetup = new OwnerFounderSetup(4, 2, false) }, []);
             founderSetupPanel.Show();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -646,7 +666,7 @@ public partial class Main : Control
             filtersButton.EmitSignal(BaseButton.SignalName.Pressed);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!filtersPanel.Visible || !mapCanvas.GetGlobalRect().Encloses(filtersPanel.GetGlobalRect()))
-                throw new InvalidOperationException("Map Filters must open inside the world view.");
+                throw new InvalidOperationException($"Map Filters must open inside the world view: map={mapCanvas.GetGlobalRect()} filters={filtersPanel.GetGlobalRect()} site_visible={townSiteButton.Visible}.");
             townBorderFilter.ButtonPressed = false;
             householdPropertyFilter.ButtonPressed = true;
             if (!worldInfoText.Text.Contains("Town borders are hidden by Map filters", StringComparison.Ordinal))
@@ -2563,6 +2583,12 @@ public partial class Main : Control
         StyleButton(eventsButton);
         eventsButton.Pressed += ToggleEvents;
         topBar.AddChild(eventsButton);
+
+        townSiteButton.Text = "Choose Town site";
+        StyleButton(townSiteButton);
+        townSiteButton.Pressed += ToggleFirstTownSite;
+        townSiteButton.Hide();
+        topBar.AddChild(townSiteButton);
 
         founderSetupButton.Text = "Add founders";
         StyleButton(founderSetupButton);
@@ -4581,6 +4607,9 @@ public partial class Main : Control
         pauseButton.Disabled = actionDisabled || snapshot is null;
         pauseButton.Visible = snapshot?.FounderSetup is not { Started: false };
         founderSetupButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { Started: false };
+        townSiteButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { CanChooseTownSite: true };
+        if (snapshot?.FounderSetup is { CanChooseTownSite: true, HasAcceptedTownSite: false })
+            founderSetupButton.Disabled = true;
         addAgentButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { Started: true };
         renameAgentButton.Disabled = actionDisabled || selected is null || selected.IsDraft;
         renameAgentInput.Editable = !actionDisabled && selected is { IsDraft: false };
@@ -4822,7 +4851,13 @@ public partial class Main : Control
 
         if (@event is InputEventMouseButton mouse)
         {
-            if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && founderSetupPanel.Visible &&
+            if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && choosingFirstTownSite &&
+                snapshot.FounderSetup is { CanChooseTownSite: true })
+            {
+                _ = AcceptFirstTownSiteAtAsync(TileAtCanvas(mouse.Position, snapshot));
+                mapCanvas.AcceptEvent();
+            }
+            else if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && founderSetupPanel.Visible &&
                 snapshot.FounderSetup is { Started: false })
             {
                 _ = PlaceFounderAtAsync(TileAtCanvas(mouse.Position, snapshot));

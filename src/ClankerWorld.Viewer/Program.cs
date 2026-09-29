@@ -856,6 +856,42 @@ app.MapPost("/api/v1/owner/saves/load", (
     }
 });
 
+app.MapPost("/api/v1/owner/town/first-layout", (
+    OwnerSignedHttpRequest<OwnerFirstTownLayoutAction> request,
+    OwnerRequestAuthorizer authorizer,
+    IServiceProvider services,
+    ILoggerFactory loggerFactory) =>
+{
+    if (request?.Action is not { } action)
+        return Results.BadRequest(new { error = "Choose a rough Town site." });
+    var authorization = authorizer.Authorize(request, "POST", "/api/v1/owner/town/first-layout",
+        OwnerHttpBinding.FirstTownLayoutPayload(action));
+    if (!authorization.IsSuccess) return OwnerFailures.ToHttpResult(authorization.Failure);
+    if (!isPrivateWorld) return Results.Conflict(new { error = "First-Town setup requires a private world." });
+    lock (founderSetupGate)
+    {
+        var runtime = services.GetRequiredService<PrivateWorldRuntime>();
+        var before = runtime.ExportState();
+        try
+        {
+            var plan = runtime.AcceptFirstTownLayout(new GridPoint(action.X, action.Y));
+            try { services.GetRequiredService<PrivateWorldStateFile>().Save(runtime); }
+            catch
+            {
+                runtime.SwitchPausedWorld(before);
+                throw;
+            }
+            TownTelemetry.LayoutAccepted(loggerFactory.CreateLogger("ClankerWorld.Town"),
+                runtime.WorldTick, before.Towns?.Any(town => town.OriginSite is not null) == true
+                    ? "redone" : "accepted", action.X, action.Y, plan.Buildings.Count, plan.RoadTiles.Count);
+            return Results.Ok(new OwnerFirstTownLayoutReceipt(action.X, action.Y,
+                plan.Buildings.Count, plan.RoadTiles.Count));
+        }
+        catch (ArgumentException exception) { return Results.BadRequest(new { error = exception.Message }); }
+        catch (InvalidOperationException exception) { return Results.Conflict(new { error = exception.Message }); }
+    }
+});
+
 app.MapPost("/api/v1/owner/founders/place", (
     OwnerSignedHttpRequest<OwnerFounderPlacementAction> request,
     OwnerRequestAuthorizer authorizer,

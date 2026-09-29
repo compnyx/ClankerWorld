@@ -254,7 +254,11 @@ public sealed record ViewerAuthoringState(
 
 public sealed record ViewerEvent(long EventId, long WorldTick, string Kind, string Detail, ViewerPosition? Position = null);
 
-public sealed record ViewerFounderSetup(int Required, int Placed, bool Started);
+public sealed record ViewerFounderSetup(int Required, int Placed, bool Started)
+{
+    public bool CanChooseTownSite { get; init; }
+    public bool HasAcceptedTownSite { get; init; }
+}
 
 public sealed record ViewerTown(
     string Id,
