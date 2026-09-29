@@ -42,7 +42,7 @@ public partial class Main
             CustomMinimumSize = new Vector2(275, 0),
         };
         body.AddChild(note);
-        AddPanelContents(filtersPanel, "Map filters", body);
+        AddClosablePanelContents(filtersPanel, "Map filters", body);
         filtersPanel.CustomMinimumSize = new Vector2(305, 0);
         filtersPanel.ZIndex = 85;
         filtersPanel.Hide();

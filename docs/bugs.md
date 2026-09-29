@@ -137,6 +137,11 @@ test; computment's Windows playtest remains pending.
   and a reselected agent lost relationships, thoughts and memories. Panels now
   replace only changed text, which also keeps the Event Log scroll position.
   Five "Initial content activated" entries no longer open every Event Log.
+- **Agent card covered its agent and was cut off at 720p — fixed in repository
+  build, laptop check pending:** after Find or selection the card opened over
+  the agent it described, and its Speak/Send controls ran below the screen.
+  The card now opens beside the agent when it cannot fit above or below, and
+  its profile scrolls inside the view. Agents-list rows are no longer clipped.
 - **Status messages vanished within a second — fixed in repository build,
   laptop check pending:** each one-second observation refresh erased the
   toast, including Choose Town site and Move founder instructions. Results now

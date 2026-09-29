@@ -109,6 +109,7 @@ public partial class Main : Control
     private readonly Label rosterSummaryLabel = new();
     private readonly PanelContainer selectedInhabitantCard = new();
     private readonly VBoxContainer selectedAgentOverview = new();
+    private readonly ScrollContainer selectedAgentOverviewScroll = new() { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
     private readonly ScrollContainer selectedAgentModelScroll = new();
     private readonly VBoxContainer selectedAgentModelContent = new();
     private readonly Button modelSettingsButton = new();
@@ -673,6 +674,21 @@ public partial class Main : Control
             Render(sample, []);
             if (worldDetails.GetParsedText().Length == 0)
                 throw new InvalidOperationException("An unchanged refresh must keep the Town panel's stores and projects visible.");
+            if (!worldDetails.GetParsedText().Contains("Shared stores", StringComparison.Ordinal) ||
+                !worldDetails.GetParsedText().Contains("No one is working on a project right now.", StringComparison.Ordinal))
+                throw new InvalidOperationException($"The Town panel must head its sections and say when nothing is under way instead of leaving gaps: {worldDetails.GetParsedText()}");
+            foreach (var panel in new PanelContainer[] { rosterPanel, eventsPanel, settlementPanel, worldInfoPanel, filtersPanel, worldOverviewPanel })
+            {
+                panel.Show();
+                var close = panel.FindChildren("*", nameof(Button), recursive: true, owned: false)
+                    .OfType<Button>().FirstOrDefault(button => button.Text == "×");
+                if (close is null || close.FocusMode == Control.FocusModeEnum.None)
+                    throw new InvalidOperationException($"{panel.Name} must have a keyboard-reachable close button in its heading.");
+                close.GrabFocus();
+                close.EmitSignal(BaseButton.SignalName.Pressed);
+                if (panel.Visible || close.HasFocus())
+                    throw new InvalidOperationException($"{panel.Name} must close and release focus when its close button is pressed.");
+            }
             SetStatus("Action result check", good: true);
             ExpireStatusToast(refreshSucceeded: true);
             if (!statusToast.Visible)
@@ -1053,6 +1069,10 @@ public partial class Main : Control
                 !selectedActorConditionLabel.IsVisibleInTree() ||
                 !selectedInhabitantCard.GetGlobalRect().Encloses(selectedActorConditionLabel.GetGlobalRect()))
                 throw new InvalidOperationException("Agent hover targets and condition stats must survive observation refreshes.");
+            if (!mapCanvas.GetGlobalRect().Grow(1).Encloses(selectedInhabitantCard.GetGlobalRect()))
+                throw new InvalidOperationException($"The agent card must fit inside the world view: map={mapCanvas.GetGlobalRect()} card={selectedInhabitantCard.GetGlobalRect()}.");
+            if (selectedInhabitantCard.GetGlobalRect().Intersects(inhabitantVisuals[founder.Id].GetGlobalRect()))
+                throw new InvalidOperationException($"The agent card must not cover the agent it describes: card={selectedInhabitantCard.GetGlobalRect()} agent={inhabitantVisuals[founder.Id].GetGlobalRect()}.");
             selectedInhabitantId = null;
             RenderSelectedInhabitantCard(occupied with { WorldTick = 1 });
             selectedInhabitantId = founder.Id;
@@ -1200,6 +1220,13 @@ public partial class Main : Control
             eventLog.EmitSignal(RichTextLabel.SignalName.MetaClicked, "100");
             if (cameraCenterTiles.DistanceTo(beforeEventJump) < 0.5f)
                 throw new InvalidOperationException("Clicking a located event did not move the world camera.");
+            knownEvents[101] = new OwnerWorldEvent(101, 2, "food_consumed", "founder-scout", null);
+            RenderEventLog();
+            var loggedDay = SplitClock(DisplayWorldClock(1)).Date;
+            if (eventLog.GetParsedText().Split(loggedDay).Length != 2)
+                throw new InvalidOperationException($"Same-day events must share one date heading: {eventLog.GetParsedText()}");
+            knownEvents.Remove(101);
+            RenderEventLog();
             var largeTerrain = Enumerable.Range(0, 256 * 128)
                 .Select(index => (byte)(index % 37 == 0 ? 3 : 0)).ToArray();
             var largeMap = sample with
@@ -3341,7 +3368,7 @@ public partial class Main : Control
         mapCanvas.AddChild(selectedInhabitantCard);
 
         worldOverview.CenterRequested += CenterCameraAt;
-        AddPanelContents(worldOverviewPanel, "World Map", worldOverview);
+        AddClosablePanelContents(worldOverviewPanel, "World Map", worldOverview);
         worldOverviewPanel.Position = new Vector2(14, 14);
         worldOverviewPanel.ZIndex = 80;
         worldOverviewPanel.Hide();
@@ -3365,12 +3392,12 @@ public partial class Main : Control
         rosterSummaryLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         rosterBody.AddChild(rosterSummaryLabel);
 
-        inhabitantList.CustomMinimumSize = new Vector2(300, 40);
+        inhabitantList.CustomMinimumSize = new Vector2(380, 40);
         inhabitantList.ItemSelected += index => SelectInhabitantFromList(index);
         inhabitantList.TooltipText = "Choose someone to find them in the world.";
         rosterBody.AddChild(inhabitantList);
-        AddPanelContents(rosterPanel, "Inhabitants", rosterBody);
-        rosterPanel.CustomMinimumSize = new Vector2(330, 0);
+        AddClosablePanelContents(rosterPanel, "Agents", rosterBody);
+        rosterPanel.CustomMinimumSize = new Vector2(410, 0);
         rosterPanel.ZIndex = 80;
         rosterPanel.Hide();
         content.AddChild(rosterPanel);
@@ -3378,7 +3405,7 @@ public partial class Main : Control
         ConfigureTextPanel(eventLog, 300);
         eventLog.MetaClicked += meta => JumpToEvent(meta.AsString());
         eventLog.TooltipText = "Click a located event to jump to where it happened.";
-        AddPanelContents(eventsPanel, "Recent events", eventLog);
+        AddClosablePanelContents(eventsPanel, "Event Log", eventLog);
         eventsPanel.CustomMinimumSize = new Vector2(390, 360);
         eventsPanel.ZIndex = 80;
         eventsPanel.Hide();
@@ -3428,14 +3455,14 @@ public partial class Main : Control
         content.AddChild(memoriesPanel);
 
         ConfigureTextPanel(worldDetails, 320);
-        AddPanelContents(settlementPanel, "Town · stores and projects", worldDetails);
+        AddClosablePanelContents(settlementPanel, "Town", worldDetails);
         settlementPanel.CustomMinimumSize = new Vector2(420, 380);
         settlementPanel.ZIndex = 80;
         settlementPanel.Hide();
         content.AddChild(settlementPanel);
 
         ConfigureTextPanel(worldInfoText, 220);
-        AddPanelContents(worldInfoPanel, "World Info", worldInfoText);
+        AddClosablePanelContents(worldInfoPanel, "World Info", worldInfoText);
         worldInfoPanel.CustomMinimumSize = new Vector2(365, 280);
         worldInfoPanel.ZIndex = 80;
         worldInfoPanel.Hide();
@@ -3761,7 +3788,9 @@ public partial class Main : Control
         heading.AddChild(clearSelectionButton);
         body.AddChild(heading);
 
-        body.AddChild(selectedAgentOverview);
+        selectedAgentOverview.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        selectedAgentOverviewScroll.AddChild(selectedAgentOverview);
+        body.AddChild(selectedAgentOverviewScroll);
         selectedAgentModelScroll.CustomMinimumSize = new Vector2(0, 300);
         selectedAgentModelScroll.AddChild(selectedAgentModelContent);
         var backToProfile = new Button { Text = "← Agent profile" };
@@ -3852,7 +3881,7 @@ public partial class Main : Control
             PopulateCredentialChoices();
             cognitionTargetChoice.Hide();
             cognitionSettingsPanel.Reparent(selectedAgentModelContent, keepGlobalTransform: false);
-            selectedAgentOverview.Hide();
+            selectedAgentOverviewScroll.Hide();
             selectedAgentModelScroll.Show();
             RenderProviderConfiguration();
             PositionSelectedInhabitantCard(current.Baseline.Snapshot);
@@ -3868,7 +3897,7 @@ public partial class Main : Control
         selectedAgentModelScroll.Hide();
         cognitionSettingsPanel.Reparent(worldSettingsContent, keepGlobalTransform: false);
         cognitionTargetChoice.Show();
-        selectedAgentOverview.Show();
+        selectedAgentOverviewScroll.Show();
         cognitionApiKeyInput.Text = string.Empty;
         cognitionCredentialLabelInput.Text = string.Empty;
     }
@@ -4760,11 +4789,13 @@ public partial class Main : Control
                 var header = inhabitantList.AddItem("Deceased", selectable: false);
                 inhabitantList.SetItemCustomFgColor(header, new Color("8FA5A7"));
             }
-            var row = inhabitantList.AddItem(RosterRow(inhabitant));
+            var rowText = RosterRow(inhabitant);
+            var row = inhabitantList.AddItem(rowText);
             inhabitantList.SetItemMetadata(row, inhabitant.Id);
-            inhabitantList.SetItemTooltip(row, IsLiving(inhabitant)
+            // The full row, in case a long activity is clipped at this width.
+            inhabitantList.SetItemTooltip(row, rowText + "\n" + (IsLiving(inhabitant)
                 ? "Select to find this agent on the map and open their card."
-                : "Select to open this historical profile.");
+                : "Select to open this historical profile."));
             if (!IsLiving(inhabitant)) inhabitantList.SetItemCustomFgColor(row, new Color("A7B9B7"));
             if (string.Equals(inhabitant.Id, previousSelection, StringComparison.Ordinal))
             {
@@ -5014,27 +5045,44 @@ public partial class Main : Control
               $"{worldSystems.CurrencyAccountCount} wallets · {worldSystems.CultureCount} cultures · " +
               $"{worldSystems.ChunkCount} chunks · {worldSystems.BuildingDefinitionCount} buildings · " +
               $"{worldSystems.RecipeDefinitionCount} recipes";
-        if (authoring is null)
+        var lines = new List<TownLine>();
+        if (authoring is not null)
+            lines.Add(new(TownStyle.Note, $"{(authoring.IsPaused ? "Paused" : "Playing")} · {DisplayWorldClock(snapshot.WorldTick)} · " +
+                $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))} here"));
+        lines.Add(new(TownStyle.Heading, "Shared stores"));
+        if (snapshot.Stockpiles.Count == 0) lines.Add(new(TownStyle.Note, "No shared stores yet."));
+        foreach (var stockpile in snapshot.Stockpiles)
         {
-            SetPanelText(worldDetails, $"tick {snapshot.WorldTick}\nworld {snapshot.WorldId}\nNo authoring projection returned.");
-            return;
+            lines.Add(new(TownStyle.Name, stockpile.Name));
+            lines.Add(new(TownStyle.Detail, stockpile.Items.Count == 0 ? "empty" :
+                string.Join(" · ", stockpile.Items.Select(item => $"{Pretty(item.Kind)} {item.Quantity}"))));
         }
-
-        var stores = snapshot.Stockpiles.Count == 0 ? "No shared stores" : string.Join("\n", snapshot.Stockpiles.Select(stockpile =>
-            $"{stockpile.Name}: " + (stockpile.Items.Count == 0 ? "empty" : string.Join(" · ", stockpile.Items.Select(item => $"{Pretty(item.Kind)} {item.Quantity}")))));
-        var projects = snapshot.Inhabitants.Where(person => person.Project is not null).Select(person =>
-            $"{person.DisplayName}: {person.Project!.Label} · {Pretty(person.Project.Stage)}" +
-            (person.Project.Blocker is null ? "" : $"\n  {person.Project.Blocker}"));
-        var details = $"{(authoring.IsPaused ? "Paused" : "Playing")} · {DisplayWorldClock(snapshot.WorldTick)}\n" +
-            $"{Pretty(authoring.Season)} · {Pretty(WeatherAtCamera(snapshot))} at camera\n\nShared stores\n{stores}\n\nProjects\n{string.Join("\n", projects)}\n\nSocial activity\n" +
-            string.Join("\n", snapshot.Inhabitants.SelectMany(person => person.SocialNotes.Take(2).Select(note => $"{person.DisplayName}: {note}")));
+        lines.Add(new(TownStyle.Heading, "Projects"));
+        var workers = snapshot.Inhabitants.Where(person => person.Project is not null).ToArray();
+        if (workers.Length == 0) lines.Add(new(TownStyle.Note, "No one is working on a project right now."));
+        foreach (var person in workers)
+        {
+            lines.Add(new(TownStyle.Body, $"{person.DisplayName}: {person.Project!.Label} · {Pretty(person.Project.Stage)}"));
+            if (person.Project.Blocker is { } blocker) lines.Add(new(TownStyle.Warning, blocker));
+        }
         if (snapshot.Council is { } council)
         {
-            details += $"\n\nHousehold council\nSteward: {council.StewardName ?? "awaiting a contributor"}\n" +
-                (council.FoodPolicy == "essential_first" ? "Food reserve: hungry members first" : "Shared food: open access") +
-                (council.ProposedPolicy is null ? "" : $"\nVote: {Pretty(council.ProposedPolicy)} · {council.Approvals} yes / {council.Rejections} no / {council.Voters} voters");
+            lines.Add(new(TownStyle.Heading, "Household council"));
+            lines.Add(new(TownStyle.Body, $"Steward: {council.StewardName ?? "awaiting a contributor"}"));
+            lines.Add(new(TownStyle.Body, council.FoodPolicy == "essential_first" ? "Food reserve: hungry members first" : "Shared food: open access"));
+            if (council.ProposedPolicy is not null)
+                lines.Add(new(TownStyle.Body, $"Vote: {Pretty(council.ProposedPolicy)} · {council.Approvals} yes / {council.Rejections} no / {council.Voters} voters"));
         }
-        SetPanelText(worldDetails, details);
+        lines.Add(new(TownStyle.Heading, "Social activity"));
+        var notes = snapshot.Inhabitants.SelectMany(person => person.SocialNotes.Take(2).Select(note => $"{person.DisplayName}: {note}")).ToArray();
+        if (notes.Length == 0) lines.Add(new(TownStyle.Note, "Nothing to report yet."));
+        lines.AddRange(notes.Select(note => new TownLine(TownStyle.Body, note)));
+        WriteTownPanel(lines);
+        if (authoring is null)
+        {
+            worldDetails.TooltipText = string.Empty;
+            return;
+        }
         worldDetails.TooltipText =
             $"tick {snapshot.WorldTick} · revision {authoring.Revision} · epoch {authoring.RunEpoch}\n" +
             $"state: {(authoring.IsPaused ? "PAUSED — authoring allowed" : "RUNNING — authoring disabled")}\n" +
@@ -5056,30 +5104,51 @@ public partial class Main : Control
             .OrderByDescending(worldEvent => worldEvent.EventId)
             .Take(30)
             .Select(worldEvent => (worldEvent.EventId, Located: worldEvent.Position is not null,
-                Text: $"{DisplayWorldClock(worldEvent.WorldTick)}\n{DescribeWorldEvent(worldEvent, snapshot)}"))
+                Clock: DisplayWorldClock(worldEvent.WorldTick), Text: DescribeWorldEvent(worldEvent, snapshot)))
             .ToArray();
         // Rebuilding identical rows every refresh would reset the reader's
         // scroll position, so only a changed list is redrawn.
-        var content = string.Join("\n", entries.Select(entry => $"{entry.EventId}|{entry.Located}|{entry.Text}"));
+        var content = string.Join("\n", entries.Select(entry => $"{entry.EventId}|{entry.Located}|{entry.Clock}|{entry.Text}"));
         if (renderedEventLog == content) return;
         renderedEventLog = content;
         eventLog.Clear();
         if (entries.Length == 0)
         {
-            eventLog.AppendText("Nothing notable has happened yet.");
+            eventLog.PushColor(DimText);
+            eventLog.AddText("Nothing notable has happened yet.");
+            eventLog.Pop();
             return;
         }
 
+        // Newest first, grouped under each day so a time is enough per row.
+        string? day = null;
         foreach (var entry in entries)
         {
+            var (date, time) = SplitClock(entry.Clock);
+            if (date != day)
+            {
+                if (day is not null) eventLog.Newline();
+                eventLog.PushFontSize(13);
+                eventLog.PushColor(HeadingText);
+                eventLog.AddText(date);
+                eventLog.Pop();
+                eventLog.Pop();
+                eventLog.Newline();
+                day = date;
+            }
+            eventLog.PushColor(DimText);
+            eventLog.AddText(time + "  ");
+            eventLog.Pop();
             if (entry.Located)
             {
                 eventLog.PushMeta(entry.EventId.ToString(CultureInfo.InvariantCulture));
+                eventLog.PushColor(LinkText);
                 eventLog.AddText(entry.Text + " ↗");
+                eventLog.Pop();
                 eventLog.Pop();
             }
             else eventLog.AddText(entry.Text);
-            eventLog.AddText("\n\n");
+            eventLog.Newline();
         }
     }
 
@@ -5301,7 +5370,7 @@ public partial class Main : Control
         climateLabel.Visible = Size.X >= 1100;
         var uiScale = DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent);
         float panelWidth(int width) => Math.Min(width * uiScale, Math.Max(1, viewport.X - 28));
-        rosterPanel.CustomMinimumSize = new Vector2(panelWidth(330), 0);
+        rosterPanel.CustomMinimumSize = new Vector2(panelWidth(410), 0);
         eventsPanel.CustomMinimumSize = new Vector2(panelWidth(390), 360);
         settlementPanel.CustomMinimumSize = new Vector2(panelWidth(420), 380);
         worldInfoPanel.CustomMinimumSize = new Vector2(panelWidth(365), 280);
@@ -5789,6 +5858,19 @@ public partial class Main : Control
         return true;
     }
 
+    /// <summary>
+    /// Shows the whole agent profile when it fits; on a short view the
+    /// profile scrolls inside the card so Speak and Send stay reachable.
+    /// </summary>
+    private void FitSelectedCardHeight()
+    {
+        var profileHeight = selectedAgentOverview.GetCombinedMinimumSize().Y;
+        selectedAgentOverviewScroll.CustomMinimumSize = new Vector2(0, profileHeight);
+        var excess = selectedInhabitantCard.GetCombinedMinimumSize().Y - (mapCanvas.Size.Y - 24);
+        if (excess > 0)
+            selectedAgentOverviewScroll.CustomMinimumSize = new Vector2(0, Math.Max(120, profileHeight - excess));
+    }
+
     private void PositionSelectedInhabitantCard(OwnerWorldSnapshot snapshot)
     {
         if (!selectedInhabitantCard.Visible || mapCanvas.Size.X <= 0 || mapCanvas.Size.Y <= 0)
@@ -5806,6 +5888,7 @@ public partial class Main : Control
         var cardWidth = Math.Min(370 * DisplayUiScalePolicy.ScaleFactor(displayPreferences.UiScalePercent),
             Math.Max(300, mapCanvas.Size.X - 24));
         selectedInhabitantCard.CustomMinimumSize = new Vector2(cardWidth, 0);
+        FitSelectedCardHeight();
         var cardSize = selectedInhabitantCard.GetCombinedMinimumSize();
         selectedInhabitantCard.Size = cardSize;
         if (string.Equals(inhabitant.Lifecycle, "dead", StringComparison.OrdinalIgnoreCase))
@@ -5825,6 +5908,18 @@ public partial class Main : Control
         }
 
         y = Math.Clamp(y, 12, Math.Max(12, mapCanvas.Size.Y - cardSize.Y - 12));
+        // A tall card on a short screen cannot fit above or below the agent,
+        // so it moves beside them rather than covering the person it describes.
+        var actorRect = new Rect2(actorCenter - new Vector2(currentTileSize, currentTileSize) / 2,
+            new Vector2(currentTileSize, currentTileSize));
+        if (new Rect2(x, y, cardSize).Intersects(actorRect))
+        {
+            var right = actorRect.End.X + 12;
+            var left = actorRect.Position.X - cardWidth - 12;
+            if (right + cardWidth <= mapCanvas.Size.X - 12) x = right;
+            else if (left >= 12) x = left;
+            y = Math.Clamp(actorCenter.Y - cardSize.Y / 2, 12, Math.Max(12, mapCanvas.Size.Y - cardSize.Y - 12));
+        }
         selectedInhabitantCard.Position = new Vector2(x, y);
     }
 
@@ -5838,7 +5933,11 @@ public partial class Main : Control
 
     private static void AddPanelContents(PanelContainer panel, Control content) => AddPanelContents(panel, string.Empty, content);
 
-    private static void AddPanelContents(PanelContainer panel, string title, Control content)
+    /// <summary>A titled world panel whose heading carries a × that hides it, like Escape does.</summary>
+    private static void AddClosablePanelContents(PanelContainer panel, string title, Control content) =>
+        AddPanelContents(panel, title, content, closable: true);
+
+    private static void AddPanelContents(PanelContainer panel, string title, Control content, bool closable = false)
     {
         panel.AddThemeStyleboxOverride("panel", PanelStyle());
         var margin = new MarginContainer();
@@ -5848,7 +5947,29 @@ public partial class Main : Control
         margin.AddThemeConstantOverride("margin_bottom", 10);
         var body = new VBoxContainer();
         body.AddThemeConstantOverride("separation", 7);
-        if (!string.IsNullOrWhiteSpace(title))
+        if (!string.IsNullOrWhiteSpace(title) && closable)
+        {
+            var headingRow = new HBoxContainer();
+            var heading = new Label { Text = title, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            heading.AddThemeFontSizeOverride("font_size", 17);
+            heading.AddThemeColorOverride("font_color", new Color("F4F0E3"));
+            headingRow.AddChild(heading);
+            var close = new Button
+            {
+                Text = "×",
+                TooltipText = $"Close {title}",
+                CustomMinimumSize = new Vector2(34, 0),
+            };
+            StyleButton(close);
+            close.Pressed += () =>
+            {
+                close.ReleaseFocus();
+                panel.Hide();
+            };
+            headingRow.AddChild(close);
+            body.AddChild(headingRow);
+        }
+        else if (!string.IsNullOrWhiteSpace(title))
         {
             var heading = new Label { Text = title };
             heading.AddThemeFontSizeOverride("font_size", 15);

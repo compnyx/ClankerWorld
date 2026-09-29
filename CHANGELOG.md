@@ -229,6 +229,14 @@ release yet.
 
 ### Changed
 
+- The Town panel and Event Log are easier to scan. The Town panel puts
+  shared stores, projects, the household council and social activity under
+  headings, and says "No one is working on a project right now" instead of
+  leaving an empty gap. The Event Log groups entries under each day with a
+  dimmed time per row, and located events are highlighted as links. The
+  Agents, Town, Event Log, World Info, Filters and World Map panels now have
+  a close button, and the panels are titled Agents and Event Log to match the
+  top bar.
 - The Agents list now shows what each living agent is doing and flags anyone
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
@@ -256,6 +264,10 @@ release yet.
 
 ### Fixed
 
+- The selected-agent card no longer covers the agent it describes: when it
+  cannot fit above or below them, it opens beside them. On short screens its
+  profile scrolls inside the card, so Speak and Send are no longer cut off
+  below the bottom edge. Rows in the Agents list are no longer clipped.
 - A world where an agent ate orchard fruit now saves and reloads normally;
   that meal source was previously rejected by save validation.
 - The Town panel no longer goes blank while the world is paused, and
