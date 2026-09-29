@@ -149,7 +149,7 @@ public partial class Main : Control
     private readonly Button menuResumeButton = new();
     private readonly Button quitGameButton = new();
     private readonly ConfirmationDialog quitGameConfirmation = new();
-    private readonly CheckBox fullscreenToggle = new();
+    private readonly CheckButton fullscreenToggle = new();
     private readonly OptionButton windowSizeChoice = new();
     private readonly OptionButton renderResolutionChoice = new();
     private readonly OptionButton uiScaleChoice = new();
@@ -413,8 +413,8 @@ public partial class Main : Control
                     throw new InvalidOperationException($"Save/load panel escaped its centered bounds at {size}.");
                 manualSaveOverlay.Hide();
                 worldMenuHeading.Text = "New World";
-                worldMenuStatus.Text = "Pick a seed and size. After creating the world, choose where your Town goes and add four founders, then start time.";
-                worldPreviewStatus.Text = "Map preview · you will choose where your Town goes after creating the world.";
+                worldMenuStatus.Text = "Pick a seed and size. After creating the world, choose where your first Town goes and add four founders, then start time.";
+                worldPreviewStatus.Text = "Map preview · you will choose where your first Town goes after creating the world.";
                 worldPreview.Show();
                 worldMenuOverlay.Show();
                 if (!worldNameInput.GetParent().GetChildren().OfType<Label>().Any(label => label.Text == "Name") ||
@@ -1942,7 +1942,7 @@ public partial class Main : Control
             if (!quitGameConfirmation.Visible)
                 throw new InvalidOperationException("Quit Game must ask for confirmation before exiting.");
             quitGameConfirmation.Hide();
-            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, settlement panel, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain and regional weather, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, keyboard shortcuts and the F1 controls list, private thoughts, memories, deceased inspection and family tree.");
+            GD.Print("UI checks passed: startup Main Menu and settings, compact in-world pause menu and read-only Mod Library, confirmed quit, World Info Towns page, resource hover, square tile hover and agent priority, bounded marker hitboxes at zoom, building footprints, camera-bounded large terrain and regional weather, zoom, middle-drag, WASD, overview navigation, Event Log jumps without pop-ups, keyboard shortcuts and the F1 controls list, private thoughts, memories, deceased inspection and family tree.");
             GetTree().Quit();
         }
         catch (Exception exception)
@@ -3629,6 +3629,7 @@ public partial class Main : Control
             ApplyResponsiveLayout();
         };
 
+        menuActions.AddChild(menuQuitSeparator);
         menuQuitToMainButton.Text = "Quit to Menu";
         StyleButton(menuQuitToMainButton);
         menuQuitToMainButton.Pressed += () => quitToMenuConfirmation.PopupCentered(new Vector2I(470, 180));
@@ -3642,10 +3643,29 @@ public partial class Main : Control
 
         gameSettingsContent.AddThemeConstantOverride("separation", 8);
         worldSettingsContent.AddThemeConstantOverride("separation", 8);
-        fullscreenToggle.Text = "Fullscreen";
+        gameSettingsContent.AddChild(SettingsSection("Interface"));
+        themeChoice.AddItem("Light", (int)UiThemeChoice.Light);
+        themeChoice.AddItem("Dark", (int)UiThemeChoice.Dark);
+        themeChoice.AddItem("Match system", (int)UiThemeChoice.System);
+        themeChoice.Selected = (int)UiTheme.Parse(displayPreferences.Theme);
+        themeChoice.TooltipText = "Light parchment or dark wood panels. Match system follows your computer's setting.";
+        themeChoice.ItemSelected += SetUiTheme;
+        gameSettingsContent.AddChild(DisplaySettingRow("Theme", themeChoice));
+
+        foreach (var percentage in DisplayUiScalePolicy.SupportedPercentages)
+            uiScaleChoice.AddItem($"{percentage}%");
+        uiScaleChoice.Selected = DisplayUiScalePolicy.IndexOfPercent(displayPreferences.UiScalePercent);
+        uiScaleChoice.TooltipText = "Makes menus and text bigger or smaller.";
+        uiScaleChoice.ItemSelected += SetUiScale;
+        gameSettingsContent.AddChild(DisplaySettingRow("UI Scale", uiScaleChoice));
+
+        gameSettingsContent.AddChild(SettingsSection("Display"));
+        fullscreenToggle.Text = string.Empty;
+        fullscreenToggle.TooltipText = "Fill the whole screen.";
         fullscreenToggle.ButtonPressed = DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen;
         fullscreenToggle.Toggled += SetFullscreen;
-        gameSettingsContent.AddChild(fullscreenToggle);
+        fullscreenToggle.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+        gameSettingsContent.AddChild(DisplaySettingRow("Fullscreen", fullscreenToggle));
 
         foreach (var preset in DisplaySizePresets)
         {
@@ -3662,21 +3682,8 @@ public partial class Main : Control
         renderResolutionChoice.ItemSelected += SetRenderResolution;
         gameSettingsContent.AddChild(DisplaySettingRow("Render Resolution", renderResolutionChoice));
 
-        themeChoice.AddItem("Light", (int)UiThemeChoice.Light);
-        themeChoice.AddItem("Dark", (int)UiThemeChoice.Dark);
-        themeChoice.AddItem("Match system", (int)UiThemeChoice.System);
-        themeChoice.Selected = (int)UiTheme.Parse(displayPreferences.Theme);
-        themeChoice.TooltipText = "Light parchment or dark wood panels. Match system follows your computer's setting.";
-        themeChoice.ItemSelected += SetUiTheme;
-        gameSettingsContent.AddChild(DisplaySettingRow("Theme", themeChoice));
 
-        foreach (var percentage in DisplayUiScalePolicy.SupportedPercentages)
-            uiScaleChoice.AddItem($"{percentage}%");
-        uiScaleChoice.Selected = DisplayUiScalePolicy.IndexOfPercent(displayPreferences.UiScalePercent);
-        uiScaleChoice.TooltipText = "Makes menus and text bigger or smaller.";
-        uiScaleChoice.ItemSelected += SetUiScale;
-        gameSettingsContent.AddChild(DisplaySettingRow("UI Scale", uiScaleChoice));
-
+        gameSettingsContent.AddChild(SettingsSection("Date and time"));
         clockFormatChoice.AddItem("24-hour", 0);
         clockFormatChoice.AddItem("12-hour (AM/PM)", 1);
         clockFormatChoice.Selected = displayPreferences.UseTwelveHourClock ? 1 : 0;
@@ -4314,13 +4321,21 @@ public partial class Main : Control
 
     // Every labelled settings row shares one caption column so the choices
     // line up; ApplyResponsiveLayout widens it with the caption text.
-    private HBoxContainer DisplaySettingRow(string label, OptionButton choice)
+    /// <summary>A small heading that groups related settings.</summary>
+    private static Label SettingsSection(string text)
+    {
+        var heading = new Label { Text = text.ToUpperInvariant(), ThemeTypeVariation = "SectionLabel" };
+        heading.AddThemeFontSizeOverride("font_size", 12);
+        return heading;
+    }
+
+    private HBoxContainer DisplaySettingRow(string label, Control choice)
     {
         var row = new HBoxContainer();
         var caption = new Label { Text = label, CustomMinimumSize = new Vector2(SettingCaptionWidth, 0) };
         settingCaptionLabels.Add(caption);
         row.AddChild(caption);
-        choice.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        if (choice is not CheckButton) choice.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         row.AddChild(choice);
         return row;
     }

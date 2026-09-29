@@ -278,6 +278,11 @@ release yet.
   hungry, lists the deceased under their own heading, and fits its height to
   the people in it. Choosing someone moves the map to them, and the agent
   card's new Find button does the same.
+- The menus match the new look. Main Menu, Pause Menu and New World buttons
+  carry pixel icons, Quit to Menu sits apart at the bottom of the Pause Menu,
+  and Game Settings groups its choices under Interface, Display, and Date and
+  time, with Fullscreen as an on/off switch. New World now speaks of choosing
+  your first Town's site.
 - New World fits on one screen at 1280×720: the options sit in a captioned
   column beside a map preview about twice as large as before, with Back and
   Create World always in view. The preview keeps its place while it updates,
