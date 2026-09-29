@@ -2,7 +2,7 @@
 title: Build and Test the Current Prototype
 type: development-reference
 status: active
-updated: 2026-09-26
+updated: 2026-09-29
 ---
 
 # Build and Test the Current Prototype
@@ -92,3 +92,11 @@ SHA-256 manifest. It proves export reproducibility on the build host; it does
 not substitute for running the bundle on Windows 11. GitHub Actions is
 configured to run these checks and upload the Windows bundle as an artifact for
 pushes and pull requests using the pinned .NET 10 SDK/runtime host.
+
+## Windows documentation checks
+
+The `windows-documentation` CI job restores the locked test dependencies using
+`global.json` and runs the documentation checks on Windows. Front-matter checks
+exercise both LF and CRLF text, so a valid Windows checkout does not fail merely
+because Git converted line endings. This focused job is not a Windows Godot
+playtest or a claim that the complete runtime suite runs on Windows.

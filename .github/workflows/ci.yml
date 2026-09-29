@@ -35,3 +35,15 @@ jobs:
           name: clankerworld-windows-11-x64
           path: export/windows-x64
           if-no-files-found: error
+
+  windows-documentation:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Restore locked test dependencies
+        run: dotnet restore tests/ClankerWorld.Simulation.Tests/ClankerWorld.Simulation.Tests.csproj --locked-mode
+      - name: Verify documentation with LF and CRLF checkout text
+        run: dotnet test tests/ClankerWorld.Simulation.Tests/ClankerWorld.Simulation.Tests.csproj --configuration Release --no-restore --filter FullyQualifiedName~DocumentationTests
