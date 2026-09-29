@@ -682,9 +682,12 @@ public partial class Main : Control
                 panel.Show();
                 var close = panel.FindChildren("*", nameof(Button), recursive: true, owned: false)
                     .OfType<Button>().FirstOrDefault(button => button.Text == "×");
-                close?.EmitSignal(BaseButton.SignalName.Pressed);
-                if (close is null || panel.Visible)
-                    throw new InvalidOperationException($"{panel.Name} must have a close button in its heading.");
+                if (close is null || close.FocusMode == Control.FocusModeEnum.None)
+                    throw new InvalidOperationException($"{panel.Name} must have a keyboard-reachable close button in its heading.");
+                close.GrabFocus();
+                close.EmitSignal(BaseButton.SignalName.Pressed);
+                if (panel.Visible || close.HasFocus())
+                    throw new InvalidOperationException($"{panel.Name} must close and release focus when its close button is pressed.");
             }
             SetStatus("Action result check", good: true);
             ExpireStatusToast(refreshSucceeded: true);
@@ -5955,11 +5958,14 @@ public partial class Main : Control
             {
                 Text = "×",
                 TooltipText = $"Close {title}",
-                FocusMode = Control.FocusModeEnum.None,
                 CustomMinimumSize = new Vector2(34, 0),
             };
             StyleButton(close);
-            close.Pressed += panel.Hide;
+            close.Pressed += () =>
+            {
+                close.ReleaseFocus();
+                panel.Hide();
+            };
             headingRow.AddChild(close);
             body.AddChild(headingRow);
         }
