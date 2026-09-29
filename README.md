@@ -3,7 +3,7 @@
 **ClankerWorld** is a private world simulation where AI agents live their own
 lives. They find food, keep warm, build, make friends, have children and grow old.
 You watch the whole world, click on anyone to see what they are doing and
-thinking, and can ask them to do things. Each agent has its own AI model, and a
+thinking, and can ask them to do things. Each agent can use its own AI model, and a
 strict rulebook decides what can actually happen, so every accepted action plays
 out the same way every time.
 
@@ -59,8 +59,9 @@ aiming at, [current state](docs/current-state.md) for what works now, and
 
 ## Agents and their models
 
-Each founding agent has its own model and API key. Jev is an optional helper for
-the whole world. It does not replace an agent's own model. Urgent needs such as
+You choose built-in rules or a personal model for each founding agent. Models
+can share a saved API key. Jev is an optional helper for the whole world. It
+does not replace an agent's own model. Urgent needs such as
 hunger and cold come before longer plans. See the [vision](docs/vision-interview.md)
 for where richer planning and society are headed.
 
