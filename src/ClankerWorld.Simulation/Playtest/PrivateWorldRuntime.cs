@@ -1480,6 +1480,29 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         }
     }
 
+    public bool MoveFounder(string founderId, GridPoint position)
+    {
+        gate.Wait();
+        try
+        {
+            if (founderSetup is not { Started: false } setup || !society.Checkpoint.IsPaused ||
+                WorldTick != 0)
+                throw new InvalidOperationException("Founders can only be moved during initial paused setup.");
+            if (string.IsNullOrWhiteSpace(founderId) || !setup.FounderIds.Contains(founderId, StringComparer.Ordinal) ||
+                !inhabitants.TryGetValue(founderId, out var founder))
+                throw new ArgumentException("Choose a placed founder to move.", nameof(founderId));
+            if (!map.IsBuildable(position) || map.CampObjects.Any(item => item.Position == position) ||
+                map.Resources.Any(item => item.Position == position) ||
+                inhabitants.Values.Any(person => person.InhabitantId != founderId && person.Position == position))
+                throw new ArgumentException("Choose an empty passable tile for this founder.", nameof(position));
+            if (founder.Position == position) return false;
+            inhabitants[founderId] = founder with { Position = position };
+            AppendEvent("founder_moved", $"{founderId}:{founder.Position.X},{founder.Position.Y}->{position.X},{position.Y}");
+            return true;
+        }
+        finally { gate.Release(); }
+    }
+
     public void ValidateFounderPlacement(string founderId, GridPoint position)
     {
         gate.Wait();

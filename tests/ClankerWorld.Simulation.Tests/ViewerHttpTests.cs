@@ -43,6 +43,7 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
 
             var positions = new[] { new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2) };
             var slotId = Guid.NewGuid().ToString("N");
+            OwnerFounderMoveAction? firstFounderMove = null;
             for (var index = 0; index < positions.Length; index++)
             {
                 var id = "founder:" + Guid.NewGuid().ToString("N");
@@ -67,6 +68,31 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
                 Assert.Equal(HttpStatusCode.OK, placed.StatusCode);
                 var receipt = await placed.Content.ReadFromJsonAsync<OwnerFounderPlacementReceipt>();
                 Assert.Equal(index + 1, receipt!.Placed);
+                if (index == 0)
+                {
+                    var map = runtime.ExportState().Map;
+                    var destination = map.Tiles.Select(tile => tile.Position).First(point =>
+                        map.IsBuildable(point) && !positions.Contains(point) &&
+                        !map.CampObjects.Any(item => item.Position == point) &&
+                        !map.Resources.Any(item => item.Position == point));
+                    firstFounderMove = new OwnerFounderMoveAction(id, destination.X, destination.Y);
+                    const string movePath = "/api/v1/owner/founders/move";
+                    var signedMove = await CreateSignedRequestAsync(host, client, key, device.DeviceId,
+                        movePath, firstFounderMove, OwnerHttpBinding.FounderMovePayload(firstFounderMove));
+                    using var tamperedMove = await client.PostAsJsonAsync(movePath, signedMove with
+                    {
+                        Action = firstFounderMove with { X = destination.X + 1 },
+                    });
+                    Assert.False(tamperedMove.IsSuccessStatusCode);
+                    Assert.Equal(positions[0], runtime.Inhabitants.Single(person => person.InhabitantId == id).Position);
+                    using var moved = await SendSignedAsync(host, client, key, device.DeviceId,
+                        movePath, firstFounderMove, OwnerHttpBinding.FounderMovePayload(firstFounderMove));
+                    Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+                    Assert.True((await moved.Content.ReadFromJsonAsync<OwnerFounderMoveReceipt>())!.Changed);
+                    Assert.Equal(destination, runtime.Inhabitants.Single(person => person.InhabitantId == id).Position);
+                    Assert.Contains(placementLog.Messages, message => message.Contains(
+                        "founder_setup outcome=moved world_tick=0", StringComparison.Ordinal));
+                }
             }
 
             Assert.True(runtime.Society.IsPaused);
@@ -77,6 +103,10 @@ public sealed partial class ViewerHttpTests(ViewerWebApplicationFactory factory)
             Assert.Equal(HttpStatusCode.OK, started.StatusCode);
             Assert.False(runtime.Society.IsPaused);
             Assert.True(runtime.FounderSetup!.Started);
+            using var lateMove = await SendSignedAsync(host, client, key, device.DeviceId,
+                "/api/v1/owner/founders/move", firstFounderMove!,
+                OwnerHttpBinding.FounderMovePayload(firstFounderMove!));
+            Assert.Equal(HttpStatusCode.Conflict, lateMove.StatusCode);
             var agentId = "agent:" + Guid.NewGuid().ToString("N");
             var adult = new OwnerAgentPlacementAction(agentId, 4, 2,
                 new OwnerProviderConfigurationAction("personal", "openai", "gpt-5-mini", null,

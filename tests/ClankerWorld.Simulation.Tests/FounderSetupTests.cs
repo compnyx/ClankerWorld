@@ -9,6 +9,36 @@ namespace ClankerWorld.Simulation.Tests;
 public sealed class FounderSetupTests
 {
     [Fact]
+    public void FounderCanMoveBeforeTimeStartsWithoutChangingIdentityOrMembership()
+    {
+        using var world = new PrivateWorldRuntime("founder-move", startPace: WorldStartPace.FounderSetup);
+        var positions = new[] { new GridPoint(0, 0), new GridPoint(1, 2), new GridPoint(2, 2), new GridPoint(3, 2) };
+        var ids = positions.Select(_ => "founder:" + Guid.NewGuid().ToString("N")).ToArray();
+        for (var index = 0; index < positions.Length; index++)
+            world.PlaceFounder(ids[index], positions[index]);
+        var map = world.ExportState().Map;
+        var destination = map.Tiles.Select(tile => tile.Position).First(point =>
+            map.IsBuildable(point) &&
+            !map.CampObjects.Any(item => item.Position == point) &&
+            !map.Resources.Any(item => item.Position == point) &&
+            !positions.Contains(point));
+
+        Assert.Throws<ArgumentException>(() => world.MoveFounder(ids[0], positions[1]));
+        Assert.True(world.MoveFounder(ids[0], destination));
+        Assert.False(world.MoveFounder(ids[0], destination));
+        Assert.Equal("household:camp-alpha", world.Society.GetInhabitant(ids[0]).HouseholdId);
+        Assert.Contains(ids[0], world.Towns.Single().ResidentIds);
+        Assert.Equal(destination, world.Inhabitants.Single(item => item.InhabitantId == ids[0]).Position);
+
+        using var restored = PrivateWorldRuntime.Restore(
+            PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState())));
+        Assert.Equal(destination, restored.Inhabitants.Single(item => item.InhabitantId == ids[0]).Position);
+        Assert.Equal(ids, restored.FounderSetup!.FounderIds);
+        restored.StartWorld();
+        Assert.Throws<InvalidOperationException>(() => restored.MoveFounder(ids[0], positions[0]));
+    }
+
+    [Fact]
     public async Task TownAdultWithoutHouseholdCannotSpendFoundingStockAndOwnsPersonalProduction()
     {
         using var seed = new PrivateWorldRuntime("town-adult-personal-stock", startPace: WorldStartPace.FounderSetup);

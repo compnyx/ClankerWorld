@@ -400,6 +400,8 @@ public sealed record OwnerFounderPlacementAction(
     string FounderId, int X, int Y, OwnerProviderConfigurationAction Cognition);
 
 public sealed record OwnerFounderPlacementReceipt(string FounderId, string HouseholdId, int Placed, int Required);
+public sealed record OwnerFounderMoveAction(string FounderId, int X, int Y);
+public sealed record OwnerFounderMoveReceipt(string FounderId, int X, int Y, bool Changed);
 public sealed record OwnerFirstTownLayoutAction(int X, int Y);
 public sealed record OwnerFirstTownLayoutReceipt(int X, int Y, int Buildings, int RoadTiles);
 
@@ -804,6 +806,12 @@ public static class OwnerWorldActionPayload
         $"x={action.X.ToString(CultureInfo.InvariantCulture)}",
         $"y={action.Y.ToString(CultureInfo.InvariantCulture)}");
 
+    public static string FounderMove(OwnerFounderMoveAction action) => string.Join('\n',
+        "clankerworld.owner-founder-move.v1",
+        $"founder={EncodeRequired(action.FounderId, nameof(action.FounderId))}",
+        $"x={action.X.ToString(CultureInfo.InvariantCulture)}",
+        $"y={action.Y.ToString(CultureInfo.InvariantCulture)}");
+
     public static string AgentPlacement(OwnerAgentPlacementAction action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -1199,6 +1207,15 @@ public sealed class OwnerWorldApi
         pairing.SendSignedActionAsync<OwnerFirstTownLayoutAction, OwnerFirstTownLayoutReceipt>(
             serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerFirstTownLayout,
             OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.FirstTownLayout(action),
+            action, deviceKey, cancellationToken);
+
+    public Task<OwnerFounderMoveReceipt> MoveFounderAsync(
+        Uri serverUri, OwnerAuthorityIdentity authority, string deviceId,
+        OwnerFounderMoveAction action, IOwnerDeviceSigner deviceKey,
+        CancellationToken cancellationToken) =>
+        pairing.SendSignedActionAsync<OwnerFounderMoveAction, OwnerFounderMoveReceipt>(
+            serverUri, authority, deviceId, OwnerPairingEndpoints.OwnerFounderMove,
+            OwnerPairingProtocol.CreateRequestId(), OwnerWorldActionPayload.FounderMove(action),
             action, deviceKey, cancellationToken);
 
     public Task<OwnerAgentPlacementReceipt> PlaceAgentAsync(

@@ -2590,6 +2590,13 @@ public partial class Main : Control
         townSiteButton.Hide();
         topBar.AddChild(townSiteButton);
 
+        moveFounderButton.Text = "Move founder";
+        moveFounderButton.TooltipText = "Select a placed founder on the map or in Inhabitants, then choose a new tile before Start World.";
+        StyleButton(moveFounderButton);
+        moveFounderButton.Pressed += ToggleMoveFounder;
+        moveFounderButton.Hide();
+        topBar.AddChild(moveFounderButton);
+
         founderSetupButton.Text = "Add founders";
         StyleButton(founderSetupButton);
         founderSetupButton.Pressed += () => _ = ToggleFounderSetupAsync();
@@ -4608,6 +4615,9 @@ public partial class Main : Control
         pauseButton.Visible = snapshot?.FounderSetup is not { Started: false };
         founderSetupButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { Started: false };
         townSiteButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { CanChooseTownSite: true };
+        moveFounderButton.Disabled = actionDisabled || movingFounderId is null &&
+            (snapshot?.FounderSetup is not { Started: false, Placed: > 0 } ||
+             selected is null || !selected.Id.StartsWith("founder:", StringComparison.Ordinal));
         if (snapshot?.FounderSetup is { CanChooseTownSite: true, HasAcceptedTownSite: false })
             founderSetupButton.Disabled = true;
         addAgentButton.Disabled = actionDisabled || snapshot?.FounderSetup is not { Started: true };
@@ -4851,7 +4861,13 @@ public partial class Main : Control
 
         if (@event is InputEventMouseButton mouse)
         {
-            if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && choosingFirstTownSite &&
+            if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && movingFounderId is not null &&
+                snapshot.FounderSetup is { Started: false })
+            {
+                _ = MoveFounderAtAsync(TileAtCanvas(mouse.Position, snapshot));
+                mapCanvas.AcceptEvent();
+            }
+            else if (mouse.Pressed && mouse.ButtonIndex == MouseButton.Left && choosingFirstTownSite &&
                 snapshot.FounderSetup is { CanChooseTownSite: true })
             {
                 _ = AcceptFirstTownSiteAtAsync(TileAtCanvas(mouse.Position, snapshot));

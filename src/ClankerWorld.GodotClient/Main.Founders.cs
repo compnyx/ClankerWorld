@@ -7,6 +7,7 @@ public partial class Main
 {
     private readonly Button founderSetupButton = new();
     private readonly Button townSiteButton = new();
+    private readonly Button moveFounderButton = new();
     private readonly Button addAgentButton = new();
     private readonly Button startWorldButton = new();
     private readonly PanelContainer founderSetupPanel = new();
@@ -18,6 +19,53 @@ public partial class Main
     private readonly LineEdit founderApiKeyInput = new();
     private bool placingAddedAgent;
     private bool choosingFirstTownSite;
+    private string? movingFounderId;
+
+    private void ToggleMoveFounder()
+    {
+        if (movingFounderId is not null)
+        {
+            movingFounderId = null;
+            moveFounderButton.Text = "Move founder";
+            SetStatus("Founder move cancelled", good: true);
+            return;
+        }
+        if (observationSession.Current?.Baseline.Snapshot is not
+            { FounderSetup: { Started: false, Placed: > 0 } } snapshot ||
+            selectedInhabitantId is not { } founderId ||
+            !founderId.StartsWith("founder:", StringComparison.Ordinal) ||
+            !snapshot.Inhabitants.Any(person => person.Id == founderId && person.Lifecycle == "active"))
+            return;
+        movingFounderId = founderId;
+        moveFounderButton.Text = "Cancel move";
+        founderApiKeyInput.Text = string.Empty;
+        founderSetupPanel.Hide();
+        SetStatus("Click an empty passable tile to move the selected founder before Start World.", good: true);
+    }
+
+    private async Task MoveFounderAtAsync(Vector2I tile)
+    {
+        if (movingFounderId is not { } founderId || isOwnerAction ||
+            observationSession.Current?.Baseline.Snapshot is not { FounderSetup: { Started: false } } snapshot ||
+            !MapContains(snapshot, tile.X, tile.Y) ||
+            snapshot.Inhabitants.Any(person => person.Id != founderId &&
+                person.Position.X == tile.X && person.Position.Y == tile.Y) ||
+            snapshot.Objects.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y) ||
+            snapshot.Resources.Any(item => item.Position.X == tile.X && item.Position.Y == tile.Y))
+        {
+            SetStatus("Choose an empty passable tile for this founder", good: false);
+            return;
+        }
+        if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        await RunOwnerActionAsync(async () =>
+        {
+            var result = await ownerApi.MoveFounderAsync(ResolveWorldUri(), authority, deviceId,
+                new OwnerFounderMoveAction(founderId, tile.X, tile.Y), signer, CancellationToken.None);
+            movingFounderId = null;
+            moveFounderButton.Text = "Move founder";
+            return result.Changed ? $"Founder moved to {result.X}, {result.Y}" : "Founder already at that tile";
+        });
+    }
 
     private void ToggleFirstTownSite()
     {
@@ -134,6 +182,8 @@ public partial class Main
     private async Task ToggleFounderSetupAsync()
     {
         choosingFirstTownSite = false;
+        movingFounderId = null;
+        moveFounderButton.Text = "Move founder";
         placingAddedAgent = false;
         if (founderSetupPanel.Visible)
         {
@@ -300,20 +350,28 @@ public partial class Main
         var setup = snapshot.FounderSetup;
         townSiteButton.Visible = setup is { CanChooseTownSite: true };
         townSiteButton.Text = setup?.HasAcceptedTownSite == true ? "Redo Town site" : "Choose Town site";
+        moveFounderButton.Visible = setup is { Started: false, Placed: > 0 };
+        moveFounderButton.Text = movingFounderId is null ? "Move founder" : "Cancel move";
         founderSetupButton.Visible = setup is { Started: false };
         startWorldButton.Visible = setup is { Started: false };
         addAgentButton.Visible = setup is { Started: true };
         if (setup is not { Started: false })
         {
             choosingFirstTownSite = false;
+            movingFounderId = null;
             if (!placingAddedAgent) founderSetupPanel.Hide();
             return;
         }
         if (!setup.CanChooseTownSite) choosingFirstTownSite = false;
+        if (movingFounderId is not null && !snapshot.Inhabitants.Any(person => person.Id == movingFounderId))
+        {
+            movingFounderId = null;
+            moveFounderButton.Text = "Move founder";
+        }
         founderSetupButton.Text = $"Add founders {setup.Placed}/{setup.Required}";
         founderSetupHint.Text = setup.Placed < setup.Required
-            ? $"Choose this founder’s provider, model, and API key. Then click an empty tile near the first Town. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed."
-            : "All four founders are placed. Close this panel and choose Start World to let time run.";
+            ? $"Choose this founder’s provider, model, and API key. Then click an empty tile near the first Town. The first two join Camp Alpha; the next two join Camp Beta. {setup.Placed}/{setup.Required} placed. Select a placed founder and use Move founder to adjust their tile."
+            : "All four founders are placed. Select one and use Move founder if needed, then choose Start World to let time run.";
     }
 
     private void ResetAddAgentPlacementHint()

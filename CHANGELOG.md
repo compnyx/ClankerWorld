@@ -8,6 +8,11 @@ release yet.
 
 ### Added
 
+- During paused four-founder setup, select an already placed founder and use
+  Move founder to choose another passable tile. The founder keeps their
+  identity, household, Town membership and model assignment; the new position
+  survives reload. Start World closes this edit window. Undoing a placement is
+  still unfinished.
 - The paused-world host can accept or redo a deterministic five-building first
   Town layout before any founders are placed. Its two Houses belong to the two
   starting households, while Farmhouse and Blacksmith claims stay unassigned;

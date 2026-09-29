@@ -938,6 +938,45 @@ app.MapPost("/api/v1/owner/founders/place", (
     }
 });
 
+app.MapPost("/api/v1/owner/founders/move", (
+    OwnerSignedHttpRequest<OwnerFounderMoveAction> request,
+    OwnerRequestAuthorizer authorizer,
+    IServiceProvider services,
+    ILoggerFactory loggerFactory) =>
+{
+    if (request?.Action is not { } action)
+        return Results.BadRequest(new { error = "Choose a placed founder and destination." });
+    string payload;
+    try { payload = OwnerHttpBinding.FounderMovePayload(action); }
+    catch (ArgumentException exception) { return Results.BadRequest(new { error = exception.Message }); }
+    var authorization = authorizer.Authorize(request, "POST", "/api/v1/owner/founders/move", payload);
+    if (!authorization.IsSuccess) return OwnerFailures.ToHttpResult(authorization.Failure);
+    if (!isPrivateWorld) return Results.Conflict(new { error = "Founder setup requires a private world." });
+    lock (founderSetupGate)
+    {
+        var runtime = services.GetRequiredService<PrivateWorldRuntime>();
+        var before = runtime.ExportState();
+        try
+        {
+            var changed = runtime.MoveFounder(action.FounderId, new GridPoint(action.X, action.Y));
+            if (changed)
+            {
+                try { services.GetRequiredService<PrivateWorldStateFile>().Save(runtime); }
+                catch
+                {
+                    runtime.SwitchPausedWorld(before);
+                    throw;
+                }
+                TownTelemetry.FounderMoved(loggerFactory.CreateLogger("ClankerWorld.Town"),
+                    runtime.WorldTick, action.FounderId, action.X, action.Y);
+            }
+            return Results.Ok(new OwnerFounderMoveReceipt(action.FounderId, action.X, action.Y, changed));
+        }
+        catch (ArgumentException exception) { return Results.BadRequest(new { error = exception.Message }); }
+        catch (InvalidOperationException exception) { return Results.Conflict(new { error = exception.Message }); }
+    }
+});
+
 app.MapPost("/api/v1/owner/agents/place", (
     OwnerSignedHttpRequest<OwnerAgentPlacementAction> request,
     OwnerRequestAuthorizer authorizer,
