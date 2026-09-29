@@ -480,3 +480,11 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Durable owner retries (#335)
+
+Pause and rename persist before acknowledging success even when their in-memory
+mutation is a no-op. A failed write remains an error; after storage recovers, a
+signed retry makes the already requested value durable. The filesystem-obstruction
+regression verifies restore after both endpoint retries. No automatic Resume or
+background spending is introduced.

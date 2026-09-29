@@ -8,6 +8,8 @@ release yet.
 
 ### Added
 
+- Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
+
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
