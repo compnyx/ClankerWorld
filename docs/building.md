@@ -100,3 +100,64 @@ The `windows-documentation` CI job restores the locked test dependencies using
 exercise both LF and CRLF text, so a valid Windows checkout does not fail merely
 because Git converted line endings. This focused job is not a Windows Godot
 playtest or a claim that the complete runtime suite runs on Windows.
+
+## Scale, persistence and overview acceptance experiment (#151, #260, #127)
+
+**Unexecuted review protocol, not supported-size or frame-rate evidence.** Do not
+unlock Large/Huge/Mega, change the zoom floor, reduce save durability or prune
+history merely because generation or a compact-map fixture passes.
+
+Use a disposable synthetic world and deterministic seed set, no private playtest
+save or credentials. Record commit, release/schema versions, OS, CPU/RAM, disk
+and filesystem, runtime/Godot versions, graphics backend, window/render size and
+UI scale. Disable hosted providers and report that choice. Run one resource-bound
+job at a time; a resource cap is part of the result, not a hidden variable.
+
+### Sampling matrix
+
+| Axis | Required samples | Report |
+| --- | --- | --- |
+| Size | Current supported Small/Medium controls, then Large/Huge/Mega separately | Dimensions, tiles, actors, structures, resources and history volume |
+| State age | Fresh, established settlement, and long-history synthetic checkpoint | How constructed; never call an empty huge map representative |
+| Persistence | Encode alone, durable state-file save, reload+validate, manual overwrite, autosave | Bytes, p50/p95/max elapsed, allocation/RSS and disk-write bytes |
+| Observation | Full baseline, unchanged refresh, camera movement and terrain delta | Serialized bytes, CPU time, held-client consistency |
+| Simulation | Same population on/off camera, stable and urgent-needs cases | Tick latency/backlog and equal authoritative outcomes |
+| Rendering | Current zoom floor plus wider proposed floors at 720p/1080p, 100%/200% UI | Visible tiles, p50/p95 frame time, marker legibility and selection accuracy |
+
+Perform warmup separately from measured runs; retain each sample and failures,
+not just an average. Compare at least three fixed seeds and repeat the same state
+for persistence trials. Use monotonic timing around the actual operations;
+`fsync` latency must not be relabelled as encoder time. Do not compare Linux
+headless time to Windows interactive frame time as equivalent evidence.
+
+### Invariants before performance claims
+
+- A save/reload preserves semantic state and content locks. Atomic replacement
+  failures leave either the old valid file or the new valid file, never reset it.
+- Pause/quit persist the accepted state; crash recovery loss bounds are explicit.
+  Any proposed deferred-write cadence needs a new crash-loss contract first.
+- Manual overwrite recovery and history segments are counted separately from
+  autosave rotation. Retention is an owner decision under #284, not a benchmark
+  license to delete backups or digest-reachable history.
+- Off-camera actors keep identical scheduling/needs/knowledge semantics.
+  Viewport culling is presentation only. Agent inspection and event jumps must
+  still work at each proposed overview floor.
+- Map labels may simplify at overview zoom, but resources, structures, borders,
+  camera position and hit targets must remain interpretable; record screenshots
+  and concrete missed/ambiguous selections on Windows.
+
+### Result artifact and adoption gate
+
+Attach a machine-readable table with one row per sample:
+`commit,seed,preset,state_age,operation,iteration,elapsed_ms,bytes,peak_rss_bytes,outcome`.
+Keep render frame samples separate from save samples. Provide capture paths,
+raw summary commands and any failure/reproduction notes. The recommendation must
+name the slowest supported configuration and rejected configurations, not just
+the fastest development machine.
+
+Propose supported size/zoom bounds only after the full create/save/load/observe/
+render/simulate path succeeds. If persistence dominates, compare an explicitly
+specified cadence experiment without changing production defaults; if projection
+or rendering dominates, isolate that boundary instead. Owner review selects the
+tradeoff. This protocol contains no benchmark numbers and changes no supported
+world sizes, zoom settings, save cadence or retention behavior.
