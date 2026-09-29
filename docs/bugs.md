@@ -493,3 +493,10 @@ pages retain reproductions and regression requirements.
 - When a fix lands, update the affected canonical current-state document in
   the same change and preserve detailed evidence in tests or the relevant
   implementation ledger.
+
+### Death and barter reservations (#316)
+
+Estate escrow now cancels only open offers using the ordinary barter cancellation
+transition, which releases both parties’ reservations. Completed exchanges keep
+their state, and unrelated surviving reservations remain. The defect was a
+temporary lock until expiry, not demonstrated permanent inventory loss.
