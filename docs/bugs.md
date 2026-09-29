@@ -508,3 +508,9 @@ autosaves. Rotation off retains the existing one-checkpoint behavior for that
 world only. The signed endpoint regression uses two worlds and compares every
 other-world metadata/checkpoint byte for rotation 0, 5 and 10. This does not
 change retention policy or attempt recovery of previously deleted files.
+
+### Simultaneous lesson refusal/cancellation (#355)
+
+Cancellation handles an already-terminal lesson as a no-op. Accept/decline prefixes
+are checked before parsing their target. The regression uses offered choices through
+the real runtime service and verifies advancement, unchanged role and reload.

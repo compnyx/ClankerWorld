@@ -11,6 +11,8 @@ release yet.
 
 ### Added
 
+- Simultaneous lesson refusal and student cancellation safely preserve the terminal lesson instead of halting world advancement.
+
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
 
 - Starting households are named First household and Second household instead of
