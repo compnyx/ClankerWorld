@@ -49,6 +49,7 @@ release yet.
 - Inventory lot splits keep stock committed to reservations and barter in the original lot, so those commitments can still be fulfilled.
 - Resume keeps the world paused until its running checkpoint is saved, and retries cannot report success while saving still fails—even when an earlier request left memory running.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
+- Retrying an accepted instruction still confirms its original receipt after the agent dies or the host restarts. Instruction keys with surrounding spaces no longer fail on an exact retry or skip a sequence number.
 
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
