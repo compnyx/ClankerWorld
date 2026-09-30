@@ -1,7 +1,7 @@
 ---
 title: Regional weather episode experiment
 type: experiment-report
-status: prototype
+status: proposal
 updated: 2026-09-30
 ---
 
