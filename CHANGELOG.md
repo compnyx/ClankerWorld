@@ -7,6 +7,7 @@ release yet.
 ## Unreleased
 
 - New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
+- Load World shows saved-world checks in progress, displays delayed results on the first opening, and ignores replies from closed or superseded lists.
 
 - Remove the redundant Load World tooltip from the Main Menu.
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
@@ -313,6 +314,10 @@ release yet.
   suggested earlier stay in the Mod Library. An adult without a household
   cannot build a House yet, so in a new world clothing and natural cover are
   their only protection from cold.
+- Text now uses pixel fonts that match the art. Body text is Fusion Pixel,
+  and titles, headings, section labels, dialog titles and the Main Menu's
+  choices use Timber, thin capitals based on the logo's letters. Base text
+  sizes use whole multiples of 12 px and are drawn without smoothing.
 - Weather on the map now moves. Rain falls as short drops that land with
   small splash rings, storms darken the sky with heavier slanted rain and a
   soft flash of lightning every several seconds, and snow drifts down. Rain,
@@ -417,6 +422,10 @@ release yet.
 
 - A damaged named-save entry no longer hides other saves or stops autosave
   rotation. Damaged files are preserved, with a safe diagnostic for recovery.
+
+- The Main Menu's Quit Game confirmation now just says the game will close,
+  instead of telling you your progress is saved after you have already left
+  your world.
 
 - Hovering the Town panel no longer pops up a technical tooltip of world
   ticks, revisions, map digests and internal system counts.

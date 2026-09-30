@@ -52,6 +52,7 @@ public partial class Main
     private readonly Button worldCreateButton = new();
     private readonly Button worldSelectButton = new();
     private CatalogWorld[] listedWorlds = [];
+    private readonly WorldListRequest worldListRequest = new();
     private OwnerWorldCreationAction? previewedWorldOptions;
     private bool worldMenuBusy;
     private int worldPreviewRevision;
@@ -126,6 +127,14 @@ public partial class Main
         StyleButton(quitGameButton);
         quitGameButton.Pressed += () => quitGameConfirmation.PopupCentered(new Vector2I(440, 170));
         body.AddChild(quitGameButton);
+
+        // The Main Menu's choices use the Timber heading lettering.
+        foreach (var button in new[] { mainMenuContinueButton, mainMenuNewButton, mainMenuLoadButton,
+            mainMenuSettingsButton, mainMenuConnectButton, quitGameButton })
+        {
+            button.AddThemeFontOverride("font", UiFonts.Headings);
+            button.AddThemeFontSizeOverride("font_size", UiFonts.Heading);
+        }
 
         AddPanelContents(mainMenuCard, body);
         mainMenuCard.CustomMinimumSize = new Vector2(440, 0);
@@ -291,7 +300,7 @@ public partial class Main
         // the actions that act on it. Narrow or scaled-up screens wrap the
         // preview under the options and the card scrolls instead of clipping.
         worldMenuBody.AddThemeConstantOverride("separation", 10);
-        worldMenuHeading.AddThemeFontSizeOverride("font_size", 24);
+        worldMenuHeading.ThemeTypeVariation = "TitleLabel";
         worldMenuBody.AddChild(worldMenuHeading);
         worldMenuStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         worldMenuBody.AddChild(worldMenuStatus);
@@ -390,6 +399,7 @@ public partial class Main
         worldSelectionList.CustomMinimumSize = new Vector2(0, 300);
         worldSelectionList.ItemSelected += index =>
         {
+            if (worldListRequest.IsLoading || index < 0 || index >= listedWorlds.Length) return;
             var world = listedWorlds[(int)index];
             worldSelectButton.Disabled = world.Compatibility == "incompatible";
             worldMenuStatus.Text = world.Compatibility == "incompatible"
@@ -434,7 +444,12 @@ public partial class Main
         worldMenuScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         worldMenuScroll.AddChild(worldMenuBody);
         AddPanelContents(worldMenuCard, worldMenuScroll);
-        worldMenuOverlay.VisibilityChanged += () => Callable.From(LayoutWorldMenu).CallDeferred();
+        worldListRequest.Changed += RenderWorldList;
+        worldMenuOverlay.VisibilityChanged += () =>
+        {
+            if (!worldMenuOverlay.Visible) worldListRequest.Cancel();
+            Callable.From(LayoutWorldMenu).CallDeferred();
+        };
         worldMenuBody.MinimumSizeChanged += () => Callable.From(LayoutWorldMenu).CallDeferred();
         worldMenuOverlay.Hide();
     }
@@ -483,6 +498,7 @@ public partial class Main
     private void OpenWorldMenu(bool create)
     {
         if (registration is null || deviceKey is null || registeredEndpointInvalid) return;
+        worldListRequest.Cancel();
         worldMenuHeading.Text = create ? "New World" : "Load World";
         worldMenuStatus.Text = create
             ? "Choose a seed and size. Then choose your first Town's site and add four founders before starting time."
@@ -505,17 +521,31 @@ public partial class Main
     private async Task RefreshWorldListAsync()
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
-        worldMenuStatus.Text = "Loading worlds…";
-        try
+        var server = ResolveWorldUri();
+        await worldListRequest.RefreshAsync(token => ownerApi.ListWorldsAsync(server, authority,
+            deviceId, signer, token));
+    }
+
+    private void RenderWorldList()
+    {
+        if (!IsInsideTree() || !worldMenuOverlay.Visible || worldMenuColumns.Visible) return;
+        listedWorlds = [];
+        worldSelectionList.Clear();
+        worldSelectButton.Disabled = true;
+        if (worldListRequest.IsLoading)
         {
-            var catalog = await ownerApi.ListWorldsAsync(ResolveWorldUri(), authority,
-                deviceId, signer, CancellationToken.None);
+            worldMenuStatus.Text = "Checking saved worlds… This can take a moment. You can go back while you wait.";
+        }
+        else if (worldListRequest.Failure is { } failure)
+        {
+            worldMenuStatus.Text = "Could not list worlds: " + FriendlyFailure(failure);
+        }
+        else if (worldListRequest.Catalog is { } catalog)
+        {
             listedWorlds = catalog.Worlds.OrderByDescending(world => world.Id == catalog.ActiveId)
                 .ThenByDescending(world => world.UpdatedUtc).ToArray();
-            worldSelectionList.Clear();
             foreach (var world in listedWorlds)
             {
-                // A compatible world needs no label; the others say what that means.
                 var state = world.Compatibility switch
                 {
                     "incompatible" => "  ·  can't open in this version",
@@ -530,10 +560,8 @@ public partial class Main
             }
             worldMenuStatus.Text = listedWorlds.Length == 0 ? "No worlds yet." : "Choose a world. Double-click to open it.";
         }
-        catch (Exception exception)
-        {
-            worldMenuStatus.Text = "Could not list worlds: " + FriendlyFailure(exception);
-        }
+        // ItemList population is asynchronous; size the first opening after its containers update.
+        Callable.From(LayoutWorldMenu).CallDeferred();
     }
 
     private OwnerWorldCreationAction CurrentWorldOptions() => new(
@@ -566,7 +594,7 @@ public partial class Main
         worldCreateButton.Disabled = true;
         worldPreview.Hide();
         worldPreviewStatus.Text = "Updating the preview…";
-        if (refresh && worldMenuOverlay.Visible)
+        if (refresh && worldMenuOverlay.Visible && worldMenuColumns.Visible)
             _ = RefreshWorldPreviewAfterChangeAsync(revision);
     }
 
@@ -575,7 +603,7 @@ public partial class Main
         await ToSignal(GetTree().CreateTimer(0.3), SceneTreeTimer.SignalName.Timeout);
         while (worldMenuBusy && IsInsideTree() && worldMenuOverlay.Visible && revision == worldPreviewRevision)
             await ToSignal(GetTree().CreateTimer(0.1), SceneTreeTimer.SignalName.Timeout);
-        if (!IsInsideTree() || !worldMenuOverlay.Visible || revision != worldPreviewRevision ||
+        if (!IsInsideTree() || !worldMenuOverlay.Visible || !worldMenuColumns.Visible || revision != worldPreviewRevision ||
             SameGeneration(previewedWorldOptions, CurrentWorldOptions()))
             return;
         await PreviewWorldAsync();
