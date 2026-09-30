@@ -66,7 +66,8 @@ public sealed class StoredFuelRoutingTests
         var local = state.Map.Resources.Single(resource => resource.Id == "wild-128-16");
         Assert.True(state.Map.IsReachableOnFoot(positions[0], local.Position));
         Assert.False(state.Map.IsReachableFromCampOnFoot(local.Position));
-        var world = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(state)), _ => new HeatProvider(ids[0]));
+        var provider = new HeatProvider(ids[0]);
+        var world = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(state)), _ => provider);
         try
         {
             for (var tick = 0; tick < 24; tick++)
@@ -76,10 +77,11 @@ public sealed class StoredFuelRoutingTests
                 {
                     var saved = PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(world.ExportState()));
                     world.Dispose();
-                    world = PrivateWorldRuntime.Restore(saved, _ => new HeatProvider(ids[0]));
+                    world = PrivateWorldRuntime.Restore(saved, _ => provider);
                 }
             }
             var result = world.ExportState();
+            Assert.Equal(!blockStorage, provider.WasToolOffered);
             if (blockStorage)
             {
                 Assert.True(result.Events.Any(item => item.Kind == "material_gathered" && item.Detail.StartsWith(ids[0] + ":", StringComparison.Ordinal)),
@@ -98,8 +100,12 @@ public sealed class StoredFuelRoutingTests
     {
         public DecisionProviderKind Kind => DecisionProviderKind.Deterministic;
         public long ProviderEpoch => 0;
+        public bool WasToolOffered { get; private set; }
         public ValueTask<CognitionDecisionResponse> DecideAsync(CognitionDecisionRequest request, CancellationToken cancellationToken = default)
         {
+            if (request.Observation.InhabitantId == actor &&
+                request.Observation.Candidates.Any(candidate => candidate.Id == "collect_wooden_axe"))
+                WasToolOffered = true;
             var selected = request.Observation.InhabitantId == actor
                 ? request.Observation.Candidates.FirstOrDefault(candidate => candidate.Id == "tend_fire") : null;
             selected ??= request.Observation.Candidates.Single(candidate => candidate.Id == "safe_idle");
