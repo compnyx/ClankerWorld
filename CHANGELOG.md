@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- A damaged inactive checkpoint with missing required state no longer breaks the entire Load World list. It is marked incompatible and cannot replace the healthy active world.
+
 - Keep descendants able to explore and save even when their inherited identities are long.
 - A mandatory harvest instruction completes after gathering orchard fruit, allowing the agent's next queued instruction to proceed after saving and loading too.
 
