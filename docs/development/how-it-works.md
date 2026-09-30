@@ -173,10 +173,13 @@ Mountains are slower to cross and cannot be built on; peaks are impassable.
 Resources are placed in bounded 16×16 cells with surface/cover biases, then
 recorded in their actual 64×64 chunks. Sparse/Normal/Abundant provisionally
 attempt alternating cells, one site per cell or two sites per cell. Food choices
-use the actor's foot-accessible terrain component.
-Immutable map connectivity is cached once per map; temporary occupancy remains
-a movement-time check. Project resource selection still uses accessibility
-from the original camp component. Boat access remains unfinished.
+use the actor's foot-accessible terrain component and skip sites whose current
+occupied routes cannot reach harvesting range. Adjacent food needs no route
+search. Candidate generation searches only when gathering or a food instruction
+needs a source, and stops at the first reachable site. Caregivers use the same
+selection. Immutable map connectivity is cached once per map; movement rechecks
+occupancy before each step. Project resources likewise use the actor's current
+position and reachable harvesting range. Boat access remains unfinished.
 
 Godot draws camera-visible tiles from a compact terrain index and samples it
 for the overview. It does not create a Control per tile. Generated terrain uses

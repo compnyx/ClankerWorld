@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Hungry agents and caregivers skip blocked food routes and can gather from another reachable source instead of repeatedly getting stuck.
+
 - Keep descendants able to explore and save even when their inherited identities are long.
 - A mandatory harvest instruction completes after gathering orchard fruit, allowing the agent's next queued instruction to proceed after saving and loading too.
 
