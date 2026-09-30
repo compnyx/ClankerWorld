@@ -148,23 +148,28 @@ accounting details need design and playtesting.
   simulating what happens elsewhere. Agents, crops, and Towns do not stop
   existing or progressing outside the camera. Distant work may be event-driven
   or coarser only if outcomes remain credible.
-- A world may enable **east/west wrapping** with real northern and southern
-  polar regions, or choose no wrapping. The default climate has a warmer
-  equator and colder poles; an Advanced Setting can disable latitude cooling
-  for unusual worlds. North/south wrapping into a torus is not intended.
-- Climate choices include **uniform**, **dominant**, and **balanced** modes,
-  with advanced controls such as water percentage, continent count, and
-  resource abundance. Keep simple presets, plus **advanced sliders for
-  meaningful geography** such as forest cover, mountain relief, water/rivers
-  and resources; not every internal generator parameter needs a control. A
-  responsive, **exact preview of the selected world seed and settings** updates
-  when those choices change, so accepting it creates that geography rather
-  than a different approximation. Exact sliders, ranges, dependencies and
-  performance strategy remain open.
-- **Small and Medium each have one continent**; a continent-count control is
-  available only for **Large, Huge, and Mega**. The selected count is a loose
-  generation target, not a promise of that many ocean-separated landmasses:
-  generated land may form distinct continents or connections between them.
+- **East/west wrapping** is on by default and can be turned off. The world has
+  real northern and southern polar regions, not north/south wrapping into a
+  torus. **Latitude cooling** is also on by default, giving the world a warmer
+  equator and colder poles; it can be turned off independently for unusual
+  climates without changing the map's wrapping choice.
+- Keep simple New World presets, with a compact Advanced section rather than
+  sliders for every generator parameter. **Balanced** is the default climate
+  mode; **Uniform** and **Dominant** remain choices. Advanced controls are
+  water coverage from **20–80%**, default **50%**, plus **Low / Normal / High**
+  for forest cover, mountain relief, river abundance and resource abundance,
+  each defaulting to **Normal**. Resource abundance changes available physical
+  resources, not knowledge or technology. These settings describe the intended
+  geography, not exact forest, mountain or river tile-count promises.
+- A responsive, **exact preview of the selected seed and settings** updates as
+  those choices change. Creating the world uses the matching preview, never a
+  different or stale map.
+- **Small and Medium each have one continent**, with no continent-count
+  control. Once the larger sizes are supported, their loose count choices are
+  **Large 1–4 (default 1), Huge 1–6 (default 2), Mega 1–8 (default 3)**.
+  A selected count is a generation target, not a promise of that many
+  ocean-separated landmasses; connections and incidental islands may occur.
+  These controls do not unlock currently unsupported sizes.
 - **Simple regional weather is accepted.** Weather is not synchronized across
   the planet. Different regions can experience different conditions, with the
   local climate influencing how likely rain, snow, and other conditions are.
@@ -227,9 +232,20 @@ playtesting.
 ### River crossings and visible forests and mountains
 
 At default settings, generated worlds should visibly include forests and
-mountain regions rather than relying on rare seeds to reveal them. The
-attainable guarantee for each world size/climate and preview update performance
-remain open.
+mountain regions rather than relying on rare seeds to reveal them. For
+**Balanced Small and Medium**, use initial playtest targets of **20–40% forest**
+and **5–12% mountains**, measured against dry land. These are targets to test
+and tune, not a promise that every climate or world size has the same coverage.
+Uniform Dry and polar regions must not acquire inappropriate trees just to
+meet a forest target. Forest and mountain areas should form readable regions;
+their exact connected-patch minimum remains to be tuned.
+
+Try at most **three deterministic candidates** for the selected seed and
+settings. Identify the chosen candidate in the exact preview so Create World
+uses that same map. If none meets its eligible targets, show what was missed
+and let the player choose another seed or explicitly accept the result; do not
+silently substitute a different map. Larger-size targets and preview latency
+remain subject to measurement and playtesting.
 
 Computment wants agents to cross **one-tile-wide rivers on foot, more slowly**
 than dry ground. The world automatically adds bridges at sufficiently used
@@ -238,17 +254,35 @@ route meets a bridgeable river; it need not wait for traffic there. Once a
 bridge is placed, a no-other-bridge radius prevents a
 redundant bridge appearing right next to it on the **same crossing/river**.
 It does not block a needed bridge over a separate nearby stream. Exact radius,
-traffic threshold, bridge
-materials/work, and wider/deeper river crossing rules remain open. Town site
-planning and Road generation must be designed together; Road persistence is
-specified in the building/Town section below.
+bridge materials/work, and wider/deeper river crossing rules remain open. The
+initial traffic threshold and permanent Road/bridge rule are recorded in
+[Towns](towns.md#how-roads-and-bridges-appear). Town site planning and Road
+generation must be designed together.
+
+### First boat and Port travel
+
+The first crafted small boat carries **one agent and the goods that agent is
+carrying**. It cannot move stock remotely. A journey needs a completed,
+reachable Port at **both** ends and a navigable water route between them; an
+agent cannot embark from arbitrary shore. Ports use the agreed 2×4 land/water
+footprint and clear docking space described in [Towns](towns.md). Validate a
+land approach and docking clearance before construction and departure.
+
+Boats belong to a **Town**, not a household. Town residents may use its communal
+boats; visitors need permission. Reserve each physical boat for only one
+journey at a time, and persist the boat, traveler and carried goods together
+across save/load. A blocked destination cannot teleport or duplicate any of
+them. Exact recipes, costs, travel speed, queueing and recovery when a Port
+becomes unavailable remain open for implementation and playtesting. Later
+transport inventions do not silently change this first-stage Port rule.
 
 ### Still to decide
 
 Exact terrain/vegetation/object mechanics beyond the accepted base
 [asset roster](content-list.md); exact climate-generation
 formulas, map topology at polar edges, biome transitions, water and elevation
-rules, resource distributions, continent-count variation and incidental islands,
+rules, resource distributions, the exact shape of target continents and
+incidental islands,
 travel times, world-size performance, and limits
 on agent-caused terrain changes. **Regional weather details remain open:**
 region size and coherence, exact transition probabilities and effect strengths,
@@ -258,6 +292,10 @@ Climate's long-run
 rainfall/moisture is distinct from any individual rain event. The 64×64 chunk
 and preset dimensions need
 benchmarks before becoming implementation promises.
+Exact generator thresholds for the Advanced levels, coverage for climates and
+sizes beyond Balanced Small/Medium, connected-patch thresholds and preview
+performance remain to be measured and playtested. The initial Balanced
+coverage and bounded retry choices above do not settle those other numbers.
 
 **Suggestion river-generation approach, not yet a locked algorithm:** generate
 elevation and long-run rainfall, route water downhill toward coasts or inland
