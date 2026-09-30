@@ -6,6 +6,7 @@ release yet.
 
 ## Unreleased
 
+- Agents gather heating fuel and project materials from reachable local resources, including island Towns disconnected from the original map anchor.
 - Storm refuge selection checks reachable, unoccupied routes, so an inaccessible nearby forest does not hide usable cover.
 
 - Prototype survival priorities leave more room for ordinary activities below comfortable fullness and warmth. Urgent food or continuing cold exposure still interrupts discretionary work, while safe nearby care remains possible. Routine food and outing reserves remain provisional for playtesting.

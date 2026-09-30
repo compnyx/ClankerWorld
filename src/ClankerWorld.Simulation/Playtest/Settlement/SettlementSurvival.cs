@@ -236,7 +236,7 @@ public sealed partial class PrivateWorldRuntime
         }
         var losingWarmth = WarmthChange(person) < 0;
         if (AdultResident(actor) && losingWarmth && condition.WarmthBasisPoints < ComfortableWarmth && AccessibleHeatingBuildings(actor).Any(building => !IsFireLit(building)) &&
-            (SharedItem("wood", actor) is not null || HasCarriedItem(actor, "wood") || MaterialSource("wood") is not null))
+            (SharedItem("wood", actor) is not null || HasCarriedItem(actor, "wood") || MaterialSource("wood", actor) is not null))
         {
             candidates.Add(new CognitionCandidate("tend_fire", "Carry household wood to a hearth and keep the camp warm.", NeedsUrgentWarmth(person) ? 1 : 2));
         }
@@ -283,7 +283,7 @@ public sealed partial class PrivateWorldRuntime
             {
                 CollectEquipment(actor, person, "wood");
             }
-            else if (MaterialSource("wood") is { } source)
+            else if (MaterialSource("wood", actor) is { } source)
             {
                 GatherProjectMaterial(actor, person, "wood", source);
             }
