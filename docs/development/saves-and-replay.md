@@ -203,3 +203,23 @@ World-systems schema 1 remains readable, with the absent field omitted when null
 Older binaries reject the newer schema instead of silently dropping episodes.
 The new code reads old saves; keep backups before testing.
 This prototype changes future weather/events, not past recorded history.
+
+## Explicit permanent deletion
+
+Signed deletion binds the target kind, exact ID, world ID and (for snapshots)
+creation timestamp. It shares the installation mutation gate with world
+selection and snapshot writes. The active world cannot be deleted.
+
+Snapshot metadata is renamed to a deletion intent before owned generations
+are removed. World removal first moves its catalog entry into pending deletion,
+then removes its snapshots and archived checkpoint. Pending targets are not
+loadable; startup retries cleanup. Storage failure is reported rather than
+acknowledged as complete. Corrupt metadata whose ownership cannot be established
+is preserved and can leave cleanup pending. Do not roll back to older binaries
+while deletion intents remain: they cannot perform this recovery.
+
+History reclamation verifies all remaining active, archived and manual checkpoint
+roots and their digest-addressed chains before removing unreferenced segments.
+Unpublished generations conservatively count as roots. Corrupt roots defer history
+cleanup, preserving other saves. This is ordinary file deletion, not secure disk
+erasure, and does not remove copies in external backups.

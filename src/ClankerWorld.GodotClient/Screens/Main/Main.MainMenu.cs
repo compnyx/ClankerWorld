@@ -52,6 +52,8 @@ public partial class Main
     private readonly Button worldCreateButton = new();
     private readonly Button worldSelectButton = new();
     private CatalogWorld[] listedWorlds = [];
+    private readonly Button worldDeleteButton = new();
+    private string? listedActiveWorldId;
     private OwnerWorldCreationAction? previewedWorldOptions;
     private bool worldMenuBusy;
     private int worldPreviewRevision;
@@ -390,7 +392,9 @@ public partial class Main
         worldSelectionList.CustomMinimumSize = new Vector2(0, 300);
         worldSelectionList.ItemSelected += index =>
         {
+            if (index < 0 || index >= listedWorlds.Length) return;
             var world = listedWorlds[(int)index];
+            worldDeleteButton.Disabled = worldMenuBusy;
             worldSelectButton.Disabled = world.Compatibility == "incompatible";
             worldMenuStatus.Text = world.Compatibility == "incompatible"
                 ? "Cannot open this world: " + (world.CompatibilityReason ?? "It was made with a different version.") + " Your save is safe."
@@ -428,6 +432,10 @@ public partial class Main
         worldSelectButton.Pressed += () => _ = SelectListedWorldAsync();
         worldSelectButton.Hide();
         actions.AddChild(worldSelectButton);
+        worldDeleteButton.Text = "Delete World";
+        StyleButton(worldDeleteButton);
+        worldDeleteButton.Pressed += ConfirmWorldDeletion;
+        actions.AddChild(worldDeleteButton);
         worldMenuBody.AddChild(actions);
 
         worldMenuBody.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -493,6 +501,9 @@ public partial class Main
         worldCreateButton.Visible = create;
         worldSelectionList.Visible = !create;
         worldSelectButton.Visible = !create;
+        worldDeleteButton.Visible = !create;
+        worldDeleteButton.Disabled = true;
+        pendingDeletion = null;
         worldSelectButton.Disabled = true;
         worldNameInput.Text = "New World";
         worldSeedInput.Text = Guid.NewGuid().ToString("N")[..12];
@@ -506,10 +517,12 @@ public partial class Main
     {
         if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
         worldMenuStatus.Text = "Loading worlds…";
+        worldDeleteButton.Disabled = true;
         try
         {
             var catalog = await ownerApi.ListWorldsAsync(ResolveWorldUri(), authority,
                 deviceId, signer, CancellationToken.None);
+            listedActiveWorldId = catalog.ActiveId;
             listedWorlds = catalog.Worlds.OrderByDescending(world => world.Id == catalog.ActiveId)
                 .ThenByDescending(world => world.UpdatedUtc).ToArray();
             worldSelectionList.Clear();

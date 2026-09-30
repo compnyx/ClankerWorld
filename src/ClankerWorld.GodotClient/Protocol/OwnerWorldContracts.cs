@@ -8,6 +8,9 @@ namespace ClankerWorld.GodotClient.UI;
 // These client-owned DTOs mirror the public owner projection. Keeping them in
 // the Godot project prevents the renderer from taking a project reference on
 // the authoritative server or simulation assemblies.
+public sealed record OwnerDeletionAction(string Kind, string Id, string WorldId, DateTimeOffset? ExpectedCreatedUtc = null);
+public sealed record OwnerDeletionReceipt(string Id, bool CleanupComplete);
+
 public sealed record OwnerWorldProtocolVersion(int Major, int Minor);
 
 public sealed record OwnerWorldHandshake(

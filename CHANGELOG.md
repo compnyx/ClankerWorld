@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Add confirmed permanent deletion of one selected save, or an inactive world and all its saves. The active world and other worlds stay intact.
+
 - Remove the redundant Load World tooltip from the Main Menu.
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
