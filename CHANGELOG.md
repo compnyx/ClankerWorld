@@ -6,6 +6,7 @@ release yet.
 
 ## Unreleased
 
+- A damaged inactive checkpoint with missing required state no longer breaks the entire Load World list. It is marked incompatible and cannot replace the healthy active world.
 - Loading or overwriting a damaged manual save reports a recoverable conflict before creating backups or changing the active world, instead of returning a server error or accepting invalid metadata.
 
 - Keep descendants able to explore and save even when their inherited identities are long.
