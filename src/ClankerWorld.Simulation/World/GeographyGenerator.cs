@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace ClankerWorld.Simulation.World;
 
@@ -52,7 +53,8 @@ public sealed record GeographyOptions(
     ClimateMode ClimateMode = ClimateMode.Balanced,
     ClimateZone SelectedClimate = ClimateZone.Temperate,
     bool LatitudeCooling = true,
-    ResourceAbundance ResourceAbundance = ResourceAbundance.Normal);
+    ResourceAbundance ResourceAbundance = ResourceAbundance.Normal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int HydrologyVersion = 0);
 
 public readonly record struct GeographyTile(byte Elevation, byte Rainfall, WaterKind Water,
     byte Temperature, ClimateZone Climate);
@@ -117,6 +119,7 @@ public sealed class GeneratedGeography
 /// </summary>
 public static class GeographyGenerator
 {
+    public const int CurrentHydrologyVersion = 1;
     public const int ChunkSize = 64;
 
     public static (int Width, int Height) Dimensions(WorldSizePreset size) => size switch
@@ -139,6 +142,8 @@ public static class GeographyGenerator
             !Enum.IsDefined(options.ResourceAbundance))
             throw new ArgumentOutOfRangeException(nameof(options), "The climate selection is invalid.");
 
+        if (options.HydrologyVersion is < 0 or > CurrentHydrologyVersion)
+            throw new ArgumentOutOfRangeException(nameof(options), "The hydrology version is unsupported.");
         var (width, height) = Dimensions(options.Size);
         var length = checked(width * height);
         var elevation = new byte[length];
@@ -212,7 +217,10 @@ public static class GeographyGenerator
             if (elevation[index] <= waterLevel) water[index] = (byte)WaterKind.Lake;
 
         ClassifyOceans(water, width, height, options.WrapEastWest);
-        var drainage = RouteRivers(elevation, rainfall, water, width, height, options.WrapEastWest);
+        if (options.HydrologyVersion >= 1)
+            BoundInlandLakes(elevation, water, width, height, options.WrapEastWest);
+        var drainage = RouteRivers(elevation, rainfall, water, width, height, options.WrapEastWest,
+            lakesAreTerminals: options.HydrologyVersion >= 1);
         return new GeneratedGeography(width, height, options.WrapEastWest, elevation, rainfall, water,
             temperature, climate, drainage);
     }
@@ -280,7 +288,94 @@ public static class GeographyGenerator
             foreach (var index in largest) water[index] = (byte)WaterKind.Ocean;
     }
 
-    private static int[] RouteRivers(byte[] elevation, byte[] rainfall, byte[] water, int width, int height, bool wrap)
+    private static void BoundInlandLakes(byte[] elevation, byte[] water, int width, int height, bool wrap)
+    {
+        // Provisional geography tuning: at most half a percent of the map per inland lake.
+        // Keep a connected low basin, then move removed water to connected ocean shoreline.
+        // This changes geography, not just the label on a second sea.
+        var maximumLakeArea = Math.Max(16, water.Length / 200);
+        var visited = new bool[water.Length];
+        var queue = new Queue<int>();
+        var removed = 0;
+        Span<int> neighbors = stackalloc int[4];
+        for (var start = 0; start < water.Length; start++)
+        {
+            if (water[start] != (byte)WaterKind.Lake || visited[start]) continue;
+            var component = new List<int>();
+            visited[start] = true;
+            queue.Enqueue(start);
+            while (queue.TryDequeue(out var current))
+            {
+                component.Add(current);
+                var count = WriteNeighbors(current, width, height, wrap, neighbors);
+                for (var n = 0; n < count; n++)
+                {
+                    var next = neighbors[n];
+                    if (visited[next] || water[next] != (byte)WaterKind.Lake) continue;
+                    visited[next] = true;
+                    queue.Enqueue(next);
+                }
+            }
+            if (component.Count <= maximumLakeArea) continue;
+            var frontier = new PriorityQueue<int, (int Elevation, int Index)>();
+            var offered = new HashSet<int>();
+            var retained = new HashSet<int>();
+            var deepest = component.OrderBy(index => elevation[index]).ThenBy(index => index).First();
+            frontier.Enqueue(deepest, (elevation[deepest], deepest));
+            offered.Add(deepest);
+            while (retained.Count < maximumLakeArea && frontier.TryDequeue(out var current, out _))
+            {
+                retained.Add(current);
+                var count = WriteNeighbors(current, width, height, wrap, neighbors);
+                for (var n = 0; n < count; n++)
+                {
+                    var next = neighbors[n];
+                    if (water[next] == (byte)WaterKind.Lake && offered.Add(next))
+                        frontier.Enqueue(next, (elevation[next], next));
+                }
+            }
+            foreach (var index in component)
+                if (!retained.Contains(index))
+                {
+                    water[index] = (byte)WaterKind.Land;
+                    removed++;
+                }
+        }
+
+        var shoreline = new PriorityQueue<int, (int Elevation, int Index)>();
+        var queued = new bool[water.Length];
+        for (var index = 0; index < water.Length; index++)
+            if (water[index] == (byte)WaterKind.Ocean)
+                OfferNeighbors(index);
+        while (removed > 0 && shoreline.TryDequeue(out var index, out _))
+        {
+            // Preserve a dry shoreline around retained lakes instead of joining them to the sea.
+            var count = WriteNeighbors(index, width, height, wrap, neighbors);
+            var touchesLake = false;
+            for (var n = 0; n < count; n++) touchesLake |= water[neighbors[n]] == (byte)WaterKind.Lake;
+            if (touchesLake) continue;
+            water[index] = (byte)WaterKind.Ocean;
+            removed--;
+            OfferNeighbors(index);
+        }
+        if (removed != 0)
+            throw new InvalidOperationException("The inland-water layout could not preserve its water coverage.");
+
+        void OfferNeighbors(int index)
+        {
+            Span<int> adjacent = stackalloc int[4];
+            var count = WriteNeighbors(index, width, height, wrap, adjacent);
+            for (var n = 0; n < count; n++)
+            {
+                var next = adjacent[n];
+                if (queued[next] || water[next] != (byte)WaterKind.Land) continue;
+                queued[next] = true;
+                shoreline.Enqueue(next, (elevation[next], next));
+            }
+        }
+    }
+
+    private static int[] RouteRivers(byte[] elevation, byte[] rainfall, byte[] water, int width, int height, bool wrap, bool lakesAreTerminals)
     {
         var length = water.Length;
         var floodedHeight = new int[length];
@@ -294,7 +389,7 @@ public static class GeographyGenerator
 
         for (var index = 0; index < length; index++)
         {
-            if (water[index] != (byte)WaterKind.Ocean) continue;
+            if (water[index] != (byte)WaterKind.Ocean && !(lakesAreTerminals && water[index] == (byte)WaterKind.Lake)) continue;
             visited[index] = true;
             floodedHeight[index] = elevation[index] * 1024;
             frontier.Enqueue(index, (floodedHeight[index], index));
@@ -320,7 +415,7 @@ public static class GeographyGenerator
         for (var order = visitedOrder.Count - 1; order >= 0; order--)
         {
             var index = visitedOrder[order];
-            if (water[index] == (byte)WaterKind.Ocean) continue;
+            if (water[index] == (byte)WaterKind.Ocean || lakesAreTerminals && water[index] == (byte)WaterKind.Lake) continue;
             flow[index] += 1 + (rainfall[index] / 64);
             var outlet = downstream[index];
             if (outlet >= 0) flow[outlet] += flow[index];

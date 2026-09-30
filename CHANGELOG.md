@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
+
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
