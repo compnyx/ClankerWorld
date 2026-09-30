@@ -350,12 +350,28 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         tickGate.Dispose();
     }
 
-    public void PersistCheckpoint(Func<PrivateWorldRuntimeState, PrivateWorldRuntimeState> persist)
+    public void PersistCheckpoint(Func<PrivateWorldRuntimeState, PrivateWorldRuntimeState> persist, bool resumeOnSuccess = false)
     {
         ArgumentNullException.ThrowIfNull(persist);
         gate.Wait();
         try
         {
+            if (resumeOnSuccess && society.Checkpoint.IsPaused)
+            {
+                // Keep the live world paused throughout the write. A failed write
+                // discards this proposal, including its resume event and epoch.
+                using var proposed = RestoreCore(CaptureState(), providerFactory, maxCognitionDispatchPerCycle,
+                    minimumCognitionConfidence, trustedPreparedState: true);
+                proposed.Resume();
+                var persisted = persist(proposed.CaptureState());
+                if (persisted.HistoryArchiveHead != proposed.historyArchiveHead)
+                {
+                    using var compacted = Restore(persisted, providerFactory, maxCognitionDispatchPerCycle, minimumCognitionConfidence);
+                    CommitPreparedTick(compacted);
+                }
+                else CommitPreparedTick(proposed);
+                return;
+            }
             var saved = persist(CaptureState());
             if (saved.HistoryArchiveHead != historyArchiveHead)
             {

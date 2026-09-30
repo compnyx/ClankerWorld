@@ -30,6 +30,7 @@ release yet.
 - Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
 
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+- Resume keeps the world paused until its running checkpoint is saved, and retries cannot report success while saving still fails—even when an earlier request left memory running.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
 
 - Starting households are named First household and Second household instead of
