@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Prototype survival priorities leave more room for ordinary activities below comfortable fullness and warmth. Urgent food or continuing cold exposure still interrupts discretionary work, while safe nearby care remains possible. Routine food and outing reserves remain provisional for playtesting.
+
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
 
