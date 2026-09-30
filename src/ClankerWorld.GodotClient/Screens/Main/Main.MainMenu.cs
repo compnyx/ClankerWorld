@@ -108,7 +108,6 @@ public partial class Main
         body.AddChild(mainMenuNewButton);
 
         mainMenuLoadButton.Text = "Load World";
-        mainMenuLoadButton.TooltipText = "Choose a world to play. Named saves are in each world's Pause Menu.";
         StyleButton(mainMenuLoadButton);
         mainMenuLoadButton.Pressed += () => OpenWorldMenu(create: false);
         body.AddChild(mainMenuLoadButton);
