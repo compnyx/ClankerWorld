@@ -6,6 +6,7 @@ release yet.
 
 ## Unreleased
 
+- A damaged inactive checkpoint with missing required state no longer breaks the entire Load World list. It is marked incompatible and cannot replace the healthy active world.
 - Loading or overwriting a damaged manual save reports a recoverable conflict before creating backups or changing the active world, instead of returning a server error or accepting invalid metadata.
 
 - Keep descendants able to explore and save even when their inherited identities are long.
@@ -45,6 +46,7 @@ release yet.
 - Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
 - Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
 - Production requests now refuse workers who are too young, before taking materials or creating a job, using the same age limits as agents' own choices.
+- Adults can only propose barter to another adult or elder, so a trade can no longer reserve a child's belongings when the child cannot answer it.
 - Loading a save and switching worlds can no longer archive a mixture of one checkpoint and another set of model/autosave settings.
 - Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
 
@@ -327,6 +329,10 @@ release yet.
 
 ### Changed
 
+- The map is quieter. An agent's name appears only while you hover over or
+  select them, as outlined pixel letters without a dark box (gold for the
+  selected agent), and no longer carries an activity symbol. Buildings no
+  longer show their names on the map; hover over one to see its name.
 - The Main Menu now shows the ClankerWorld logo instead of a plain text title and slogan: wood-grain letters either side of a friendly robot waving in front of a little planet, floating over the valley above the menu buttons. The line of text in the menu only appears when something needs your attention, such as connecting this device or reaching your world. The robot and planet are also the game window's icon and the Windows program's icon.
 - Agents no longer start Shelters, Storehouses, Cooking fires or Stone
   hearths. A household's House now provides shelter, cooking, warmth from its
