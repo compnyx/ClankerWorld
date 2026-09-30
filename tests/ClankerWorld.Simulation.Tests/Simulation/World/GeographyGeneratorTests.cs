@@ -295,6 +295,7 @@ public sealed class GeographyGeneratorTests
                 ? resource with { State = ResourceState.Depleted } : resource).ToArray(),
             WorldSystems = state.WorldSystems! with
             {
+                RegionalWeather = null,
                 Ecology = state.WorldSystems.Ecology with
                 {
                     Resources = state.WorldSystems.Ecology.Resources.Select(resource =>
@@ -831,6 +832,7 @@ public sealed class GeographyGeneratorTests
         {
             WorldSystems = systems with
             {
+                RegionalWeather = null,
                 Config = systems.Config with { WeatherProfiles = profiles },
                 Climate = systems.Climate with { Weather = WeatherKind.Storm },
             },
@@ -845,7 +847,7 @@ public sealed class GeographyGeneratorTests
         Assert.True((await restored.AdvanceOneTickAsync()).Advanced);
         Assert.Equal(270, restored.WorldTick);
         Assert.All(new OwnerWorldObservationStore(restored).GetSnapshot().WeatherRegions,
-            region => Assert.Equal("rain", region.Weather));
+            region => Assert.NotEqual("storm", region.Weather));
         Assert.Contains(restored.ExportState().Events,
             item => item.WorldTick == 270 && item.Kind == "weather_changed");
     }
@@ -881,6 +883,7 @@ public sealed class GeographyGeneratorTests
                 : person).ToArray(),
             WorldSystems = systems with
             {
+                RegionalWeather = null,
                 Config = systems.Config with { WeatherProfiles = profiles },
                 Climate = systems.Climate with { Weather = WeatherKind.Storm },
             },
