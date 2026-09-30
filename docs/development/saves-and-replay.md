@@ -163,6 +163,11 @@ these copies have no settled retention policy. Rotating autosaves are a separate
 mechanism and must not delete another world's checkpoints. Updating autosave
 configuration trims only that configured world, including rotation off.
 
+Load and overwrite validate required manual-save metadata before creating a
+recovery backup or changing the active world. Malformed JSON, missing save
+records or invalid required fields return a controlled conflict and preserve
+the original files. The save list skips these same invalid entries.
+
 Manual overwrite first writes an immutable checkpoint generation, then
 atomically publishes its metadata pointer with the matching model assignments
 and autosave settings. Failure before publication leaves the previous selected
