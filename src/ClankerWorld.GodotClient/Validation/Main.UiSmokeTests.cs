@@ -534,6 +534,42 @@ public partial class Main
                 quitToMenuConfirmation.GetThemeStylebox("embedded_border", "Window") != UiTheme.Theme.GetStylebox("embedded_border", "Window"))
                 throw new InvalidOperationException("Confirmations must use the game's panel style and name their action instead of OK.");
             quitToMenuConfirmation.Hide();
+            listedSaveWorldId = "smoke-world";
+            listedManualSaves = [new ManualWorldSave("smoke-save", "Selected snapshot", DateTimeOffset.UtcNow, 0, false)];
+            manualSaveList.Clear();
+            manualSaveList.AddItem("Selected snapshot");
+            manualSaveList.Select(0);
+            manualSaveDeleteButton.EmitSignal(BaseButton.SignalName.Pressed);
+            if (!deletionConfirmation.Visible || pendingDeletion?.Id != "smoke-save" ||
+                !deletionConfirmation.DialogText.Contains("Selected snapshot", StringComparison.Ordinal) ||
+                deletionConfirmation.OkButtonText != "Delete permanently")
+                throw new InvalidOperationException("Save deletion must name the selected snapshot and require permanent confirmation.");
+            deletionConfirmation.EmitSignal(ConfirmationDialog.SignalName.Canceled);
+            deletionConfirmation.Hide();
+            if (pendingDeletion is not null || listedManualSaves.Length != 1)
+                throw new InvalidOperationException("Canceling deletion must clear its target without changing saves.");
+            listedManualSaves = [];
+            manualSaveList.Clear();
+            listedSaveWorldId = null;
+            listedActiveWorldId = "active-world";
+            listedWorlds = [new CatalogWorld("active-world", "Active", "active", "seed", DateTimeOffset.UtcNow, [], null),
+                new CatalogWorld("other-world", "Other", "other", "seed-two", DateTimeOffset.UtcNow, [], null)];
+            worldSelectionList.Clear();
+            worldSelectionList.AddItem("Active");
+            worldSelectionList.AddItem("Other");
+            worldSelectionList.Select(0);
+            ConfirmWorldDeletion();
+            if (pendingDeletion is not null || deletionConfirmation.Visible)
+                throw new InvalidOperationException("Deleting the active world must be blocked before confirmation.");
+            worldSelectionList.Select(1);
+            ConfirmWorldDeletion();
+            if (pendingDeletion?.Id != "other-world" || !deletionConfirmation.Visible ||
+                !deletionConfirmation.DialogText.Contains("all of its manual saves and autosaves", StringComparison.Ordinal))
+                throw new InvalidOperationException("World deletion must identify the selected world and all its saves.");
+            deletionConfirmation.EmitSignal(ConfirmationDialog.SignalName.Canceled);
+            deletionConfirmation.Hide();
+            listedWorlds = [];
+            worldSelectionList.Clear();
             // The pause receipt can succeed even when the following reconnect
             // fails. Leaving must not require a newer snapshot in that case.
             menuPauseConfirmed = true;

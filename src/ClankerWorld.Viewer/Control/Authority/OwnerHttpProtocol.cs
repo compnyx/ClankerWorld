@@ -9,6 +9,9 @@ namespace ClankerWorld.Viewer.Control;
 /// These types intentionally carry no bearer token. Every protected operation
 /// is authorized by consuming a short-lived, one-use signed challenge.
 /// </summary>
+public sealed record OwnerDeletionAction(string Kind, string Id, string WorldId, DateTimeOffset? ExpectedCreatedUtc = null);
+public sealed record OwnerDeletionReceipt(string Id, bool CleanupComplete);
+
 public sealed record StartOwnerPairingHttpRequest(string PublicKeySpkiBase64);
 
 public sealed record ActivateOwnerPairingHttpRequest(
@@ -188,6 +191,13 @@ public static class OwnerHttpBinding
         '\n',
         "clankerworld.owner-control.v1",
         $"operation={EncodeRequired(operation, nameof(operation))}");
+
+    public static string Deletion(OwnerDeletionAction action) => string.Join(
+        '\n', "clankerworld.owner-deletion.v1",
+        $"kind={EncodeRequired(action.Kind, nameof(action.Kind))}",
+        $"id={EncodeRequired(action.Id, nameof(action.Id))}",
+        $"world-id={EncodeRequired(action.WorldId, nameof(action.WorldId))}",
+        $"created-utc={action.ExpectedCreatedUtc?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? "-"}");
 
     public static string ManualSavePayload(OwnerManualSaveAction action) => string.Join(
         '\n',

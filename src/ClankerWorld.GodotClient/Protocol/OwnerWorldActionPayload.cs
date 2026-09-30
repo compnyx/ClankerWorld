@@ -31,6 +31,13 @@ public static class OwnerWorldActionPayload
         "clankerworld.owner-control.v1",
         $"operation={EncodeRequired(operation, nameof(operation))}");
 
+    public static string Deletion(OwnerDeletionAction action) => string.Join(
+        '\n', "clankerworld.owner-deletion.v1",
+        $"kind={EncodeRequired(action.Kind, nameof(action.Kind))}",
+        $"id={EncodeRequired(action.Id, nameof(action.Id))}",
+        $"world-id={EncodeRequired(action.WorldId, nameof(action.WorldId))}",
+        $"created-utc={action.ExpectedCreatedUtc?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture) ?? "-"}");
+
     public static string ManualSave(OwnerManualSaveAction action) => string.Join(
         '\n',
         "clankerworld.owner-manual-save.v1",
