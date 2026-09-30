@@ -200,7 +200,17 @@ public partial class Main : Control
     private readonly VBoxContainer developerBody = new();
 
     private OwnerDeviceKey? deviceKey;
-    private OwnerDeviceRegistration? registration;
+    private OwnerDeviceRegistration? registration
+    {
+        get => observationSession.Registration;
+        set
+        {
+            // Applies to load, forget, ordinary activation and recovered activation.
+            refreshCancellation?.Cancel();
+            observationSession.ReplaceRegistration(value);
+            knownEvents.Clear();
+        }
+    }
     private OwnerPairingStart? pendingPairing;
     private Uri? pendingPairingOrigin;
     private OwnerDevice[] pairedDevices = [];

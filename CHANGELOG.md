@@ -16,6 +16,7 @@ release yet.
 - The Main Menu now opens on a pixel-art valley instead of a plain brown screen: snowy mountains, patchwork fields, a winding river and two small Towns with a Farmhouse, Warehouse, Blacksmith and Houses. Clouds drift, chimney smoke curls up, birds fly past and the river sparkles. With the Dark theme it becomes dusk, with twinkling stars, glowing windows and lanterns, a flickering forge, fireflies and the moon on the river. The scene stays behind Main Menu Settings, New World and Load World, and holds still once you are in a world.
 - World selection and named checkpoint loading verify required history segments before replacing the healthy active world. Missing or corrupted archive chains remain recoverable without becoming the active save.
 - Simultaneous lesson refusal and student cancellation safely preserve the terminal lesson instead of halting world advancement.
+- Forgetting registration or activating a new pairing clears the previous host’s observation and terrain cache, so Continue can enter a younger world without restarting the game. Recovered activation follows the same rule.
 - Create/Load World resets the observation timeline before sending the switch, so a lost response cannot trap reconnect on the old world’s event cursor.
 - Interrupted world selection restores routing and autosave settings during startup, before Resume or owner mutations can be acknowledged.
 - A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.

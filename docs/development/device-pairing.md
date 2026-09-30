@@ -2,7 +2,7 @@
 title: Device pairing
 type: development-reference
 status: active
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # Device pairing
@@ -83,6 +83,13 @@ retarget the registered owner key. Changing servers is an explicit local
 operation: forget the registration and pair to the new server. The persisted
 authority and world identities provide a second binding beyond the transport
 origin.
+
+Replacing or forgetting local registration also discards the held observation,
+event cursor and terrain cache, and cancels an old in-flight refresh. This applies
+to ordinary activation and recovery of an already-active pairing. The new host
+starts at cursor zero, so a younger world can be entered without restarting the
+client. Tick/event regression and terrain identity checks still apply within the
+new observation timeline.
 
 ## Response-loss recovery
 
