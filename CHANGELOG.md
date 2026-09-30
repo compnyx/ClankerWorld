@@ -18,6 +18,7 @@ release yet.
 
 - New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
 - Load World shows saved-world checks in progress, displays delayed results on the first opening, and ignores replies from closed or superseded lists.
+- Opening a world keeps the chosen world even if its list refreshes, and Open and Delete wait for the current world action to finish.
 
 - Remove the redundant Load World tooltip from the Main Menu.
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
