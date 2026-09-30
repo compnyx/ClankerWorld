@@ -329,7 +329,7 @@ public partial class Main
         menuActions.AddChild(menuQuitToMainButton);
 
         StyleConfirmation(quitGameConfirmation, "Quit ClankerWorld?", "Quit Game");
-        quitGameConfirmation.DialogText = "Quit the game? Your progress is saved.";
+        quitGameConfirmation.DialogText = "Quit the game? Only progress already saved by the host is kept.";
         quitGameConfirmation.Confirmed += () => GetTree().Quit();
         AddChild(quitGameConfirmation);
         body.AddChild(menuActions);
