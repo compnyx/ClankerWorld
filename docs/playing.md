@@ -2,7 +2,7 @@
 title: Playing the current game
 type: player-guide
 status: active
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # Playing the current game
@@ -22,6 +22,9 @@ A new device needs approval. Compare the game's code with the person approving
 the device on the server, then complete pairing. Do not post the code, keys or
 private world data in an issue. Once paired, reconnecting uses the saved
 registration; normal play does not need approval every time.
+
+For an already paired device, **Connect** checks the saved server connection
+and shows the result below the address. It does not start a new pairing.
 
 If the server changes, forget the old registration and pair again.
 [Device pairing](development/device-pairing.md) has the operator instructions.
@@ -92,6 +95,7 @@ remove the cap in World Settings, then resume separately.
 select that particular save and confirm; typing the same name does not overwrite
 it. World Settings offers rotating autosaves as well as automatic recovery.
 **Load World** shows existing worlds and warns about saves it cannot load.
+Open and Delete are unavailable while another world action finishes.
 
 **Quit to Menu** and Main Menu **Quit Game** ask for confirmation. Closing the
 last client stops time and model work after about five seconds. Returning makes

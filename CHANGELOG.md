@@ -7,6 +7,8 @@ release yet.
 ## Unreleased
 
 - Keep descendants able to explore and save even when their inherited identities are long.
+- A mandatory harvest instruction completes after gathering orchard fruit, allowing the agent's next queued instruction to proceed after saving and loading too.
+
 - Model requests now use the game's own wording for agents and no longer send internal clock and counter values to the personal model. A few choice descriptions no longer mention the old camp.
 - Agents gather heating fuel and project materials from reachable local resources, including island Towns disconnected from the original map anchor.
 - Storm refuge selection checks reachable, unoccupied routes, so an inaccessible nearby forest does not hide usable cover.
@@ -17,6 +19,7 @@ release yet.
 
 - New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
 - Load World shows saved-world checks in progress, displays delayed results on the first opening, and ignores replies from closed or superseded lists.
+- Opening a world keeps the chosen world even if its list refreshes, and Open and Delete wait for the current world action to finish.
 
 - Remove the redundant Load World tooltip from the Main Menu.
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
@@ -30,11 +33,13 @@ release yet.
 - World selection and named checkpoint loading verify required history segments before replacing the healthy active world. Missing or corrupted archive chains remain recoverable without becoming the active save.
 - Simultaneous lesson refusal and student cancellation safely preserve the terminal lesson instead of halting world advancement.
 - Forgetting registration or activating a new pairing clears the previous host’s observation and terrain cache, so Continue can enter a younger world without restarting the game. Recovered activation follows the same rule.
+- World Connection now says whether Connect reached the paired world, instead of leaving a successful check invisible.
 - Create/Load World resets the observation timeline before sending the switch, so a lost response cannot trap reconnect on the old world’s event cursor.
 - Interrupted world selection restores routing and autosave settings during startup, before Resume or owner mutations can be acknowledged.
 - A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.
 - Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
 - Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
+- Production requests now refuse workers who are too young, before taking materials or creating a job, using the same age limits as agents' own choices.
 - Loading a save and switching worlds can no longer archive a mixture of one checkpoint and another set of model/autosave settings.
 - Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
 
@@ -44,8 +49,10 @@ release yet.
 - Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
 
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+- Inventory lot splits keep stock committed to reservations and barter in the original lot, so those commitments can still be fulfilled.
 - Resume keeps the world paused until its running checkpoint is saved, and retries cannot report success while saving still fails—even when an earlier request left memory running.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
+- Retrying an accepted instruction still confirms its original receipt after the agent dies or the host restarts. Instruction keys with surrounding spaces no longer fail on an exact retry or skip a sequence number.
 
 - Starting households are named First household and Second household instead of
   Camp Alpha/Beta. Existing default camp names display the new wording without
@@ -59,9 +66,11 @@ release yet.
 
 - Loading an older world removes only Road tiles embedded inside saved building footprints, preserving buildings, ownership, stock and all other Roads.
 - The Event Log and unread badge now select explicitly supported player events, including public partnership, care, trade and Town policy milestones; new internal event kinds no longer appear automatically as humanized diagnostics.
+- The Event Log keeps agent names for food, births, deaths and Town membership, including renamed and deceased agents whose IDs contain colons.
 - Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
 
 - Invalid hosted choices and out-of-range confidence complete with safe idle instead of repeatedly consuming model calls for the same decision.
+- A late model reply no longer cancels the agent's newer pending choice; the current reply can still be accepted.
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
