@@ -24,6 +24,9 @@ before a paused switch and keeps world IDs, names, seed and settings separate.
 Creation/selection require signed owner requests and leave the selection paused.
 An interrupted catalog update is recovered against the active checkpoint before
 the server starts hosted services or accepts requests.
+A corrupt leftover checkpoint encountered during deletion keeps cleanup pending
+without preventing the healthy active world from starting. Unverified files and
+the deletion intent are preserved; later recovery can finish after the file is repaired.
 The paired authority identity belongs to the installation, not the selected
 simulation world.
 
