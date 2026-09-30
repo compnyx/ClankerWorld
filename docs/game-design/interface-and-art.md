@@ -119,8 +119,8 @@ everything that is available in the current build. See [what works today](../wha
   **Timber & Parchment** look chosen from three mockup directions: wooden
   frames around parchment panels, ink text, bevelled pixel buttons and a green
   main action. Game Settings offers a **Theme** of **Light**, **Dark** (dark
-  wood with cream text) or **Match system**. The exact font, icon set and
-  remaining accessibility treatment stay open.
+  wood with cream text) or **Match system**. The exact icon set and remaining
+  accessibility treatment stay open.
 - **Agreed after the September 29 background review:** the Main Menu
   background is a side-view pixel-art valley chosen from three mockup
   directions: mountains, patchwork fields, a river and small Towns built from
@@ -133,6 +133,14 @@ everything that is available in the current build. See [what works today](../wha
   planet; the robot and planet also serve as the app icon. A status line
   appears only when something needs attention; pairing is expected to be a
   development-only step once the game hosts worlds on the player's own PC.
+- **Agreed after the September 30 font review:** text uses pixel fonts,
+  chosen from six options shown on real game screens. Body text is **Fusion
+  Pixel 12px**. Titles, panel headings, section labels, dialog titles and the
+  Main Menu's choices use **Timber**: thin capitals drawn from the logo's
+  letter shapes. Base text sizes are whole multiples of 12 px and are drawn
+  without smoothing. Whole-number UI scales keep letters crisp; the offered
+  125%, 150% and 175% steps still need a UI Scale pass. computment prefers
+  this look over a smoother font chosen for easy reading.
 - Adding an adult agent opens a flow to select a provider, one of its stored
   API credentials or a newly entered one, and a model, then place the agent in
   the world. Existing credentials can be reused by multiple agents. A player
