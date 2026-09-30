@@ -6,7 +6,7 @@ release yet.
 
 ## Unreleased
 
-- Start World keeps time paused until its checkpoint is saved; a failed write leaves setup retryable instead of running an unsaved world.
+- Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
@@ -25,6 +25,7 @@ release yet.
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
 - Inherited physical maps and field records keep their lot identity, preserving the knowledge artifact link and saveability without broadcasting their contents.
+- Start World keeps time paused until its checkpoint is saved; a failed write leaves setup retryable instead of running an unsaved world.
 - Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
 
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
@@ -400,6 +401,9 @@ release yet.
   and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
+
+- The unread count on the Events button is no longer half hidden under the
+  button next to it.
 
 - A damaged named-save entry no longer hides other saves or stops autosave
   rotation. Damaged files are preserved, with a safe diagnostic for recovery.
