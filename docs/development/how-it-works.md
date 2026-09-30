@@ -293,3 +293,13 @@ Owner world-creation signing uses payload v2 to bind all settings. Preview and
 Create use the same validated options and digest; old clients need an update.
 Small and Medium remain the only playable sizes; no continent-count control
 is exposed for them. Existing saved water settings are not rewritten.
+
+## World-list requests
+
+Load World keeps a visible checking state until its signed catalog request
+finishes. Back cancels the client request; a late response cannot overwrite a
+newer list or New World screen. Results trigger layout after population so the
+first opening can display them. Compatibility still comes from the host's
+checkpoint/history/configuration assessment; no compatibility cache or unchecked
+"compatible" shortcut was added. Client cancellation does not interrupt a host
+assessment that already holds its mutation lock.
