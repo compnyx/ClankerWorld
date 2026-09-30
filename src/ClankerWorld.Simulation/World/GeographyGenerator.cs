@@ -294,6 +294,7 @@ public static class GeographyGenerator
         // Keep a connected low basin, then move removed water to connected ocean shoreline.
         // This changes geography, not just the label on a second sea.
         var maximumLakeArea = Math.Max(16, water.Length / 200);
+        var inlandBasin = water.Select(value => value == (byte)WaterKind.Lake).ToArray();
         var visited = new bool[water.Length];
         var queue = new Queue<int>();
         var removed = 0;
@@ -370,7 +371,9 @@ public static class GeographyGenerator
                 var next = adjacent[n];
                 if (queued[next] || water[next] != (byte)WaterKind.Land) continue;
                 queued[next] = true;
-                shoreline.Enqueue(next, (elevation[next], next));
+                // Prefer existing dry coastline over reflooding a basin we just reduced.
+                // The finite penalty still leaves a fallback for unusually water-heavy maps.
+                shoreline.Enqueue(next, (elevation[next] + (inlandBasin[next] ? 256 : 0), next));
             }
         }
     }

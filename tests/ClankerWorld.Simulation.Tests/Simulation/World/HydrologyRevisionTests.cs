@@ -29,14 +29,19 @@ public sealed class HydrologyRevisionTests(ITestOutputHelper output)
                 Assert.Equal(before.Count(WaterKind.Lake) + before.Count(WaterKind.Ocean),
                     after.Count(WaterKind.Lake) + after.Count(WaterKind.Ocean));
                 Assert.True(after.Count(WaterKind.Ocean) > newLake);
+                var formerLakeNowLand = 0;
                 for (var y = 0; y < after.Height; y++)
                     for (var x = 0; x < after.Width; x++)
                     {
+                        if (before.At(x, y).Water == WaterKind.Lake && after.At(x, y).Water == WaterKind.Land) formerLakeNowLand++;
                         Assert.Equal(after.At(x, y), repeat.At(x, y));
                         Assert.Equal(after.DownstreamAt(x, y), repeat.DownstreamAt(x, y));
                         if (after.At(x, y).Water is WaterKind.Lake or WaterKind.Ocean)
                             Assert.Null(after.DownstreamAt(x, y));
                     }
+                var reduced = before.Count(WaterKind.Lake) - after.Count(WaterKind.Lake);
+                Assert.True(formerLakeNowLand >= reduced / 2,
+                    "Shrinking an inland lake must create substantial dry land, not merely relabel its water as sea.");
                 output.WriteLine($"size={size}; wrap={wrap}; water={water}; seed={seed}; largestLake={oldLake}/{newLake}; openWater={before.Count(WaterKind.Lake) + before.Count(WaterKind.Ocean)}/{after.Count(WaterKind.Lake) + after.Count(WaterKind.Ocean)}; rivers={before.Count(WaterKind.River)}/{after.Count(WaterKind.River)}");
             }
     }

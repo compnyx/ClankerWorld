@@ -145,6 +145,9 @@ creation select saved hydrology revision 1: inland lakes retain a connected
 low basin of at most 0.5% of map area, with displaced open-water area added
 along ocean shores. This is provisional visual tuning, not a new player slider.
 Rivers terminate at lakes or oceans; this revision does not invent lake outlets.
+The [Small/Medium comparison](assets/inland-water-comparison.png) shows seed
+`inland-water-0` at 45% water with wrapping (historical left, revised right).
+It is a generator-layer rendering, not a Godot screenshot or native playtest.
 Revision 0 (including absent revision fields) retains the historical generator;
 unsupported revisions are rejected rather than substituted. Individual trees are
 objects/resources. Old generated worlds recover missing layers from saved
