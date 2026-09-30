@@ -268,3 +268,13 @@ Development currently uses the private server. The intended first finished
 release runs the same authoritative simulation on the player's Windows PC,
 with local saves and keys. Embedded host versus companion process remains open.
 See [where the game runs](../game-design/world.md#where-the-game-runs).
+
+## World-list requests
+
+Load World keeps a visible checking state until its signed catalog request
+finishes. Back cancels the client request; a late response cannot overwrite a
+newer list or New World screen. Results trigger layout after population so the
+first opening can display them. Compatibility still comes from the host's
+checkpoint/history/configuration assessment; no compatibility cache or unchecked
+"compatible" shortcut was added. Client cancellation does not interrupt a host
+assessment that already holds its mutation lock.
