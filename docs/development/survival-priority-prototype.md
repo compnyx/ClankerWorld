@@ -161,3 +161,28 @@ and construction completions decrease in the 360-tick comparison. Staying in
 cover now counts as a protective decision, not an additional trip; decision
 share still cannot establish elapsed time spent on survival. Generated-world,
 native Windows and model-backed playtests remain required before adoption.
+
+### Baseline and integration verification
+
+The unchanged `77f2aaf` baseline was rerun with the identical extended fixture.
+At 1,200 ticks, clear/rain/storm peak illness was 0%/0%/2.64%, with no deaths.
+Baseline decisions were 161/183/189; survival counts 22/44/66; social/care
+16/20/23; building 25/24/23; exploration 20/18/21; other 78/77/56.
+Food initial/minimum/final was 32/17/21, 32/17/17 and 32/17/17; each run had
+11 meals. Exploration moves were 128/141/139 and completed projects 23/24/22.
+Both baseline measurement cases passed; the below-35%-exposure priority case
+failed on main as expected. That is a negative control for the changed urgency
+policy, not a claim that the baseline recovery-in-shelter behavior was broken.
+
+The revised table above is the matched pre-integration `71cf659` comparison.
+Main then gained the independent reachable-Workshop fix (`eeecaee`). After
+integration (`e7b8d0e`), both measurement cases passed again: peak illness
+remained 0%/0%/2.48% at both lengths, without deaths. Activity counts changed
+with the Workshop fix, so they must not be attributed only to survival tuning.
+
+Full CI at `e7b8d0e` passed 651 Release tests (2 skipped), formatting, Godot
+headless checks, Windows checks and Windows export. The local integration run
+completed its two measurement cases, then aborted with AccessViolationException
+in a later boundary test; it was not a successful whole run. The clean CI suite
+is the final full-suite verification. Independent review and native playtests
+remain outstanding.
