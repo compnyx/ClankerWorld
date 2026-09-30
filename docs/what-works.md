@@ -55,6 +55,9 @@ the chosen key with the provider and greys out listed models it can't use. That
 check and the listed model names have been tested against recorded sample
 replies, not yet against live provider accounts. Jev can be switched on or off
 for a paused world.
+When a personal model names a new agent, it gets a stable first-letter hint to
+encourage varied names. The hint does not prevent two agents choosing the same
+full name.
 
 Personal models choose from legal actions. They receive some saved self
 information, need values, a recent private thought, relevant personal memories
