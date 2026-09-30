@@ -18,8 +18,8 @@ release yet. Newer changes that are not collected here yet are in
 - A mandatory harvest instruction completes after gathering orchard fruit, allowing the agent's next queued instruction to proceed after saving and loading too.
 - Ollama Cloud's DeepSeek V4 Pro and Gemma 4 choices use the model IDs returned by its live list, so a valid key does not incorrectly grey them out.
 
-- Model requests now use the game's own wording for agents and no longer send internal clock and counter values to the personal model. A few choice descriptions no longer mention the old camp.
-- Agents gather heating fuel and project materials from reachable local resources, including island Towns disconnected from the original map anchor.
+- Model requests now use the game's own wording for agents, apart from one phrase in the instructions, and no longer send internal clock and counter values to the personal model. A few choice descriptions no longer mention the old camp.
+- Agents gather heating fuel, help with other agents' projects and Blacksmith ore from reachable local resources, including island Towns disconnected from the original map anchor.
 - Hungry agents and caregivers skip blocked food routes and can gather from another reachable source instead of repeatedly getting stuck.
 - Storm refuge selection checks reachable, unoccupied routes, so an inaccessible nearby forest does not hide usable cover.
 
@@ -49,7 +49,7 @@ release yet. Newer changes that are not collected here yet are in
 - Create/Load World resets the observation timeline before sending the switch, so a lost response cannot trap reconnect on the old world’s event cursor.
 - Interrupted world selection restores routing and autosave settings during startup, before Resume or owner mutations can be acknowledged.
 - A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.
-- Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
+- Food choices use the acting agent’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
 - Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
 - Production requests now refuse workers who are too young, before taking materials or creating a job, using the same age limits as agents' own choices.
 - Adults can only propose barter to another adult or elder, so a trade can no longer reserve a child's belongings when the child cannot answer it.
@@ -734,7 +734,7 @@ release yet. Newer changes that are not collected here yet are in
   shows the moisture estimate near the camera, and affected harvests explain
   the change in the event log.
 
-- Prototype saved regional weather episodes with bounded storms and recovery intervals; rain weights remain provisional pending comparison and owner playtesting.
+- Prototype saved regional weather episodes with bounded storms and recovery intervals; rain weights remain provisional pending owner playtesting.
 - Generated worlds now have 32×32-tile weather regions instead of one weather
   condition across the whole map. Agents' warmth, clothing/fire choices and
   travel fatigue use weather where they stand or travel; crops use weather at
