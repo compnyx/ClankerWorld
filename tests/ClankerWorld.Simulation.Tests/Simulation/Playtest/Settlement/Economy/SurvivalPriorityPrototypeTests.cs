@@ -30,6 +30,8 @@ public sealed class SurvivalPriorityPrototypeTests(ITestOutputHelper output)
                 { HungerBasisPoints = 4_500, Survival = new SurvivalCondition(WarmthBasisPoints: 5_500), LastDecisionContext = null }).ToArray(),
                 WorldSystems = initial.WorldSystems! with
                 {
+                    // Keep this controlled comparison on the historical fixed-profile weather path.
+                    RegionalWeather = null,
                     Config = initial.WorldSystems.Config with
                     {
                         WeatherProfiles = Enum.GetValues<SeasonKind>().Select(season =>
@@ -170,6 +172,7 @@ public sealed class SurvivalPriorityPrototypeTests(ITestOutputHelper output)
             { HungerBasisPoints = fullness, Survival = new SurvivalCondition(WarmthBasisPoints: warmth), LastDecisionContext = null }).ToArray(),
             WorldSystems = state.WorldSystems! with
             {
+                RegionalWeather = null,
                 Config = state.WorldSystems.Config with
                 {
                     WeatherProfiles = Enum.GetValues<SeasonKind>().Select(season =>
