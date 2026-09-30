@@ -254,10 +254,10 @@ route meets a bridgeable river; it need not wait for traffic there. Once a
 bridge is placed, a no-other-bridge radius prevents a
 redundant bridge appearing right next to it on the **same crossing/river**.
 It does not block a needed bridge over a separate nearby stream. Exact radius,
-traffic threshold, bridge
-materials/work, and wider/deeper river crossing rules remain open. Town site
-planning and Road generation must be designed together; Road persistence is
-specified in the building/Town section below.
+bridge materials/work, and wider/deeper river crossing rules remain open. The
+initial traffic threshold and permanent Road/bridge rule are recorded in
+[Towns](towns.md#how-roads-and-bridges-appear). Town site planning and Road
+generation must be designed together.
 
 ### Still to decide
 
