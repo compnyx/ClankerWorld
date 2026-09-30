@@ -6,7 +6,7 @@ release yet.
 
 ## Unreleased
 
-- Prototype saved regional weather episodes with bounded storms and recovery intervals; rain weights remain provisional pending comparison and owner playtesting.
+- Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
@@ -401,6 +401,9 @@ release yet.
 
 ### Fixed
 
+- The unread count on the Events button is no longer half hidden under the
+  button next to it.
+
 - A damaged named-save entry no longer hides other saves or stops autosave
   rotation. Damaged files are preserved, with a safe diagnostic for recovery.
 
@@ -612,6 +615,7 @@ release yet.
   shows the moisture estimate near the camera, and affected harvests explain
   the change in the event log.
 
+- Prototype saved regional weather episodes with bounded storms and recovery intervals; rain weights remain provisional pending comparison and owner playtesting.
 - Generated worlds now have 32×32-tile weather regions instead of one weather
   condition across the whole map. Agents' warmth, clothing/fire choices and
   travel fatigue use weather where they stand or travel; crops use weather at
