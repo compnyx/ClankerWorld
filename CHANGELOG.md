@@ -6,7 +6,7 @@ release yet.
 
 ## Unreleased
 
-- Resume keeps the world paused until its running checkpoint is saved, and retries cannot report success while saving still fails—even when an earlier request left memory running.
+- Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
@@ -28,6 +28,7 @@ release yet.
 - Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
 
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
+- Resume keeps the world paused until its running checkpoint is saved, and retries cannot report success while saving still fails—even when an earlier request left memory running.
 - Successful pause and rename retries now persist the acknowledged state even when a failed earlier save already changed it in memory.
 
 - Starting households are named First household and Second household instead of
@@ -400,6 +401,9 @@ release yet.
   and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
+
+- The unread count on the Events button is no longer half hidden under the
+  button next to it.
 
 - A damaged named-save entry no longer hides other saves or stops autosave
   rotation. Damaged files are preserved, with a safe diagnostic for recovery.
