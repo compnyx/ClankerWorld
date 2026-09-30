@@ -8,6 +8,7 @@ release yet.
 
 - Loading or overwriting a damaged manual save reports a recoverable conflict before creating backups or changing the active world, instead of returning a server error or accepting invalid metadata.
 
+- Keep descendants able to explore and save even when their inherited identities are long.
 - A mandatory harvest instruction completes after gathering orchard fruit, allowing the agent's next queued instruction to proceed after saving and loading too.
 
 - Model requests now use the game's own wording for agents and no longer send internal clock and counter values to the personal model. A few choice descriptions no longer mention the old camp.

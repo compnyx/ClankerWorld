@@ -39,6 +39,9 @@ host's versioned HTTP contract. Legacy web assets are diagnostic tools.
 - **Knowledge belongs to each agent.** The player's map and observations are
   not automatically agent knowledge. Preserve ownership, source, confidence
   and correction history. A belief can be wrong without changing world facts.
+  Long descendant identities remain intact in saved discovery provenance;
+  knowledge keys and model-facing discoverer references use stable hashes
+  only when the original identifier exceeds their size limits.
 - **Credentials are installation state.** Keep keys and device authority out
   of saves, exports, observations and telemetry. See
   [device pairing](device-pairing.md) for transport and access rules.
