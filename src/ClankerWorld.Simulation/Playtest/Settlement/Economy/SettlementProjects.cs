@@ -324,7 +324,7 @@ public sealed partial class PrivateWorldRuntime
         AdultResident(state.InhabitantId) &&
         state.Project is { Stage: not ("completed" or "cancelled") } project &&
         (project.Stage != "blocked" || WorldTick - project.LastTransitionTick < BlockedProjectRetryDelayTicks) &&
-        state.HungerBasisPoints >= 3_500 &&
+        !NeedsUrgentFood(state) &&
         !HasTradeResponse(state.InhabitantId) &&
         !HasCouncilDecision(state.InhabitantId) &&
         !HasFamilyDecision(state.InhabitantId) &&
