@@ -334,7 +334,8 @@ public sealed record OwnerManualSaveAction(string Operation, string Value);
 public sealed record OwnerWorldCreationAction(string Name, string Seed, string Size,
     int WaterPercent, bool WrapEastWest, string ClimateMode = "Balanced",
     string SelectedClimate = "Temperate", bool LatitudeCooling = true,
-    string ResourceAbundance = "Normal");
+    string ResourceAbundance = "Normal", string ForestCover = "Normal",
+    string MountainRelief = "Normal", string RiverAbundance = "Normal");
 public sealed record CatalogWorld(string Id, string Name, string WorldId, string Seed,
     DateTimeOffset UpdatedUtc, IReadOnlyList<InhabitantProviderAssignment> Assignments,
     WorldAutosaveSettings? AutosaveSettings, string Compatibility = "unknown",

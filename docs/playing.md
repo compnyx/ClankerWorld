@@ -105,3 +105,13 @@ for a bug or playtest report. Rough notes are welcome: what you did, what happen
 what you expected and the build you used.
 [Contributing](../CONTRIBUTING.md#issues-and-design-questions) explains the report options.
 Some fixes still need a Windows playtest; include failures as well as successes.
+
+## Advanced New World settings
+
+The simple preset uses 50% water, Normal forest/mountains/rivers/resources,
+Balanced climates, east/west wrapping and latitude cooling. Expand **Advanced**
+to change water from 20% to 80%, relative Low/Normal/High settings, climates,
+wrapping or latitude cooling. **Reset generation settings** restores the preset
+and Small size without changing the name or seed. The preview updates after
+changes; Create World waits for a matching preview. Small and Medium are
+available; larger worlds remain unavailable pending their support checks.

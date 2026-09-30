@@ -278,6 +278,22 @@ release runs the same authoritative simulation on the player's Windows PC,
 with local saves and keys. Embedded host versus companion process remains open.
 See [where the game runs](../game-design/world.md#where-the-game-runs).
 
+## Advanced generation controls
+
+New World defaults to 50% water with a 20–80% range. `GenerationAmount`
+controls forest cover, mountain relief and river abundance independently;
+Normal is zero and omitted from saved JSON, preserving historical default
+settings. Low/High adjust the forest rainfall threshold (175/125), upper
+elevation relief, and river catchment threshold (288/72). Normal keeps
+150 and 144 respectively. These are relative presets, not promises of exact
+forest or mountain percentages. Resource abundance retains its existing
+Sparse/Normal/Abundant saved values; the UI labels them Low/Normal/High.
+
+Owner world-creation signing uses payload v2 to bind all settings. Preview and
+Create use the same validated options and digest; old clients need an update.
+Small and Medium remain the only playable sizes; no continent-count control
+is exposed for them. Existing saved water settings are not rewritten.
+
 ## World-list requests
 
 Load World keeps a visible checking state until its signed catalog request

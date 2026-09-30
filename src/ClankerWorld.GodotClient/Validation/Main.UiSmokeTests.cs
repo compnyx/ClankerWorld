@@ -313,6 +313,20 @@ public partial class Main
                     manualSaveOverlay.GetGlobalRect().GetCenter().DistanceTo(manualSaveCard.GetGlobalRect().GetCenter()) > 2)
                     throw new InvalidOperationException($"Save/load panel escaped its centered bounds at {size}.");
                 manualSaveOverlay.Hide();
+                ResetWorldGenerationOptions();
+                if (CurrentWorldOptions().WaterPercent != 50 || CurrentWorldOptions().ForestCover != "Normal" ||
+                    CurrentWorldOptions().MountainRelief != "Normal" || CurrentWorldOptions().RiverAbundance != "Normal" ||
+                    !CurrentWorldOptions().LatitudeCooling || !CurrentWorldOptions().WrapEastWest || worldSizeChoice.ItemCount != 2)
+                    throw new InvalidOperationException("Reset must restore the complete supported New World preset.");
+                worldAdvancedToggle.ButtonPressed = true;
+                if (!worldAdvancedOptions.Visible || worldForestChoice.FocusMode == FocusModeEnum.None)
+                    throw new InvalidOperationException("Advanced generation controls must be expandable and keyboard accessible.");
+                var preset = CurrentWorldOptions();
+                worldForestChoice.Select(0);
+                if (SameGeneration(preset, CurrentWorldOptions()))
+                    throw new InvalidOperationException("Changing an advanced setting must invalidate the matching preview.");
+                ResetWorldGenerationOptions();
+                worldAdvancedToggle.ButtonPressed = false;
                 worldMenuHeading.Text = "New World";
                 worldMenuStatus.Text = "Pick a seed and size. After creating the world, choose where your first Town goes and add four founders, then start time.";
                 worldPreviewStatus.Text = "Map preview · you will choose where your first Town goes after creating the world.";

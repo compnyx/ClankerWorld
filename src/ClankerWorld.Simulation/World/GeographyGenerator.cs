@@ -45,6 +45,13 @@ public enum ResourceAbundance : byte
     Abundant,
 }
 
+public enum GenerationAmount : byte
+{
+    Normal,
+    Low,
+    High,
+}
+
 public sealed record GeographyOptions(
     string Seed,
     WorldSizePreset Size,
@@ -54,7 +61,10 @@ public sealed record GeographyOptions(
     ClimateZone SelectedClimate = ClimateZone.Temperate,
     bool LatitudeCooling = true,
     ResourceAbundance ResourceAbundance = ResourceAbundance.Normal,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int HydrologyVersion = 0);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int HydrologyVersion = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] GenerationAmount ForestCover = GenerationAmount.Normal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] GenerationAmount MountainRelief = GenerationAmount.Normal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] GenerationAmount RiverAbundance = GenerationAmount.Normal);
 
 public readonly record struct GeographyTile(byte Elevation, byte Rainfall, WaterKind Water,
     byte Temperature, ClimateZone Climate);
@@ -139,7 +149,8 @@ public static class GeographyGenerator
         if (options.WaterPercent is < 10 or > 80)
             throw new ArgumentOutOfRangeException(nameof(options), "Water percentage must be between 10 and 80.");
         if (!Enum.IsDefined(options.ClimateMode) || !Enum.IsDefined(options.SelectedClimate) ||
-            !Enum.IsDefined(options.ResourceAbundance))
+            !Enum.IsDefined(options.ResourceAbundance) || !Enum.IsDefined(options.ForestCover) ||
+            !Enum.IsDefined(options.MountainRelief) || !Enum.IsDefined(options.RiverAbundance))
             throw new ArgumentOutOfRangeException(nameof(options), "The climate selection is invalid.");
 
         if (options.HydrologyVersion is < 0 or > CurrentHydrologyVersion)
@@ -186,6 +197,12 @@ public static class GeographyGenerator
                     ? dominanceNoise.GetNoise(circleX[x], y, circleZ[x])
                     : dominanceNoise.GetNoise(x, y);
                 var scaled = (byte)Math.Clamp((int)MathF.Round((value + 1f) * 127.5f), 0, 255);
+                scaled = (byte)Math.Clamp(scaled + (options.MountainRelief switch
+                {
+                    GenerationAmount.Low => -Math.Max(0, scaled - 130) / 2,
+                    GenerationAmount.High => Math.Max(0, scaled - 130) / 2,
+                    _ => 0,
+                }), 0, 255);
                 var index = y * width + x;
                 elevation[index] = scaled;
                 rainfall[index] = (byte)Math.Clamp((int)MathF.Round((wetness + 1f) * 127.5f), 0, 255);
@@ -220,7 +237,7 @@ public static class GeographyGenerator
         if (options.HydrologyVersion >= 1)
             BoundInlandLakes(elevation, water, width, height, options.WrapEastWest);
         var drainage = RouteRivers(elevation, rainfall, water, width, height, options.WrapEastWest,
-            lakesAreTerminals: options.HydrologyVersion >= 1);
+            lakesAreTerminals: options.HydrologyVersion >= 1, options.RiverAbundance);
         return new GeneratedGeography(width, height, options.WrapEastWest, elevation, rainfall, water,
             temperature, climate, drainage);
     }
@@ -378,7 +395,7 @@ public static class GeographyGenerator
         }
     }
 
-    private static int[] RouteRivers(byte[] elevation, byte[] rainfall, byte[] water, int width, int height, bool wrap, bool lakesAreTerminals)
+    private static int[] RouteRivers(byte[] elevation, byte[] rainfall, byte[] water, int width, int height, bool wrap, bool lakesAreTerminals, GenerationAmount abundance)
     {
         var length = water.Length;
         var floodedHeight = new int[length];
@@ -426,8 +443,9 @@ public static class GeographyGenerator
 
         // Larger catchments have wider/longer rivers. The threshold is a
         // provisional visual-tuning value, not a climate or hydrology law.
+        var threshold = abundance switch { GenerationAmount.Low => 288, GenerationAmount.High => 72, _ => 144 };
         for (var index = 0; index < length; index++)
-            if (water[index] == (byte)WaterKind.Land && flow[index] >= 144)
+            if (water[index] == (byte)WaterKind.Land && flow[index] >= threshold)
                 water[index] = (byte)WaterKind.River;
         return downstream;
     }
