@@ -12,4 +12,3 @@ public sealed record OwnerDeviceRegistration(
     string DeviceId,
     string PublicKeyFingerprint,
     string WorldUrl = "");
-
