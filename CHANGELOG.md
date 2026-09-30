@@ -6,6 +6,9 @@ release yet.
 
 ## Unreleased
 
+- Storm refuge selection checks reachable, unoccupied routes, so an inaccessible nearby forest does not hide usable cover.
+
+- Prototype survival priorities leave more room for ordinary activities below comfortable fullness and warmth. Urgent food or continuing cold exposure still interrupts discretionary work, while safe nearby care remains possible. Routine food and outing reserves remain provisional for playtesting.
 - Add confirmed permanent deletion of one selected save, or an inactive world and all its saves. The active world and other worlds stay intact.
 - New World adds a compact Advanced section with 20–80% water (50% default), Low/Normal/High forest, mountains, rivers and resources, climate choices, wrapping and latitude cooling. Reset restores the full supported preset; preview and creation use the same saved settings.
 
