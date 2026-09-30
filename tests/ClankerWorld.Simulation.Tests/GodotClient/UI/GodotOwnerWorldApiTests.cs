@@ -40,11 +40,17 @@ public sealed class GodotOwnerWorldApiTests
                 old.Baseline.Snapshot with { WorldId = "new-host-world", WorldTick = 0, LatestEventId = 0 },
                 new OwnerWorldEventSlice(0, 0, []))
         };
-        Assert.False(session.TryAccept(fresh with { Baseline = fresh.Baseline with
-        { Snapshot = fresh.Baseline.Snapshot with { Tiles = [], PackedTerrain = null } } }, 0, out _));
+        Assert.False(session.TryAccept(fresh with
+        {
+            Baseline = fresh.Baseline with
+            { Snapshot = fresh.Baseline.Snapshot with { Tiles = [], PackedTerrain = null } }
+        }, 0, out _));
         Assert.True(session.TryAccept(fresh, session.EventCursor, out var failure), failure);
-        var advanced = fresh with { Baseline = old.Baseline with
-        { Snapshot = old.Baseline.Snapshot with { WorldId = "new-host-world" } } };
+        var advanced = fresh with
+        {
+            Baseline = old.Baseline with
+            { Snapshot = old.Baseline.Snapshot with { WorldId = "new-host-world" } }
+        };
         Assert.True(session.TryAccept(advanced, 3, out _));
         Assert.False(session.TryAccept(fresh, 0, out _)); // Same-timeline regression remains invalid.
     }
