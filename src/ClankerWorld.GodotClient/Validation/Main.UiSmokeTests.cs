@@ -214,6 +214,32 @@ public partial class Main
         }
     }
 
+    private async Task VerifyFirstWorldListAsync()
+    {
+        worldMenuColumns.Hide();
+        worldSelectionList.Show();
+        worldSelectButton.Show();
+        worldMenuOverlay.Show();
+        var response = new TaskCompletionSource<WorldCatalogSnapshot>();
+        var loading = worldListRequest.RefreshAsync(_ => response.Task);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (!worldMenuStatus.Text.StartsWith("Checking saved worlds", StringComparison.Ordinal) ||
+            !worldSelectButton.Disabled || worldBackButton.Disabled)
+            throw new InvalidOperationException("The first world-list opening must show checking progress with Back available.");
+        response.SetResult(new WorldCatalogSnapshot("world-0", Enumerable.Range(0, 7).Select(index =>
+            new CatalogWorld($"world-{index}", $"World {index}", $"world-{index}", "seed",
+                DateTimeOffset.UnixEpoch, [], null, index == 6 ? "incompatible" : "compatible")).ToArray()));
+        await loading;
+        for (var frame = 0; frame < 3; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (worldSelectionList.ItemCount != 7 || !worldSelectionList.IsVisibleInTree() ||
+            worldMenuScroll.Size.Y < 300)
+            throw new InvalidOperationException("The first opening must display a delayed seven-world result without reopening.");
+        worldSelectionList.EmitSignal(ItemList.SignalName.ItemSelected, 6L);
+        if (!worldSelectButton.Disabled)
+            throw new InvalidOperationException("An incompatible world must remain blocked after listing.");
+        worldMenuOverlay.Hide();
+    }
+
     /// <summary>The logo replaces the old title and slogan, sits above the card and stays crisp.</summary>
     private void VerifyMainMenuLogo(Vector2I size)
     {
@@ -415,6 +441,7 @@ public partial class Main
             var originalUiScaleChoice = uiScaleChoice.Selected;
             try
             {
+                await VerifyFirstWorldListAsync();
                 await VerifyUiScaleAt1440pAsync(displayWindow);
                 windowSizeChoice.Select(1);
                 SetWindowSize(1);
