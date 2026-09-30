@@ -294,6 +294,7 @@ release yet.
 
 ### Changed
 
+- The Main Menu now shows the ClankerWorld logo instead of a plain text title and slogan: wood-grain letters either side of a friendly robot waving in front of a little planet, floating over the valley above the menu buttons. The line of text in the menu only appears when something needs your attention, such as connecting this device or reaching your world. The robot and planet are also the game window's icon and the Windows program's icon.
 - Agents no longer start Shelters, Storehouses, Cooking fires or Stone
   hearths. A household's House now provides shelter, cooking, warmth from its
   fire and food storage, and a Town's Warehouse holds shared supplies.
@@ -401,6 +402,7 @@ release yet.
 
 ### Fixed
 
+- The Quit Game icon shows its whole arrow; the tip was cut off at the edge.
 - The unread count on the Events button is no longer half hidden under the
   button next to it.
 
