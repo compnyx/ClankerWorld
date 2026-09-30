@@ -21,6 +21,7 @@ release yet.
 - A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.
 - Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
 - Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
+- Loading a save and switching worlds can no longer archive a mixture of one checkpoint and another set of model/autosave settings.
 - Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
