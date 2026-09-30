@@ -111,11 +111,11 @@ an endless ore ladder merely because they are conventional crafting-game items.
 | 4.8 | Agreed | Carry aid | Basket/sack/handcart family for physical stock transport; exact members, capacities and whether a cart is a distinct vehicle remain open. |
 
 **First-Town guaranteed start:** two Houses, a Warehouse, a Farmhouse and a
-Blacksmith, plus minimum food portions stored in the Houses and **at least one
-usable wooden axe and one usable wooden pickaxe** available to the four
-starting agents. The two households can claim the Farmhouse and Blacksmith as
-initial productive roles. Exact food/tool counts beyond that minimum,
-ownership, placement and replacement recipes are **open**. The Blacksmith can
+Blacksmith, plus **eight food portions in each House** and **at least one
+usable wooden axe and one usable wooden pickaxe** in the communal Warehouse.
+The game automatically assigns the Farmhouse and Blacksmith to the two
+starting households, one productive building each. Optional extra supplies,
+later ownership transfers and replacement recipes are **open**. The Blacksmith can
 support the bootstrap; the Workshop is not required at start.
 
 ## 5. Food, cooking, and care
