@@ -216,7 +216,7 @@ list as a cap on invention, or fabricate every possible invented sprite now.
 
 | # | Status | Visual family | Must cover |
 | --- | --- | --- | --- |
-| 9.1 | Agreed | Main Menu and New World | Background, buttons for Continue/New World/Load World/Settings/Mod Library/Quit Game; seed preview, size/climate/advanced controls, rough first-Town site and layout accept/redo, four-agent setup and Start World progress. |
+| 9.1 | Agreed | Main Menu and New World | Background, buttons for Continue/New World/Load World/Settings/Mod Library/Quit Game; seed preview, size/climate/advanced controls, highlighted suitable first-Town areas with free rough-site choice and automatic layout, four-agent setup and Start World progress. |
 | 9.2 | Agreed | World HUD | Top-bar Map, pause/resume, date/time, population, World Info, Filters, Event Log, Add Agent and Pause Menu; tile/agent hover/selection markers. |
 | 9.3 | Agreed | Overview and filters | Map frame/camera rectangle; biome/terrain and local weather legend; established Town/household boundaries, property and similar fact overlays. No player fog-of-war texture is needed. |
 | 9.4 | Agreed | Inspection panels | Tile facts; agent profile, private thoughts, Memories, inventory, relationships, model/provider controls, deceased profile and Family Tree; building occupants/stock/ownership. |
