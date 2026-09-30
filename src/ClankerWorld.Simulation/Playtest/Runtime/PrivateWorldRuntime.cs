@@ -20,7 +20,7 @@ namespace ClankerWorld.Simulation.Playtest;
 /// </summary>
 public sealed partial class PrivateWorldRuntime : IDisposable
 {
-    public const int StateSchemaVersion = 25;
+    public const int StateSchemaVersion = 26;
     private const int MaximumRecentThoughts = 8;
     private const string HouseholdId = "household:camp-alpha";
     private const string SecondHouseholdId = "household:camp-beta";
@@ -278,9 +278,10 @@ public sealed partial class PrivateWorldRuntime : IDisposable
         runtime.council = state.Council;
         runtime.worldSystems = state.WorldSystems is null
             ? AdvanceWorldSystemsTo(
-                CreateWorldSystems(state.WorldSeed, state.Map),
+                CreateWorldSystems(state.WorldSeed, state.Map, regionalWeather: false),
                 state.Society.Society.WorldTick)
             : state.WorldSystems;
+        RegionalWeatherRules.ValidateMap(runtime.worldSystems, runtime.map);
         runtime.inhabitants.Clear();
         foreach (var inhabitant in state.Inhabitants)
         {

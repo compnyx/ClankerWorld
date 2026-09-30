@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Prototype saved regional weather episodes with bounded storms and recovery intervals; rain weights remain provisional pending comparison and owner playtesting.
+
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
 
