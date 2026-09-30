@@ -279,6 +279,12 @@ metadata, never private prose or map contents. Logs are derived telemetry, never
 simulation authority or required save state. Observability tests must prove both
 useful signal and absence of representative secrets.
 
+Event descriptions resolve complete agent and Town IDs from the owner snapshot;
+colons inside those IDs are part of the identity. Food yields and Town membership
+fields are read separately. Existing entries use the current saved name, including
+deceased profiles. Hosted-decision and Town telemetry likewise keep complete IDs.
+These readers do not rewrite accepted event details or change save/replay formats.
+
 ## Development and finished distribution
 
 Development currently uses the private server. The intended first finished
