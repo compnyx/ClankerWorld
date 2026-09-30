@@ -6,7 +6,7 @@ release yet.
 
 ## Unreleased
 
-- Loading a save and switching worlds can no longer archive a mixture of one checkpoint and another set of model/autosave settings.
+- Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
@@ -21,6 +21,7 @@ release yet.
 - A mandatory instruction stays pending when its requested action is unavailable or makes no progress; unrelated accepted idling no longer counts as completion.
 - Food choices use the acting inhabitant’s connected ground, so an adult on another island can harvest its reachable local food instead of seeking an unreachable camp resource.
 - Crop planning and preparation use the worker’s actual household stock. Household cooking rechecks on-site ingredients, and failed production starts enter a recoverable blocked state instead of remaining stuck at completed preparation.
+- Loading a save and switching worlds can no longer archive a mixture of one checkpoint and another set of model/autosave settings.
 - Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
@@ -400,6 +401,9 @@ release yet.
   and elders; hovering or selecting one rings them and shows their name.
 
 ### Fixed
+
+- The unread count on the Events button is no longer half hidden under the
+  button next to it.
 
 - A damaged named-save entry no longer hides other saves or stops autosave
   rotation. Damaged files are preserved, with a safe diagnostic for recovery.
