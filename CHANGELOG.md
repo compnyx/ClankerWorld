@@ -620,6 +620,7 @@ release yet.
   shows the moisture estimate near the camera, and affected harvests explain
   the change in the event log.
 
+- Prototype saved regional weather episodes with bounded storms and recovery intervals; rain weights remain provisional pending comparison and owner playtesting.
 - Generated worlds now have 32×32-tile weather regions instead of one weather
   condition across the whole map. Agents' warmth, clothing/fire choices and
   travel fatigue use weather where they stand or travel; crops use weather at

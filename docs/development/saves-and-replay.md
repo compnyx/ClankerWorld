@@ -181,3 +181,20 @@ history, old calendars and rejected restores as relevant to the change. Record
 real Windows/server verification separately from fixture and CI results.
 The full check commands are in [build and test](build-and-test.md).
 Long-term save support and retention remain [design questions](../game-design/saves.md#still-to-decide).
+
+## Regional weather episodes
+
+The prototype adds optional `RegionalWeather` data to world systems: topology,
+local climate, condition, start/end ticks and each region's earliest next storm.
+Absent data stays absent on load, preserving visible daily weather. The first resumed tick imports that weather; a current
+storm retains its original daily start so migration cannot extend its duration.
+Ordinary imported conditions reserve a conservative half-day storm-free window.
+New worlds start with episode data. Saved episodes resume without rerolling;
+all transitions use the same prior neighbor snapshot.
+
+Episode version and bounds are validated, including topology against the saved
+map. Private saves now use schema 26; episode-bearing world systems use schema 2.
+World-systems schema 1 remains readable, with the absent field omitted when null.
+Older binaries reject the newer schema instead of silently dropping episodes.
+The new code reads old saves; keep backups before testing.
+This prototype changes future weather/events, not past recorded history.
