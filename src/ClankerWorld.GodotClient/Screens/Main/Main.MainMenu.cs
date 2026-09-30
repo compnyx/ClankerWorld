@@ -211,19 +211,31 @@ public partial class Main
             await StartPairingAsync();
     }
 
-    private void QuitToMainMenu()
+    private bool isQuittingToMenu;
+
+    private async void QuitToMainMenu()
     {
-        // Opening the pause menu already committed a pause on the host. Stop
-        // owner polling while the title screen is open, so no model work runs.
-        if (observationSession.Current?.Baseline.Snapshot.Authoring?.IsPaused != true &&
-            !menuPauseConfirmed)
+        if (isQuittingToMenu) return;
+        isQuittingToMenu = true;
+        try
         {
-            SetStatus("Wait a moment for the world to pause before leaving.", good: false);
-            return;
+            // Require a confirmed pause before stopping owner polling on the title screen.
+            if (!menuPauseConfirmed)
+            {
+                menuPauseConfirmed = await SetPausedAsync(paused: true);
+                if (!menuPauseConfirmed)
+                {
+                    SetStatus("Could not confirm the pause. Try Quit to Menu again when the host is reachable.", good: false);
+                    return;
+                }
+                // The owner may have closed the menu while this request waited.
+                if (!gameMenuPanel.Visible) return;
+            }
+            resumeWorldOnContinue = menuPausedWorld;
+            CloseGameMenu();
+            ShowMainMenu();
         }
-        resumeWorldOnContinue = menuPausedWorld;
-        CloseGameMenu();
-        ShowMainMenu();
+        finally { isQuittingToMenu = false; }
     }
 
     private void SetWorldMenuActionsVisible(bool visible)

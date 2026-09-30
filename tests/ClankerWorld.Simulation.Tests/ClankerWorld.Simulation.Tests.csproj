@@ -33,6 +33,7 @@
     <Compile Include="..\..\src\ClankerWorld.GodotClient\Protocol\OwnerWorldActionPayload.cs" Link="GodotClient\Protocol\OwnerWorldActionPayload.cs" />
     <Compile Include="..\..\src\ClankerWorld.GodotClient\ClientState\WorldServerOrigin.cs" Link="GodotClient\ClientState\WorldServerOrigin.cs" />
     <Compile Include="..\..\src\ClankerWorld.GodotClient\ClientState\GameDisplayPreferencesStore.cs" Link="GodotClient\ClientState\GameDisplayPreferencesStore.cs" />
+    <Compile Include="..\..\src\ClankerWorld.GodotClient\ClientState\OwnerActionGate.cs" Link="GodotClient\ClientState\OwnerActionGate.cs" />
     <Compile Include="..\..\src\ClankerWorld.GodotClient\ClientState\OwnerPendingSubmissionStore.cs" Link="GodotClient\ClientState\OwnerPendingSubmissionStore.cs" />
   </ItemGroup>
 

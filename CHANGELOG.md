@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Pause/resume waits for a pending owner action instead of disappearing; Quit to Menu requires a saved pause receipt and can retry a failed pause instead of trusting an unsaved paused observation. Signed owner operations time out across challenge and response bodies so stalled reads release the controls.
+
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
 
