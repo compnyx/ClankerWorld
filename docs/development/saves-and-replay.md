@@ -16,6 +16,11 @@ This page owns save implementation and recovery requirements. The
 
 World state includes its seed and generation options, clock, agents, accepted
 events, Towns, content locks, model/slot assignments and autosave choices.
+The client accepts autosave settings only for the selected world and the latest
+visible World Settings read. Switching worlds, leaving that section or closing
+the panel invalidates the read and disables Apply until current settings arrive.
+Late replies and failures cannot replace newer controls or status text.
+
 Installation state includes device authority, provider credentials and usage
 accounting. Saves store slot IDs and model choices, never API-key bytes.
 

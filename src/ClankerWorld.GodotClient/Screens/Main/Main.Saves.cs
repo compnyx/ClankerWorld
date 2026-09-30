@@ -30,9 +30,31 @@ public partial class Main
     private readonly Button autosaveApplyButton = new();
     private readonly Label autosaveSettingsStatus = new();
     private bool autosaveSettingsLoaded;
+    private long autosaveSettingsGeneration;
+    private string? autosaveSettingsWorldId;
+
+    private bool HasCurrentAutosaveSettings => autosaveSettingsLoaded && settingsPanel.Visible &&
+        worldSettingsContent.Visible && autosaveSettingsWorldId is not null &&
+        autosaveSettingsWorldId == observationSession.Current?.Baseline.Snapshot.WorldId;
+
+    private void InvalidateAutosaveSettings()
+    {
+        autosaveSettingsGeneration++;
+        autosaveSettingsLoaded = false;
+        autosaveSettingsWorldId = null;
+        autosaveApplyButton.Disabled = true;
+    }
 
     private void BuildAutosaveSettings()
     {
+        settingsPanel.VisibilityChanged += () =>
+        {
+            if (!settingsPanel.Visible) InvalidateAutosaveSettings();
+        };
+        worldSettingsContent.VisibilityChanged += () =>
+        {
+            if (!worldSettingsContent.Visible) InvalidateAutosaveSettings();
+        };
         var content = new VBoxContainer();
         content.AddThemeConstantOverride("separation", 6);
         autosaveEnabledToggle.Text = "Autosave enabled";
@@ -59,14 +81,23 @@ public partial class Main
 
     private async Task RefreshAutosaveSettingsAsync()
     {
-        if (!TryGetOwner(out var authority, out var deviceId, out var signer)) return;
-        autosaveSettingsLoaded = false;
+        InvalidateAutosaveSettings();
+        var worldId = observationSession.Current?.Baseline.Snapshot.WorldId;
+        if (!settingsPanel.Visible || !worldSettingsContent.Visible || worldId is null ||
+            !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        var generation = autosaveSettingsGeneration;
+        autosaveSettingsWorldId = worldId;
+        bool IsCurrent() => generation == autosaveSettingsGeneration && settingsPanel.Visible &&
+            worldSettingsContent.Visible && worldId == observationSession.Current?.Baseline.Snapshot.WorldId;
         autosaveSettingsStatus.Text = "Loading this world's autosave settings…";
         RefreshControlAvailability();
         try
         {
             var saved = await ownerApi.GetAutosaveSettingsAsync(ResolveWorldUri(), authority,
                 deviceId, signer, CancellationToken.None);
+            if (!IsCurrent()) return;
+            if (saved.WorldId != worldId)
+                throw new InvalidOperationException("The world changed while reading autosave settings. Reopen World Settings.");
             autosaveEnabledToggle.ButtonPressed = saved.Enabled;
             autosaveIntervalChoice.Select(autosaveIntervalChoice.GetItemIndex(saved.IntervalMinutes));
             autosaveRotationChoice.Select(autosaveRotationChoice.GetItemIndex(saved.RotationCount));
@@ -77,6 +108,7 @@ public partial class Main
         }
         catch (Exception exception)
         {
+            if (!IsCurrent()) return;
             autosaveSettingsStatus.Text = "Could not read autosave settings: " + FriendlyFailure(exception);
         }
         RefreshControlAvailability();
@@ -84,7 +116,7 @@ public partial class Main
 
     private async Task ApplyAutosaveSettingsAsync()
     {
-        if (!autosaveSettingsLoaded || !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
+        if (!HasCurrentAutosaveSettings || !TryGetOwner(out var authority, out var deviceId, out var signer)) return;
         var action = new OwnerAutosaveConfigurationAction(autosaveEnabledToggle.ButtonPressed,
             autosaveIntervalChoice.GetSelectedId(), autosaveRotationChoice.GetSelectedId());
         await RunOwnerActionAsync(async () =>

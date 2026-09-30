@@ -551,6 +551,7 @@ public partial class Main
             {
                 await VerifyFirstWorldListAsync();
                 await VerifyWorldActionSelectionAsync();
+                await VerifyAutosaveSettingsAsync();
                 await VerifyNewWorldCompatibilityMessageAsync();
                 await VerifyUiScaleAt1440pAsync(displayWindow);
                 windowSizeChoice.Select(1);

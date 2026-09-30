@@ -76,6 +76,7 @@ release yet.
 - The Event Log and unread badge now select explicitly supported player events, including public partnership, care, trade and Town policy milestones; new internal event kinds no longer appear automatically as humanized diagnostics.
 - The Event Log keeps agent names for food, births, deaths and Town membership, including renamed and deceased agents whose IDs contain colons.
 - Changing autosave rotation trims only the selected world, including Rotation off; other worlds’ checkpoint files remain untouched.
+- Delayed autosave settings from a previous world or closed panel no longer replace the current controls or enable Apply.
 
 - Invalid hosted choices and out-of-range confidence complete with safe idle instead of repeatedly consuming model calls for the same decision.
 - A late model reply no longer cancels the agent's newer pending choice; the current reply can still be accepted.

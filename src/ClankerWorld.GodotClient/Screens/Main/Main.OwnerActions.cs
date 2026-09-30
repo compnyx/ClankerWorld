@@ -323,11 +323,13 @@ public partial class Main
         var paired = !registeredEndpointInvalid && registration is not null && deviceKey is not null;
         worldSettingsCategoryButton.Disabled = !paired || !isInWorld || returnToMainMenu;
         var snapshot = observationSession.Current?.Baseline.Snapshot;
+        if (autosaveSettingsWorldId is not null && autosaveSettingsWorldId != snapshot?.WorldId)
+            InvalidateAutosaveSettings();
         var paused = snapshot?.Authoring?.IsPaused == true;
         var selected = snapshot?.Inhabitants.FirstOrDefault(item =>
             string.Equals(item.Id, selectedInhabitantId, StringComparison.Ordinal));
         var actionDisabled = !paired || isOwnerAction || pendingSubmission is not null;
-        autosaveApplyButton.Disabled = actionDisabled || !paused || !autosaveSettingsLoaded;
+        autosaveApplyButton.Disabled = actionDisabled || !paused || !HasCurrentAutosaveSettings;
         var supportsLifePace = snapshot?.LifePaceRate is not null;
         var supportsJevAssistance = snapshot?.JevEnabled is not null &&
             observationSession.Current?.Handshake.ServerCapabilities.Contains("owner-jev-assistance.v1", StringComparer.Ordinal) == true;
