@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Forgetting registration or activating a new pairing clears the previous host’s observation and terrain cache, so Continue can enter a younger world without restarting the game. Recovered activation follows the same rule.
+
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
 
