@@ -363,6 +363,9 @@ Material gathering selects available resources reachable from the acting agent,
 then checks an actual unoccupied route into harvest range. Heating, project
 assistance and Blacksmith ore use this selector; they do not require a path to
 the original map anchor. This does not change fuel duration or harvest yields.
+Shared fuel and equipment also require an unoccupied route to their collection
+point. Unreachable stock stays untouched and does not prevent an agent from
+using reachable supplies or gathering local fuel instead.
 
 ## Advanced generation controls
 
