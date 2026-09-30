@@ -1,3 +1,10 @@
+---
+title: Regional weather episode experiment
+type: experiment-report
+status: prototype
+updated: 2026-09-30
+---
+
 # Regional weather episode experiment
 
 This implements the experiment in [#375](https://github.com/compoodment/ClankerWorld/issues/375),
