@@ -24,6 +24,9 @@ before a paused switch and keeps world IDs, names, seed and settings separate.
 Creation/selection require signed owner requests and leave the selection paused.
 An interrupted catalog update is recovered against the active checkpoint before
 the server starts hosted services or accepts requests.
+A corrupt leftover checkpoint encountered during deletion keeps cleanup pending
+without preventing the healthy active world from starting. Unverified files and
+the deletion intent are preserved; later recovery can finish after the file is repaired.
 The paired authority identity belongs to the installation, not the selected
 simulation world.
 
@@ -169,6 +172,11 @@ same history archive. Overwriting a selected checkpoint retains a recovery copy;
 these copies have no settled retention policy. Rotating autosaves are a separate
 mechanism and must not delete another world's checkpoints. Updating autosave
 configuration trims only that configured world, including rotation off.
+
+Load and overwrite validate required manual-save metadata before creating a
+recovery backup or changing the active world. Malformed JSON, missing save
+records or invalid required fields return a controlled conflict and preserve
+the original files. The save list skips these same invalid entries.
 
 Manual overwrite first writes an immutable checkpoint generation, then
 atomically publishes its metadata pointer with the matching model assignments

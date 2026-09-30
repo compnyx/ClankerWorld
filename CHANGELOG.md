@@ -7,8 +7,11 @@ release yet.
 ## Unreleased
 
 - Hungry agents and caregivers skip blocked food routes and can gather from another reachable source instead of repeatedly getting stuck.
+- Loading or overwriting a damaged manual save reports a recoverable conflict before creating backups or changing the active world, instead of returning a server error or accepting invalid metadata.
 
 - Keep descendants able to explore and save even when their inherited identities are long.
+- New World explains when the game and world server need matching updates, keeping valid device pairing instead of asking players to connect the device again.
+
 - A mandatory harvest instruction completes after gathering orchard fruit, allowing the agent's next queued instruction to proceed after saving and loading too.
 
 - Model requests now use the game's own wording for agents and no longer send internal clock and counter values to the personal model. A few choice descriptions no longer mention the old camp.
@@ -17,6 +20,7 @@ release yet.
 
 - Prototype survival priorities leave more room for ordinary activities below comfortable fullness and warmth. Urgent food or continuing cold exposure still interrupts discretionary work, while safe nearby care remains possible. Routine food and outing reserves remain provisional for playtesting.
 - Add confirmed permanent deletion of one selected save, or an inactive world and all its saves. The active world and other worlds stay intact.
+- Damaged leftover saves no longer stop host startup during pending deletion cleanup; failed cleanup stays pending and preserves unverified files.
 - New World adds a compact Advanced section with 20–80% water (50% default), Low/Normal/High forest, mountains, rivers and resources, climate choices, wrapping and latitude cooling. Reset restores the full supported preset; preview and creation use the same saved settings.
 
 - New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
