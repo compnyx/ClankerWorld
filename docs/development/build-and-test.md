@@ -2,7 +2,7 @@
 title: Build and test
 type: development-reference
 status: active
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # Build and test
@@ -55,6 +55,12 @@ lettering, Timber, is drawn in code in `UI/Theme/TimberFont.cs`.
 The CI configuration in [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
 is the source for current automated gates. A PR needs green CI before merge;
 local checks should fit the change. List checks you could not run and why.
+
+Hands-on checks above describe useful verification, not a blanket pre-merge
+playtest gate. Routine owner playtesting may follow merge under
+[Drafts and readiness](../../CONTRIBUTING.md#drafts-and-readiness). Keep pending
+playtests explicit; do not equate a passing automated check with actual play.
+The separate release gates still apply when preparing a release.
 
 ## Full build and test commands
 
