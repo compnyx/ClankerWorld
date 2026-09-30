@@ -81,9 +81,9 @@ everything that is available in the current build. See [what works today](../wha
   notification proposal; an agent's inspectable info panel is not an event
   notice.
 - World Info should let the player inspect discovered capabilities and other
-  world information. Filters should reveal established household property
-  borders, Town borders, and similar world facts. The UI must not invent
-  ownership or borders that agents have not established.
+  world information. Filters should reveal established Town land claims,
+  household use areas and property, Town borders, and similar world facts.
+  The UI must not invent ownership or borders that agents have not established.
 - The top-right menu button opens the **Pause Menu** and pauses the world. It
   contains **Save World**, **Settings**, **Mod Library**, then **Quit to Menu**
   at the bottom. There is **no Quit Game action in the Pause Menu**; Quit Game
@@ -199,9 +199,10 @@ categories and transition behavior for an in-flight Jev task remain open.
 World Settings must be absent from Main Menu Settings while no world is loaded;
 opening Main Menu settings must never enter a world.
 
-In the **Add Agent** placement view, show existing household property and
+In the **Add Agent** placement view, show exclusive household use areas and
 Town borders so computment can see the new agent's initial affiliation.
-Placement on household-owned tiles **forces the new agent into that household**
+Placement on a tile assigned exclusively to one household **forces the new
+agent into that household**
 (and its enclosing Town, if any); this player setup action does not seek
 household consent. Placement elsewhere within a
 Town joins the Town but no household; placement on unclaimed land
