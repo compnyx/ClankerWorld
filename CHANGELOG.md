@@ -6,6 +6,7 @@ release yet.
 
 ## Unreleased
 
+- An agent-card **Order** the game can't act on, such as "build a house", now closes at once, and the Event Log says the agent didn't understand it. Before, it never finished, asked the agent's model for a new decision about once a second and held up later instructions to that agent. An order that can't be carried out yet, such as "eat" with no food, still waits, but without the extra requests. Orders are now read as whole words, so "heat" no longer counts as "eat" and "good" no longer counts as "go".
 - A damaged inactive checkpoint with missing required state no longer breaks the entire Load World list. It is marked incompatible and cannot replace the healthy active world.
 - Loading or overwriting a damaged manual save reports a recoverable conflict before creating backups or changing the active world, instead of returning a server error or accepting invalid metadata.
 
@@ -21,11 +22,12 @@ release yet.
 
 - Prototype survival priorities leave more room for ordinary activities below comfortable fullness and warmth. Urgent food or continuing cold exposure still interrupts discretionary work, while safe nearby care remains possible. Routine food and outing reserves remain provisional for playtesting.
 - Add confirmed permanent deletion of one selected save, or an inactive world and all its saves. The active world and other worlds stay intact.
-- Damaged leftover saves no longer stop host startup during pending deletion cleanup; failed cleanup stays pending and preserves unverified files.
+- Damaged leftover saves no longer stop host startup during pending deletion cleanup; failed cleanup stays pending and preserves unverified files. Missing save identities in deletion metadata are handled the same way.
 - New World adds a compact Advanced section with 20–80% water (50% default), Low/Normal/High forest, mountains, rivers and resources, climate choices, wrapping and latitude cooling. Reset restores the full supported preset; preview and creation use the same saved settings.
 
 - New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
 - Load World shows saved-world checks in progress, displays delayed results on the first opening, and ignores replies from closed or superseded lists.
+- Save World ignores replies from closed or earlier openings, preserving the current selection and keeping Overwrite working when an older list arrives late.
 - Opening a world keeps the chosen world even if its list refreshes, and Open and Delete wait for the current world action to finish.
 
 - Remove the redundant Load World tooltip from the Main Menu.
@@ -52,6 +54,7 @@ release yet.
 - Manual overwrite atomically publishes a complete checkpoint/model/settings generation; a failed metadata replacement keeps the prior selected save and its recovery backup.
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
+- Returning explorers keep their destination and discoveries when detouring around a resident, including after save/reload, instead of starting another outing away from home.
 - Inherited physical maps and field records keep their lot identity, preserving the knowledge artifact link and saveability without broadcasting their contents.
 - Start World keeps time paused until its checkpoint is saved; a failed write leaves setup retryable instead of running an unsaved world.
 - Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.

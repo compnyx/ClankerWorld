@@ -63,6 +63,13 @@ low-confidence response uses only the explicit safe fallback; it does not invent
 an important choice or complete a firm instruction. The paired Windows/model-wait
 check remains in [the playtest checklist](https://github.com/compoodment/ClankerWorld/issues/285).
 
+The agent card's **Speak to them** box sends a message as a **Suggest** or an
+**Order**. This is a basic version. The game understands only orders to gather
+food, eat or go toward food. The agent's model does not see the words. An order
+the game can't act on closes at once, and the Event Log says the agent didn't
+understand it. An order that can't be carried out yet waits without extra model
+requests. The card does not yet show which orders are still waiting.
+
 Thoughts, memories, beliefs and explored map facts belong to the individual
 agent. The player can inspect mistakes and where a belief came from. Jev can
 rank existing memories during a normal call. Automatic capture of experiences,

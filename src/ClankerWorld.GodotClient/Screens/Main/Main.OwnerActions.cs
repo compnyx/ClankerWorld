@@ -319,6 +319,7 @@ public partial class Main
 
     private void RefreshControlAvailability()
     {
+        RefreshManualSaveAvailability();
         RefreshWorldMenuAvailability();
         var paired = !registeredEndpointInvalid && registration is not null && deviceKey is not null;
         worldSettingsCategoryButton.Disabled = !paired || !isInWorld || returnToMainMenu;

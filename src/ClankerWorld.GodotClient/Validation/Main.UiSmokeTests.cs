@@ -554,6 +554,7 @@ public partial class Main
                 await VerifyAutosaveSettingsAsync();
                 await VerifyNewWorldCompatibilityMessageAsync();
                 await VerifyUiScaleAt1440pAsync(displayWindow);
+                await VerifyManualSaveListOwnershipAsync();
                 windowSizeChoice.Select(1);
                 SetWindowSize(1);
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
