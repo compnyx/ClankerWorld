@@ -6,6 +6,7 @@ release yet.
 
 ## Unreleased
 
+- New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
 - Load World shows saved-world checks in progress, displays delayed results on the first opening, and ignores replies from closed or superseded lists.
 
 - Remove the redundant Load World tooltip from the Main Menu.

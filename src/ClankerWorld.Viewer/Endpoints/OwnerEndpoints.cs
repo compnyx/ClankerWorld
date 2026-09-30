@@ -47,7 +47,7 @@ internal static partial class OwnerEndpoints
             action.WaterPercent is < 10 or > 80)
             return false;
         options = new GeographyOptions(action.Seed, size, action.WrapEastWest, action.WaterPercent,
-            climateMode, selectedClimate, action.LatitudeCooling, abundance);
+            climateMode, selectedClimate, action.LatitudeCooling, abundance, GeographyGenerator.CurrentHydrologyVersion);
         return true;
     }
 

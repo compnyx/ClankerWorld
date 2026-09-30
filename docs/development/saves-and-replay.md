@@ -90,6 +90,13 @@ establish that the checkpoint can load.
 
 ## Current formats and older worlds
 
+Generated geography now saves a hydrology revision for new worlds. A missing
+or zero revision keeps the previous lake/river algorithm, including historical
+resource placement and map identity. Revision 1 is selected by both normal
+New World preview and Create World. Existing saves are not regenerated with it;
+there is no in-place lake shrink or river rewrite. Older builds need not accept
+new-revision worlds.
+
 Private checkpoint v2 stores verified 64×64 terrain-byte chunks. v1 per-tile JSON
 remains readable and migrates atomically on load. Historical generators and
 known package digests validate older generated maps without replacing their
