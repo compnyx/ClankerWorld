@@ -151,9 +151,13 @@ Exploration can create a one-site field record or a map of up to nine sites.
 Sharing nearby or bartering teaches only those sites to the recipient, retaining
 the discoverer and source agent. It does not grant access to unrelated knowledge.
 
-If intervening legal movement interrupts an outing, scouting restarts at the
-actual position without inventing the missing path. Visited facts remain
-personal knowledge; an unfinished outing does not create a completed artifact.
+If intervening legal movement interrupts outward scouting, a new outward path
+starts at the actual position without inventing missing steps. On the return
+leg, recorded visited tiles are waypoints: the actor routes from its current
+position around occupants without restarting the outing. Completion requires
+reaching the original start, including after reload. A return that remains
+blocked still ends through the existing bounded wait/abort behavior. Visited
+facts remain personal knowledge.
 
 An installation-local usage file reserves every hosted attempt before HTTP work.
 Concurrent requests share its optional lifetime attempt cap. Failure, retry and
