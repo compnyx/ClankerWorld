@@ -33,7 +33,8 @@ public sealed partial class PrivateWorldRuntime
             .Sum(AvailableLotQuantity);
         if (kind == "food")
         {
-            return owned < 2 && state.HungerBasisPoints < RoutineFoodSeekFullness;
+            // Keeping a small trade reserve is different from taking a food errand.
+            return owned < 2 && state.HungerBasisPoints < 8_500;
         }
         if (kind is "tool" or "clothing")
         {

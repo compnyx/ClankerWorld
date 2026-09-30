@@ -10,8 +10,10 @@ namespace ClankerWorld.Simulation.Tests;
 
 public sealed class SurvivalPriorityPrototypeTests(ITestOutputHelper output)
 {
-    [Fact]
-    public async Task ReportFixedSeedSurvivalPriorities()
+    [Theory]
+    [InlineData(360)]
+    [InlineData(1200)]
+    public async Task ReportFixedSeedSurvivalPriorities(int ticks)
     {
         for (var seed = 0; seed < 3; seed++)
         {
@@ -39,17 +41,22 @@ public sealed class SurvivalPriorityPrototypeTests(ITestOutputHelper output)
             };
             using var world = PrivateWorldRuntime.Restore(initial, _ => new MeasuredLocalProvider(choices, unchosen));
             var initialFood = Food(world);
+            Assert.Equal(32, initialFood);
+            Assert.Equal(3, world.WorldTick);
             var minimumFood = initialFood;
             var peakIllness = 0;
-            for (var tick = 0; tick < 360; tick++)
+            for (var tick = 0; tick < ticks; tick++)
             {
                 Assert.True((await world.AdvanceOneTickAsync()).Advanced);
                 minimumFood = Math.Min(minimumFood, Food(world));
+                if (seed == 2 && tick % 120 == 0)
+                    foreach (var person in world.Inhabitants)
+                        output.WriteLine($"trace tick={world.WorldTick} actor={person.InhabitantId} position={person.Position} warmth={person.Survival?.WarmthBasisPoints} illness={person.Survival?.IllnessBasisPoints} project={person.Project?.Stage} choice={world.ExportState().Society.Cognition.Runtimes.Single(item => item.InhabitantId == person.InhabitantId).CurrentIntention?.CandidateId}");
                 peakIllness = Math.Max(peakIllness, world.Inhabitants.Select(person => person.Survival?.IllnessBasisPoints ?? 0).DefaultIfEmpty().Max());
             }
             var state = world.ExportState();
             var deaths = world.Society.Inhabitants.Where(person => person.Status == SocietyInhabitantStatus.Dead).ToArray();
-            output.WriteLine($"seed={seed}; weather={weather}; decisions={string.Join(',', choices.OrderBy(item => item.Key).Select(item => item.Key + ':' + item.Value))}; unchosen={string.Join(',', unchosen.OrderBy(item => item.Key).Select(item => item.Key + ':' + item.Value))}; food={initialFood}/{minimumFood}/{Food(world)}; peakIllness={peakIllness}; deaths={deaths.Length}; causes={string.Join(',', deaths.Select(person => person.DeathCause))}; meals={state.Events.Count(item => item.Kind == "food_consumed")}; explorationMoves={state.Events.Count(item => item.Kind == "inhabitant_moved" && item.Detail.EndsWith(":explore", StringComparison.Ordinal))}; projectsCompleted={state.Events.Count(item => item.Kind == "project_progress" && item.Detail.Contains(":completed:", StringComparison.Ordinal))}");
+            output.WriteLine($"ticks={ticks}; seed={seed}; weather={weather}; decisions={string.Join(',', choices.OrderBy(item => item.Key).Select(item => item.Key + ':' + item.Value))}; unchosen={string.Join(',', unchosen.OrderBy(item => item.Key).Select(item => item.Key + ':' + item.Value))}; food={initialFood}/{minimumFood}/{Food(world)}; peakIllness={peakIllness}; deaths={deaths.Length}; causes={string.Join(',', deaths.Select(person => person.DeathCause))}; meals={state.Events.Count(item => item.Kind == "food_consumed")}; explorationMoves={state.Events.Count(item => item.Kind == "inhabitant_moved" && item.Detail.EndsWith(":explore", StringComparison.Ordinal))}; projectsCompleted={state.Events.Count(item => item.Kind == "project_progress" && item.Detail.Contains(":completed:", StringComparison.Ordinal))}");
             using var restored = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(PrivateWorldRuntimeCodec.Encode(state)));
             Assert.Equal(world.WorldTick, restored.WorldTick);
         }
@@ -126,16 +133,19 @@ public sealed class SurvivalPriorityPrototypeTests(ITestOutputHelper output)
             Inhabitants = initial.Inhabitants.Select(person => person.InhabitantId == "founder-scout"
             ? person with { Position = site } : person).ToArray()
         };
-        var provider = new CandidateProbe(chooseLowest: !sheltered);
+        var provider = new CandidateProbe(chooseLowest: true);
         using var world = PrivateWorldRuntime.Restore(initial, _ => provider);
         var step = await world.AdvanceOneTickAsync();
         Assert.True(step.Advanced);
         var candidates = Assert.Single(provider.Seen, request => request.Observation.InhabitantId == "founder-scout").Observation.Candidates;
         if (sheltered)
         {
-            Assert.DoesNotContain(candidates, candidate => candidate.Id == "seek_warmth");
-            Assert.Contains(candidates, candidate => candidate.Id == "explore");
-            Assert.True(world.Inhabitants.Single(person => person.InhabitantId == "founder-scout").Survival!.WarmthBasisPoints > 3_200);
+            Assert.Contains(candidates, candidate => candidate.Id == "seek_warmth" && candidate.DeterministicPriority == 3);
+            Assert.DoesNotContain(candidates, candidate => candidate.Id == "explore");
+            for (var tick = 0; tick < 20; tick++) await world.AdvanceOneTickAsync();
+            var recovering = world.Inhabitants.Single(person => person.InhabitantId == "founder-scout");
+            Assert.Equal(site, recovering.Position);
+            Assert.True(recovering.Survival!.WarmthBasisPoints > 3_200);
         }
         else
         {

@@ -238,14 +238,17 @@ public sealed partial class PrivateWorldRuntime
         if (AdultResident(actor) && losingWarmth && condition.WarmthBasisPoints < ComfortableWarmth && AccessibleHeatingBuildings(actor).Any(building => !IsFireLit(building)) &&
             (SharedItem("wood", actor) is not null || HasCarriedItem(actor, "wood") || MaterialSource("wood") is not null))
         {
-            candidates.Add(new CognitionCandidate("tend_fire", "Carry household wood to a hearth and keep the camp warm.", NeedsUrgentWarmth(person) ? 1 : 4));
+            candidates.Add(new CognitionCandidate("tend_fire", "Carry household wood to a hearth and keep the camp warm.", NeedsUrgentWarmth(person) ? 1 : 2));
         }
         var stormCover = WeatherAt(person.Position) == WeatherKind.Storm && !NaturalStormCover(person.Position) &&
             NearbyNaturalStormCover(actor, person.Position) is not null;
-        if (losingWarmth && condition.WarmthBasisPoints < ComfortableWarmth &&
-            (ReachableWarmthDestinations(actor, person).Any() || stormCover))
+        var recoveringInCover = NearShelter(actor, person.Position) ||
+            WeatherAt(person.Position) == WeatherKind.Storm && NaturalStormCover(person.Position) ||
+            WarmthChange(person) > 20;
+        if (condition.WarmthBasisPoints < ComfortableWarmth &&
+            (recoveringInCover || losingWarmth && (ReachableWarmthDestinations(actor, person).Any() || stormCover)))
         {
-            candidates.Add(new CognitionCandidate("seek_warmth", "Seek a lit hearth, shelter or nearby natural storm cover to reduce exposure.", NeedsUrgentWarmth(person) ? 2 : 4));
+            candidates.Add(new CognitionCandidate("seek_warmth", "Seek protection or remain in cover while recovering warmth.", NeedsUrgentWarmth(person) ? 2 : 3));
         }
     }
 
@@ -310,6 +313,9 @@ public sealed partial class PrivateWorldRuntime
 
     private void SeekWarmth(string actor, PlaytestInhabitantState person)
     {
+        // Do not abandon useful cover merely because its original travel target disappeared.
+        if (WarmthChange(person) >= 0 || WeatherAt(person.Position) == WeatherKind.Storm && NaturalStormCover(person.Position))
+            return;
         var destination = ReachableWarmthDestinations(actor, person).FirstOrDefault();
         var cover = WeatherAt(person.Position) == WeatherKind.Storm && !NaturalStormCover(person.Position)
             ? NearbyNaturalStormCover(actor, person.Position) : null;

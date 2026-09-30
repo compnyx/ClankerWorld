@@ -541,8 +541,9 @@ public sealed partial class PrivateWorldRuntime
         }
 
         var foodSource = AvailableFoodSource(state.Position);
-        var foodPriority = NeedsUrgentFood(state) ? 2 : 5;
-        var shouldGatherFood = !hasFood && state.HungerBasisPoints < RoutineFoodSeekFullness;
+        var foodPriority = NeedsUrgentFood(state) ? 2 : state.HungerBasisPoints < RoutineFoodSeekFullness ? 5 : 90;
+        // An optional reserve remains selectable without outranking ordinary activities.
+        var shouldGatherFood = !hasFood && state.HungerBasisPoints < 7_000;
         var sharedFood = shouldGatherFood ? AvailableSharedFood(inhabitantId) : null;
         if (sharedFood is not null && contentRegistry.ExportState().Packages.Any(package =>
                 package.Manifest.PackageId == StarterContent.PackageId && package.Lifecycle == ContentPackageLifecycle.Active))

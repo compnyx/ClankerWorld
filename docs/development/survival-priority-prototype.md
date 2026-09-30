@@ -96,3 +96,68 @@ progress, whether outings leave adequate protection, and whether nearby social
 opportunities actually get selected. Compare generated worlds and household
 food production as well as these small controlled fixtures. The prototype is
 reviewable code and measurements, not deployment or native game verification.
+
+
+## Repair of the first prototype
+
+The original tables above remain evidence for the rejected first revision.
+The repair separates optional food access from urgent food errands and keeps
+the established small barter reserve. Safe warmth recovery remains selectable
+after reaching cover. Scouting estimates exposed out-and-back warmth using
+nearby weather, clothing and movement costs; starting shelter is not carried
+protection. This is a local estimate, not a prediction of the whole route.
+No exposure, illness, production or weather rates changed.
+
+The first CI run had 16 failing cases. Investigation separated these causes:
+
+- Seven barter cases and one trust-log case never created an offer because
+  the prototype accidentally applied the food-errand cutoff to trade reserves.
+  The original trade tests are retained unchanged.
+- The council food-access case lost its optional collect candidate. Optional
+  food collection is restored at a lower preference above the routine threshold.
+  The memory-relevance case also passes with food options preserved; its privacy,
+  relevance and truncation assertions are unchanged.
+- Natural storm-cover behavior was a real regression: reaching cover removed
+  the protective choice, allowing the next choice to walk away immediately.
+  The existing movement/exposure regression is retained unchanged.
+- History archival now deliberately starts with hungry agents so the fixture
+  has a real inventory event to archive, instead of assuming every first tick
+  consumes food. Archive, restart and monotonic-ID checks remain.
+- Checkpoint round-trip uses its existing exact canonical-byte comparison,
+  which checks nested exploration contents rather than array/list reference
+  identity. The population and tick assertions remain.
+- Unused-content rollback explicitly selects idle during activation so a new
+  building project cannot turn the fixture into an in-use-content rollback.
+  Production's explicit-migration guard is unchanged.
+- The starter-content run observes 900 ticks instead of 300, retaining all
+  building, collection and consumption assertions with no injected stock.
+- The island-food test starts with an agent needing an errand; it still checks
+  actual harvesting in the disconnected foot component and save restoration.
+
+The sheltered-agent boundary also follows 20 recovery ticks, checking that
+warmth rises without abandoning the shelter. Clear-weather curiosity and
+construction below comfortable references remain covered.
+
+### Revised controlled runs
+
+Same three seeds, initial 32 food, tick 3, fullness 45% and warmth 55%.
+Both 360- and 1,200-tick runs use the normal deterministic decision path.
+The longer run can include births, so final population need not remain four.
+Storm traces record actual position, warmth, illness, project stage and choice
+every 120 ticks. All six final states passed encode/restore checks.
+
+| Ticks | Weather | Decisions | Survival | Social/care | Building | Exploration | Other | Food | Peak illness | Deaths | Meals | Exploration moves | Projects completed |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 1200 | Clear | 145 | 11.7% (17) | 10.3% (15) | 17.2% (25) | 15.9% (23) | 44.8% (65) | 32/21/25 | 0.00% | 0 | 7 | 187 | 23 |
+| 1200 | Rain | 171 | 38.6% (66) | 8.2% (14) | 15.8% (27) | 7.6% (13) | 29.8% (51) | 32/21/23 | 0.00% | 0 | 7 | 109 | 25 |
+| 1200 | Storm | 195 | 33.3% (65) | 13.3% (26) | 15.4% (30) | 6.7% (13) | 31.3% (61) | 32/17/17 | 2.48% | 0 | 7 | 104 | 22 |
+| 360 | Clear | 104 | 10.6% (11) | 7.7% (8) | 22.1% (23) | 8.7% (9) | 51.0% (53) | 32/28/28 | 0.00% | 0 | 4 | 83 | 21 |
+| 360 | Rain | 103 | 55.3% (57) | 6.8% (7) | 16.5% (17) | 2.9% (3) | 18.4% (19) | 32/28/28 | 0.00% | 0 | 4 | 21 | 15 |
+| 360 | Storm | 103 | 42.7% (44) | 3.9% (4) | 22.3% (23) | 1.9% (2) | 29.1% (30) | 32/28/28 | 2.48% | 0 | 4 | 16 | 18 |
+
+These results remove the original short-run wet-weather illness regression,
+but do not establish final balance. Rain survival decisions still increase
+and construction completions decrease in the 360-tick comparison. Staying in
+cover now counts as a protective decision, not an additional trip; decision
+share still cannot establish elapsed time spent on survival. Generated-world,
+native Windows and model-backed playtests remain required before adoption.
