@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Resume keeps the world paused until its running checkpoint is saved, and retries cannot report success while saving still fails—even when an earlier request left memory running.
+
 - Personal models receive their own saved name, life stage, personality, aspiration, household, survival condition and most recent private thought; unknown conditions stay unknown.
 - A failed active recovery write holds the in-memory world paused and retries saving without advancing or resuming paid work; other tick faults halt for inspection.
 

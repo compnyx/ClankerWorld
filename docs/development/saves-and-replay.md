@@ -2,7 +2,7 @@
 title: Saves and replay
 type: persistence-reference
 status: active
-updated: 2026-09-29
+updated: 2026-09-30
 ---
 
 # Saves and replay
@@ -56,9 +56,14 @@ that recorded events reproduce its expected results and digests.
 - Keep build revision, release labels and telemetry out of canonical digests.
 - Never infer compatibility merely from the public game version or file age.
 
-Signed pause and rename retries persist the requested state before reporting
+Signed pause, resume and rename retries persist the requested state before reporting
 success, including when the in-memory value already matches after a failed
-write. Storage failure remains an error; recovery does not resume time.
+write. Storage failure remains an error. A paused world's Resume stages the
+running checkpoint under the runtime gate, saves it, and only then commits the
+running state in memory. A failed write leaves the original pause, epoch and
+events untouched; a fresh signed retry can recover without relying on a later
+tick. Resume still requires a started world and valid usage allowance. Other
+recovery paths do not resume time implicitly.
 
 Before a potentially committed create/select/rewind request, the client clears
 its held observation timeline. If the receipt is lost, reconnect starts from a
