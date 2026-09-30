@@ -34,6 +34,10 @@ handles ordinary operation failures; process termination between separate
 files and a second failure during rollback still require operator recovery.
 It does not make every owner endpoint a multi-file transaction.
 
+Start World persists its completed setup while time is still paused, then resumes.
+A failed checkpoint write restores the paused pre-start setup so a fresh signed
+retry can succeed after storage recovers.
+
 Windows provider configuration uses current-user DPAPI. Validated legacy JSON
 migrates atomically to the protected envelope; damaged or wrong-user data is
 not overwritten with empty state. Unix uses private permissions. Forgetting a

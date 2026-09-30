@@ -25,6 +25,7 @@ release yet.
 
 - Scouting safely starts a new local path after another action moves the agent away, instead of joining nonadjacent steps and breaking saves.
 - Inherited physical maps and field records keep their lot identity, preserving the knowledge artifact link and saveability without broadcasting their contents.
+- Start World keeps time paused until its checkpoint is saved; a failed write leaves setup retryable instead of running an unsaved world.
 - Failed founder checkpoint writes roll back the founder and provider configuration. World selection and founder setup share one transaction gate so successful placements keep their model assignments.
 
 - Death cancels unfinished barter through the normal two-sided release, immediately freeing the survivor’s stock without cancelling completed exchanges.
