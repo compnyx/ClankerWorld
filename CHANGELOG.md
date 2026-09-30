@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Agents gather heating fuel and project materials from reachable local resources, including island Towns disconnected from the original map anchor.
+
 - Remove the redundant Load World tooltip from the Main Menu.
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.
 
