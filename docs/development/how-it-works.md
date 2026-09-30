@@ -92,7 +92,12 @@ carried inventory and current activity are not all provided by this slice.
 
 The response must select a legal candidate. Confidence below 0.5 permits only
 the safe-idle fallback; probabilities are validated/retained but do not select
-the action. No adapter can turn provider prose directly into a world mutation.
+the action. A current reply that names a candidate never offered to it, or has
+invalid response values such as confidence outside 0–1, also completes with
+safe idle instead of repeatedly spending calls on the same decision. A choice
+that was offered but is no longer legal stays stale; request, provider and run
+identity checks still reject late replies without applying fallback.
+No adapter can turn provider prose directly into a world mutation.
 Jev has a separate, smaller routine payload; it is not a persona/dialogue adapter.
 
 Each agent retains up to eight private thoughts and exposes up to sixteen recent
