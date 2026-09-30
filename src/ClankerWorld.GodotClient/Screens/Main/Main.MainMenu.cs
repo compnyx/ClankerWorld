@@ -127,6 +127,14 @@ public partial class Main
         quitGameButton.Pressed += () => quitGameConfirmation.PopupCentered(new Vector2I(440, 170));
         body.AddChild(quitGameButton);
 
+        // The Main Menu's choices use the Timber heading lettering.
+        foreach (var button in new[] { mainMenuContinueButton, mainMenuNewButton, mainMenuLoadButton,
+            mainMenuSettingsButton, mainMenuConnectButton, quitGameButton })
+        {
+            button.AddThemeFontOverride("font", UiFonts.Headings);
+            button.AddThemeFontSizeOverride("font_size", UiFonts.Heading);
+        }
+
         AddPanelContents(mainMenuCard, body);
         mainMenuCard.CustomMinimumSize = new Vector2(440, 0);
 
@@ -291,7 +299,7 @@ public partial class Main
         // the actions that act on it. Narrow or scaled-up screens wrap the
         // preview under the options and the card scrolls instead of clipping.
         worldMenuBody.AddThemeConstantOverride("separation", 10);
-        worldMenuHeading.AddThemeFontSizeOverride("font_size", 24);
+        worldMenuHeading.ThemeTypeVariation = "TitleLabel";
         worldMenuBody.AddChild(worldMenuHeading);
         worldMenuStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         worldMenuBody.AddChild(worldMenuStatus);
