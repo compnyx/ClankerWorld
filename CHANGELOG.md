@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- Storm refuge selection checks reachable, unoccupied routes, so an inaccessible nearby forest does not hide usable cover.
+
 - Prototype survival priorities leave more room for ordinary activities below comfortable fullness and warmth. Urgent food or continuing cold exposure still interrupts discretionary work, while safe nearby care remains possible. Routine food and outing reserves remain provisional for playtesting.
 - Remove the redundant Load World tooltip from the Main Menu.
 - Crafting agents can choose a reachable free Workshop instead of repeatedly trying to enter an occupied one.

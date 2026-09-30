@@ -157,7 +157,7 @@ public sealed partial class PrivateWorldRuntime
                 if (!map.IsPassable(candidate) || occupied.Contains(candidate) || !NaturalStormCover(candidate))
                     continue;
                 var distance = map.FootDistance(origin, candidate);
-                if (distance >= bestDistance) continue;
+                if (distance >= bestDistance || FindUnoccupiedRoute(actor, origin, candidate, 0).Count == 0) continue;
                 best = candidate;
                 bestDistance = distance;
             }
