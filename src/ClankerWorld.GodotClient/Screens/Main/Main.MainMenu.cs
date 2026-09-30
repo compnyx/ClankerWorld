@@ -40,6 +40,11 @@ public partial class Main
     private readonly LineEdit worldSeedInput = new();
     private readonly OptionButton worldSizeChoice = new();
     private readonly OptionButton worldWaterChoice = new();
+    private readonly OptionButton worldForestChoice = new();
+    private readonly OptionButton worldMountainChoice = new();
+    private readonly OptionButton worldRiverChoice = new();
+    private readonly VBoxContainer worldAdvancedOptions = new();
+    private readonly CheckButton worldAdvancedToggle = new() { Text = "Advanced" };
     private readonly OptionButton worldResourceChoice = new();
     private readonly OptionButton worldClimateModeChoice = new();
     private readonly OptionButton worldClimateFamilyChoice = new();
@@ -320,18 +325,30 @@ public partial class Main
         worldSizeChoice.AddItem("Medium · 512 × 256", 1);
         worldSizeChoice.ItemSelected += _ => InvalidateWorldPreview();
         options.AddChild(WorldOptionRow("Size", worldSizeChoice));
-        worldWaterChoice.AddItem("Less · 35%", 35);
-        worldWaterChoice.AddItem("Balanced · 45%", 45);
-        worldWaterChoice.AddItem("More · 55%", 55);
-        worldWaterChoice.Select(1);
+        worldAdvancedToggle.Toggled += visible => worldAdvancedOptions.Visible = visible;
+        options.AddChild(worldAdvancedToggle);
+        options.AddChild(worldAdvancedOptions);
+        worldAdvancedOptions.Visible = false;
+        for (var percent = 20; percent <= 80; percent++)
+            worldWaterChoice.AddItem(percent + "%", percent);
+        worldWaterChoice.Select(30);
         worldWaterChoice.ItemSelected += _ => InvalidateWorldPreview();
-        options.AddChild(WorldOptionRow("Water", worldWaterChoice));
-        worldResourceChoice.AddItem("Sparse", 0);
+        worldAdvancedOptions.AddChild(WorldOptionRow("Water", worldWaterChoice));
+        foreach (var (label, choice) in new[] { ("Forest cover", worldForestChoice), ("Mountain relief", worldMountainChoice), ("Rivers", worldRiverChoice) })
+        {
+            choice.AddItem("Low", 1);
+            choice.AddItem("Normal", 0);
+            choice.AddItem("High", 2);
+            choice.Select(1);
+            choice.ItemSelected += _ => InvalidateWorldPreview();
+            worldAdvancedOptions.AddChild(WorldOptionRow(label, choice));
+        }
+        worldResourceChoice.AddItem("Low", 0);
         worldResourceChoice.AddItem("Normal", 1);
-        worldResourceChoice.AddItem("Abundant", 2);
+        worldResourceChoice.AddItem("High", 2);
         worldResourceChoice.Select(1);
         worldResourceChoice.ItemSelected += _ => InvalidateWorldPreview();
-        options.AddChild(WorldOptionRow("Resources", worldResourceChoice));
+        worldAdvancedOptions.AddChild(WorldOptionRow("Resources", worldResourceChoice));
         worldClimateModeChoice.AddItem("Balanced", 0);
         worldClimateModeChoice.AddItem("Uniform", 1);
         worldClimateModeChoice.AddItem("Dominant", 2);
@@ -340,7 +357,7 @@ public partial class Main
             worldClimateFamilyChoice.GetParent<Control>().Visible = worldClimateModeChoice.GetSelectedId() != 0;
             InvalidateWorldPreview();
         };
-        options.AddChild(WorldOptionRow("Climates", worldClimateModeChoice));
+        worldAdvancedOptions.AddChild(WorldOptionRow("Climates", worldClimateModeChoice));
         worldClimateFamilyChoice.AddItem("Tropical", 0);
         worldClimateFamilyChoice.AddItem("Dry", 1);
         worldClimateFamilyChoice.AddItem("Temperate", 2);
@@ -350,15 +367,20 @@ public partial class Main
         worldClimateFamilyChoice.ItemSelected += _ => InvalidateWorldPreview();
         var familyRow = WorldOptionRow("Main climate", worldClimateFamilyChoice);
         familyRow.Visible = false;
-        options.AddChild(familyRow);
+        worldAdvancedOptions.AddChild(familyRow);
         worldLatitudeChoice.Text = "Colder toward the poles";
         worldLatitudeChoice.ButtonPressed = true;
         worldLatitudeChoice.Toggled += _ => InvalidateWorldPreview();
-        options.AddChild(worldLatitudeChoice);
+        worldAdvancedOptions.AddChild(worldLatitudeChoice);
         worldWrapChoice.Text = "Wrap east/west";
         worldWrapChoice.ButtonPressed = true;
         worldWrapChoice.Toggled += _ => InvalidateWorldPreview();
-        options.AddChild(worldWrapChoice);
+        worldAdvancedOptions.AddChild(worldWrapChoice);
+
+        var reset = new Button { Text = "Reset generation settings" };
+        StyleButton(reset);
+        reset.Pressed += ResetWorldGenerationOptions;
+        worldAdvancedOptions.AddChild(reset);
 
         var previewColumn = new VBoxContainer
         {
@@ -550,14 +572,39 @@ public partial class Main
             _ => "Temperate",
         },
         worldLatitudeChoice.ButtonPressed,
-        worldResourceChoice.GetSelectedId() switch { 0 => "Sparse", 2 => "Abundant", _ => "Normal" });
+        worldResourceChoice.GetSelectedId() switch { 0 => "Sparse", 2 => "Abundant", _ => "Normal" },
+        GenerationAmountText(worldForestChoice), GenerationAmountText(worldMountainChoice), GenerationAmountText(worldRiverChoice));
+
+    private static string GenerationAmountText(OptionButton choice) => choice.GetSelectedId() switch
+    {
+        1 => "Low",
+        2 => "High",
+        _ => "Normal",
+    };
+
+    private void ResetWorldGenerationOptions()
+    {
+        worldSizeChoice.Select(0);
+        worldWaterChoice.Select(30);
+        worldResourceChoice.Select(1);
+        worldForestChoice.Select(1);
+        worldMountainChoice.Select(1);
+        worldRiverChoice.Select(1);
+        worldClimateModeChoice.Select(0);
+        worldClimateFamilyChoice.Select(2);
+        worldClimateFamilyChoice.GetParent<Control>().Hide();
+        worldWrapChoice.ButtonPressed = true;
+        worldLatitudeChoice.ButtonPressed = true;
+        InvalidateWorldPreview();
+    }
 
     private static bool SameGeneration(OwnerWorldCreationAction? first, OwnerWorldCreationAction second) =>
         first is not null && first.Seed == second.Seed && first.Size == second.Size &&
         first.WaterPercent == second.WaterPercent && first.WrapEastWest == second.WrapEastWest &&
         first.ClimateMode == second.ClimateMode && first.SelectedClimate == second.SelectedClimate &&
         first.LatitudeCooling == second.LatitudeCooling &&
-        first.ResourceAbundance == second.ResourceAbundance;
+        first.ResourceAbundance == second.ResourceAbundance && first.ForestCover == second.ForestCover &&
+        first.MountainRelief == second.MountainRelief && first.RiverAbundance == second.RiverAbundance;
 
     private void InvalidateWorldPreview(bool refresh = true)
     {

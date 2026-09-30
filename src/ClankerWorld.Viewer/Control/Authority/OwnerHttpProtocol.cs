@@ -42,7 +42,8 @@ public sealed record OwnerManualSaveAction(string Operation, string Value);
 public sealed record OwnerWorldCreationAction(string Name, string Seed, string Size,
     int WaterPercent, bool WrapEastWest, string ClimateMode = "Balanced",
     string SelectedClimate = "Temperate", bool LatitudeCooling = true,
-    string ResourceAbundance = "Normal");
+    string ResourceAbundance = "Normal", string ForestCover = "Normal",
+    string MountainRelief = "Normal", string RiverAbundance = "Normal");
 public sealed record OwnerAutosaveConfigurationAction(bool Enabled, int IntervalMinutes, int RotationCount);
 public sealed record OwnerLifePaceAction(int Rate);
 public sealed record OwnerJevAssistanceAction(bool Enabled);
@@ -196,7 +197,7 @@ public static class OwnerHttpBinding
 
     public static string WorldCreationPayload(OwnerWorldCreationAction action) => string.Join(
         '\n',
-        "clankerworld.owner-world-creation.v1",
+        "clankerworld.owner-world-creation.v2",
         $"name={EncodeRequired(action.Name, nameof(action.Name))}",
         $"seed={EncodeRequired(action.Seed, nameof(action.Seed))}",
         $"size={EncodeRequired(action.Size, nameof(action.Size))}",
@@ -205,7 +206,10 @@ public static class OwnerHttpBinding
         $"climate-mode={EncodeRequired(action.ClimateMode, nameof(action.ClimateMode))}",
         $"selected-climate={EncodeRequired(action.SelectedClimate, nameof(action.SelectedClimate))}",
         $"latitude-cooling={action.LatitudeCooling.ToString().ToLowerInvariant()}",
-        $"resource-abundance={EncodeRequired(action.ResourceAbundance, nameof(action.ResourceAbundance))}");
+        $"resource-abundance={EncodeRequired(action.ResourceAbundance, nameof(action.ResourceAbundance))}",
+        $"forest-cover={EncodeRequired(action.ForestCover, nameof(action.ForestCover))}",
+        $"mountain-relief={EncodeRequired(action.MountainRelief, nameof(action.MountainRelief))}",
+        $"river-abundance={EncodeRequired(action.RiverAbundance, nameof(action.RiverAbundance))}");
 
     public static string AutosaveConfigurationPayload(OwnerAutosaveConfigurationAction action) => string.Join(
         '\n',

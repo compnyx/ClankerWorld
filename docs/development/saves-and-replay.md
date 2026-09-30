@@ -210,3 +210,8 @@ World-systems schema 1 remains readable, with the absent field omitted when null
 Older binaries reject the newer schema instead of silently dropping episodes.
 The new code reads old saves; keep backups before testing.
 This prototype changes future weather/events, not past recorded history.
+
+Advanced generation saves optional forest, mountain and river presets. Missing
+fields mean Normal and preserve the historical default generator. New-world
+water defaults do not alter saved water values. Non-default maps require a
+build that understands their options and validates their generated identity.

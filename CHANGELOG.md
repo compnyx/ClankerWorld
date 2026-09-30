@@ -6,6 +6,8 @@ release yet.
 
 ## Unreleased
 
+- New World adds a compact Advanced section with 20–80% water (50% default), Low/Normal/High forest, mountains, rivers and resources, climate choices, wrapping and latitude cooling. Reset restores the full supported preset; preview and creation use the same saved settings.
+
 - New worlds keep inland lakes smaller and route rivers into lakes instead of around their shores, while preserving the selected open-water area. Existing worlds retain their saved geography.
 
 - Remove the redundant Load World tooltip from the Main Menu.
