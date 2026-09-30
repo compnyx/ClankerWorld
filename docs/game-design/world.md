@@ -259,6 +259,23 @@ initial traffic threshold and permanent Road/bridge rule are recorded in
 [Towns](towns.md#how-roads-and-bridges-appear). Town site planning and Road
 generation must be designed together.
 
+### First boat and Port travel
+
+The first crafted small boat carries **one agent and the goods that agent is
+carrying**. It cannot move stock remotely. A journey needs a completed,
+reachable Port at **both** ends and a navigable water route between them; an
+agent cannot embark from arbitrary shore. Ports use the agreed 2×4 land/water
+footprint and clear docking space described in [Towns](towns.md). Validate a
+land approach and docking clearance before construction and departure.
+
+Boats belong to a **Town**, not a household. Town residents may use its communal
+boats; visitors need permission. Reserve each physical boat for only one
+journey at a time, and persist the boat, traveler and carried goods together
+across save/load. A blocked destination cannot teleport or duplicate any of
+them. Exact recipes, costs, travel speed, queueing and recovery when a Port
+becomes unavailable remain open for implementation and playtesting. Later
+transport inventions do not silently change this first-stage Port rule.
+
 ### Still to decide
 
 Exact terrain/vegetation/object mechanics beyond the accepted base

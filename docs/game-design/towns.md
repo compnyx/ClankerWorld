@@ -133,8 +133,11 @@ invented content are not silently approved. In particular:
   **3×4**. These are building/plot footprints, not interior rooms.
 - Port is **2×4**, rotatable to all four cardinal directions. One tile of its
   four-tile length rests on land; three extend over water. Keep clear docking
-  space along both long sides of that three-tile water section. Exact placement
-  clearance and boat docking/queue rules remain open.
+  space along both long sides of that three-tile water section. A legal land
+  approach and clear docking space are required. Boats are communal Town
+  property, usable by residents or visitors with permission; the first
+  [boat journey](world.md#first-boat-and-port-travel) needs a completed Port at
+  each end. Exact queue and construction-cost rules remain open.
 - Combat gear includes a spear, sword, shield and armor alongside the
   dual-purpose axe. Clothing does not change an agent's map appearance; the
   visual treatment of worn armor remains open.
