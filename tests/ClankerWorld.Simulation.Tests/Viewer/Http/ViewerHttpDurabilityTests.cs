@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using ClankerWorld.Simulation.Playtest;
 using ClankerWorld.Viewer.Control;
@@ -106,6 +107,17 @@ public sealed partial class ViewerHttpTests
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
             Assert.True(rename ? runtime.Society.GetInhabitant(founderId).Name == "Durable Name" : runtime.Society.IsPaused);
+            if (!rename)
+            {
+                var action = new OwnerReconnectAction(0);
+                using var response = await SendSignedAsync(host, client, key, device.DeviceId,
+                    "/api/v1/owner/reconnect", action, OwnerHttpBinding.ReconnectPayload(action));
+                response.EnsureSuccessStatusCode();
+                var observed = await response.Content.ReadFromJsonAsync<ViewerOwnerReconnect>();
+                Assert.True(observed!.Baseline.Snapshot.Authoring!.IsPaused);
+                using var prior = PrivateWorldRuntime.Restore(PrivateWorldRuntimeCodec.Decode(File.ReadAllBytes(savedPath)));
+                Assert.False(prior.Society.IsPaused);
+            }
             Directory.Delete(file.Path);
             File.Move(savedPath, file.Path);
             using var retry = await SendMutation();

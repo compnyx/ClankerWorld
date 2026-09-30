@@ -50,6 +50,7 @@ release yet.
 - A damaged model-call meter no longer prevents the host from starting. Paid
   calls stay blocked, and World Settings explains how to restore accounting
   without losing spent calls. Meter writes flush before replacing the file.
+- Pause/resume waits for a pending owner action instead of disappearing; Quit to Menu requires a saved pause receipt and can retry a failed pause instead of trusting an unsaved paused observation. Signed owner operations time out across challenge and response bodies so stalled reads release the controls.
 - A stalled world refresh stops after four seconds instead of holding the
   client for the default network timeout. Owner actions cancel an older refresh
   so it cannot overwrite their result; Pause remains available during polling.

@@ -153,3 +153,19 @@ This is an operator recovery path, not automatic queue eviction on behalf of an
 untrusted remote client. Keep the returned code and proof local/private. Tests
 cover capacity recovery and signed owner availability; chunked-body enforcement
 is a Kestrel boundary, not claimed from TestServer's Content-Length test alone.
+
+## Bounded owner actions
+
+Signed actions have a 15-second deadline over the complete challenge/sign/send/read
+operation, or the HTTP client's shorter configured timeout. Cancellation covers
+both response bodies even after successful headers. Reconnect retains its shorter
+four-second deadline. A timeout does not prove that the server rejected an action;
+instructions and authoring retain their exact existing retry record until a
+receipt is accepted.
+
+Pause/resume waits for the active owner action to release the client gate rather
+than being dropped as a duplicate click. Ordinary duplicate actions still do not
+queue. Confirming Quit to Menu can retry an unconfirmed pause, and leaving still
+requires an accepted pause receipt, even if an observation already says paused.
+A paused observation alone cannot prove a failed checkpoint write recovered.
+A later failed refresh does not revoke an accepted receipt. This does not change Main Menu Quit Game.
