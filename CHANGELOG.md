@@ -334,6 +334,24 @@ release yet.
 
 ### Changed
 
+- Choosing an agent's model no longer means typing its exact name. In Add an
+  agent and in an agent's Model settings, the key is chosen first, and the
+  model comes from the game's own short list, newest at the top: GPT-6.1 Sol,
+  GPT-6 Astra, GPT-6 Sol and GPT-6 Luna for OpenAI, and GLM 5.3 Flash,
+  GLM 5.3, DeepSeek V4.1 Flash, DeepSeek V4 Pro, MiniMax M3, Kimi K3 and
+  Gemma 4 for Ollama Cloud. Models the key can't use are greyed out. If the
+  key can't use a new agent's model, no other model is chosen for you: the
+  picker asks you to choose one first. An existing agent's model stays shown,
+  greyed, with the same request.
+  **Type a model name…** covers any other model, and an agent already on an
+  unlisted model keeps it as a typed name. If the key can't be checked, the
+  reason is shown with **Retry** and the list stays usable. The host checks
+  keys, so they never leave it, and a newly pasted key is not saved until the
+  agent is placed or the change applied.
+- New OpenAI agents now start on GPT-6 Luna (`gpt-6-luna`) instead of
+  `gpt-5-mini`, and new Ollama Cloud agents on GLM 5.3 Flash
+  (`glm-5.3-flash:cloud`) instead of `gpt-oss:120b-cloud`. Agents and saved
+  settings that already name a model keep it.
 - The map is quieter. An agent's name appears only while you hover over or
   select them, as outlined pixel letters without a dark box (gold for the
   selected agent), and no longer carries an activity symbol. Buildings no
