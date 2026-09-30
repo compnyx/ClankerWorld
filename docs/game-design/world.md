@@ -148,23 +148,28 @@ accounting details need design and playtesting.
   simulating what happens elsewhere. Agents, crops, and Towns do not stop
   existing or progressing outside the camera. Distant work may be event-driven
   or coarser only if outcomes remain credible.
-- A world may enable **east/west wrapping** with real northern and southern
-  polar regions, or choose no wrapping. The default climate has a warmer
-  equator and colder poles; an Advanced Setting can disable latitude cooling
-  for unusual worlds. North/south wrapping into a torus is not intended.
-- Climate choices include **uniform**, **dominant**, and **balanced** modes,
-  with advanced controls such as water percentage, continent count, and
-  resource abundance. Keep simple presets, plus **advanced sliders for
-  meaningful geography** such as forest cover, mountain relief, water/rivers
-  and resources; not every internal generator parameter needs a control. A
-  responsive, **exact preview of the selected world seed and settings** updates
-  when those choices change, so accepting it creates that geography rather
-  than a different approximation. Exact sliders, ranges, dependencies and
-  performance strategy remain open.
-- **Small and Medium each have one continent**; a continent-count control is
-  available only for **Large, Huge, and Mega**. The selected count is a loose
-  generation target, not a promise of that many ocean-separated landmasses:
-  generated land may form distinct continents or connections between them.
+- **East/west wrapping** is on by default and can be turned off. The world has
+  real northern and southern polar regions, not north/south wrapping into a
+  torus. **Latitude cooling** is also on by default, giving the world a warmer
+  equator and colder poles; it can be turned off independently for unusual
+  climates without changing the map's wrapping choice.
+- Keep simple New World presets, with a compact Advanced section rather than
+  sliders for every generator parameter. **Balanced** is the default climate
+  mode; **Uniform** and **Dominant** remain choices. Advanced controls are
+  water coverage from **20–80%**, default **50%**, plus **Low / Normal / High**
+  for forest cover, mountain relief, river abundance and resource abundance,
+  each defaulting to **Normal**. Resource abundance changes available physical
+  resources, not knowledge or technology. These settings describe the intended
+  geography, not exact forest, mountain or river tile-count promises.
+- A responsive, **exact preview of the selected seed and settings** updates as
+  those choices change. Creating the world uses the matching preview, never a
+  different or stale map.
+- **Small and Medium each have one continent**, with no continent-count
+  control. Once the larger sizes are supported, their loose count choices are
+  **Large 1–4 (default 1), Huge 1–6 (default 2), Mega 1–8 (default 3)**.
+  A selected count is a generation target, not a promise of that many
+  ocean-separated landmasses; connections and incidental islands may occur.
+  These controls do not unlock currently unsupported sizes.
 - **Simple regional weather is accepted.** Weather is not synchronized across
   the planet. Different regions can experience different conditions, with the
   local climate influencing how likely rain, snow, and other conditions are.
@@ -248,7 +253,8 @@ specified in the building/Town section below.
 Exact terrain/vegetation/object mechanics beyond the accepted base
 [asset roster](content-list.md); exact climate-generation
 formulas, map topology at polar edges, biome transitions, water and elevation
-rules, resource distributions, continent-count variation and incidental islands,
+rules, resource distributions, the exact shape of target continents and
+incidental islands,
 travel times, world-size performance, and limits
 on agent-caused terrain changes. **Regional weather details remain open:**
 region size and coherence, exact transition probabilities and effect strengths,
@@ -258,6 +264,9 @@ Climate's long-run
 rainfall/moisture is distinct from any individual rain event. The 64×64 chunk
 and preset dimensions need
 benchmarks before becoming implementation promises.
+Exact generator thresholds for the Advanced levels, eligible biome coverage,
+preview performance and failure/retry behavior remain to be measured and
+playtested; the chosen player controls do not settle those numbers.
 
 **Suggestion river-generation approach, not yet a locked algorithm:** generate
 elevation and long-run rainfall, route water downhill toward coasts or inland
