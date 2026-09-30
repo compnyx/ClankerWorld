@@ -444,6 +444,8 @@ release yet.
 
 - Hovering the Town panel no longer pops up a technical tooltip of world
   ticks, revisions, map digests and internal system counts.
+- Tooltips no longer fade from dark edges into a lighter middle; their
+  parchment and border are drawn as crisp pixels like the rest of the interface.
 - Panels opened from the top bar open under their own button. Filters used to
   appear on the right, and Agents and World Info on the left, far from the
   buttons that opened them.
