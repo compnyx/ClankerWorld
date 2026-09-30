@@ -159,6 +159,23 @@ reaching the original start, including after reload. A return that remains
 blocked still ends through the existing bounded wait/abort behavior. Visited
 facts remain personal knowledge.
 
+The owner's model picker shows the game's own list for each provider,
+`ProviderModelCatalog.Curated`: newest generation first and, within a generation,
+larger models first. Add new models there in their place. When a key is known,
+the host checks it against the provider's model-list route (OpenAI
+`/v1/models`; Ollama Cloud `/api/tags`, then `/v1/models`) using
+the saved key, a named key slot, or a key pasted for that check only, which is
+not stored. Keys never return to the client. Listed models the key's route
+doesn't include are marked unavailable; names are compared without Ollama's
+`:cloud`, `-cloud` or `:latest` endings. If the key can't be checked, the whole
+list stays usable and the reason is shown. A new agent starts on the provider's
+default model when the key can use it. If the key can't use a new agent's
+starting model, the picker selects nothing and asks the owner to choose, so no
+other model, possibly a costlier one, is chosen for them. An existing or
+hand-picked model the key can't use stays shown, greyed, with the same request.
+Checks are cached per key for ten minutes, time out after eight seconds and are
+not model calls, so they do not count toward the usage cap below.
+
 An installation-local usage file reserves every hosted attempt before HTTP work.
 Concurrent requests share its optional lifetime attempt cap. Failure, retry and
 abandonment keep their spent allowance; only known token counts are added.
